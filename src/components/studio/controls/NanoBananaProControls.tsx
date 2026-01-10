@@ -19,8 +19,8 @@ export function NanoBananaProControls() {
           Aspect Ratio
         </Label>
         <Select
-          value={(controls.aspectRatio as string) || 'auto'}
-          onValueChange={(value) => setControl('aspectRatio', value)}
+          value={(controls.aspect_ratio as string) || '1:1'}
+          onValueChange={(value) => setControl('aspect_ratio', value)}
           disabled={pendingRating}
         >
           <SelectTrigger className="w-full bg-input border-border">
@@ -48,7 +48,7 @@ export function NanoBananaProControls() {
           Resolution
         </Label>
         <Select
-          value={(controls.resolution as string) || '2K'}
+          value={(controls.resolution as string) || '1K'}
           onValueChange={(value) => setControl('resolution', value)}
           disabled={pendingRating}
         >
@@ -69,8 +69,8 @@ export function NanoBananaProControls() {
           Output Format
         </Label>
         <Select
-          value={(controls.outputFormat as string) || 'PNG'}
-          onValueChange={(value) => setControl('outputFormat', value)}
+          value={(controls.output_format as string) || 'PNG'}
+          onValueChange={(value) => setControl('output_format', value)}
           disabled={pendingRating}
         >
           <SelectTrigger className="w-full bg-input border-border">
