@@ -102,7 +102,7 @@ export function MetadataPanel() {
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium text-foreground">Job Details</h3>
             <Badge 
-              variant={selectedEntry.status === 'success' ? 'default' : selectedEntry.status === 'failed' ? 'destructive' : 'secondary'}
+              variant={selectedEntry.status === 'completed' ? 'default' : selectedEntry.status === 'failed' ? 'destructive' : 'secondary'}
             >
               {selectedEntry.status}
             </Badge>

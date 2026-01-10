@@ -7,9 +7,11 @@ import { cn } from '@/lib/utils';
 import type { JobStatus } from '@/types/generation';
 
 const statusConfig: Record<JobStatus, { icon: React.ElementType; className: string; label: string }> = {
+  queued: { icon: Clock, className: 'text-muted-foreground', label: 'Queued' },
   processing: { icon: Loader2, className: 'text-primary animate-spin', label: 'Processing' },
-  success: { icon: CheckCircle2, className: 'text-green-500', label: 'Success' },
+  completed: { icon: CheckCircle2, className: 'text-green-500', label: 'Completed' },
   failed: { icon: XCircle, className: 'text-destructive', label: 'Failed' },
+  deleted: { icon: XCircle, className: 'text-muted-foreground', label: 'Deleted' },
 };
 
 export function HistoryPanel() {

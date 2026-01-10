@@ -1,5 +1,6 @@
 import { useGenerationStore } from '@/store/generationStore';
-import { ALL_MODELS } from '@/types/generation';
+import { ALL_MODELS, generateJobId } from '@/types/generation';
+import type { JobEntry } from '@/types/generation';
 import { Button } from '@/components/ui/button';
 import { Play, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,8 +20,8 @@ export function GenerateButton() {
     isGenerating,
     setIsGenerating,
     setCurrentOutput,
-    addHistoryEntry,
-    updateHistoryStatus,
+    addJob,
+    updateJob,
     setPendingRating,
     pendingRating,
     currentOutput,
@@ -52,7 +53,8 @@ export function GenerateButton() {
     setIsGenerating(true);
     setCurrentOutput(null);
 
-    const jobId = `job_${uuidv4().slice(0, 8)}`;
+    // Generate unique job_id with required format
+    const jobId = generateJobId();
     const entryId = uuidv4();
 
     // Build controls object including character IDs for Sora 2 Pro
@@ -60,9 +62,13 @@ export function GenerateButton() {
       ? { ...controls, characterIds }
       : { ...controls };
 
-    // Add entry with processing status
-    const entry = {
+    // Store reference file names for display
+    const referenceFileNames = referenceFiles.map((f) => f.name);
+
+    // Create job entry with processing status
+    const jobEntry: JobEntry = {
       id: entryId,
+      jobId,
       timestamp: new Date(),
       mode,
       model: modelConfig.displayName,
@@ -72,11 +78,12 @@ export function GenerateButton() {
       refinedPrompt: '',
       outputUrl: '',
       controls: submittedControls,
-      jobId,
-      status: 'processing' as const,
+      status: 'processing',
+      referenceFiles: referenceFileNames,
+      deleted: false,
     };
     
-    addHistoryEntry(entry);
+    addJob(jobEntry);
 
     try {
       let response: Response;
@@ -84,6 +91,7 @@ export function GenerateButton() {
       if (referenceFiles.length > 0) {
         // Send as multipart/form-data
         const formData = new FormData();
+        formData.append('job_id', jobId);
         formData.append('mode', mode);
         formData.append('model', modelConfig.displayName);
         formData.append('generation_type', generationType);
@@ -100,13 +108,14 @@ export function GenerateButton() {
           body: formData,
         });
       } else {
-        // Send as JSON
+        // Send as JSON with job_id
         response = await fetch(WEBHOOK_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            job_id: jobId,
             mode,
             model: modelConfig.displayName,
             generation_type: generationType,
@@ -122,29 +131,54 @@ export function GenerateButton() {
 
       const data = await response.json();
       
-      const output = {
-        jobId: data.job_id || jobId,
-        outputUrl: data.output_url,
-        refinedPrompt: data.refined_prompt || '',
-      };
-
-      setCurrentOutput(output);
-      updateHistoryStatus(entryId, 'success');
+      // Match response job_id with our job
+      const responseJobId = data.job_id;
       
-      // Update the history entry with full data
-      useGenerationStore.setState((state) => ({
-        history: state.history.map((e) =>
-          e.id === entryId
-            ? { ...e, refinedPrompt: output.refinedPrompt, outputUrl: output.outputUrl, jobId: output.jobId }
-            : e
-        ),
-      }));
+      // Only update if job_id matches (or use our generated one if not returned)
+      if (!responseJobId || responseJobId === jobId) {
+        const output = {
+          jobId: responseJobId || jobId,
+          outputUrl: data.output_url,
+          refinedPrompt: data.refined_prompt || '',
+        };
 
-      setPendingRating(true);
-      toast.success('Generation complete');
+        setCurrentOutput(output);
+        
+        // Update job with completed status and data
+        updateJob(entryId, {
+          status: 'completed',
+          refinedPrompt: output.refinedPrompt,
+          outputUrl: output.outputUrl,
+        });
+
+        setPendingRating(true);
+        toast.success('Generation complete');
+      } else {
+        // Job ID mismatch - log warning but still update our job
+        console.warn(`Job ID mismatch: expected ${jobId}, got ${responseJobId}`);
+        const output = {
+          jobId: responseJobId,
+          outputUrl: data.output_url,
+          refinedPrompt: data.refined_prompt || '',
+        };
+
+        setCurrentOutput(output);
+        updateJob(entryId, {
+          status: 'completed',
+          refinedPrompt: output.refinedPrompt,
+          outputUrl: output.outputUrl,
+          jobId: responseJobId,
+        });
+
+        setPendingRating(true);
+        toast.success('Generation complete');
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      updateHistoryStatus(entryId, 'failed', errorMessage);
+      updateJob(entryId, { 
+        status: 'failed', 
+        error: errorMessage 
+      });
       toast.error('Generation failed');
       console.error(error);
     } finally {
@@ -154,6 +188,7 @@ export function GenerateButton() {
 
   const handleRegenerate = async () => {
     if (!canGenerate) return;
+    // Regenerate creates a NEW job_id
     await handleGenerate();
   };
 

@@ -3,7 +3,7 @@ import type {
   GenerationMode, 
   Model, 
   GenerationType, 
-  HistoryEntry,
+  JobEntry,
   JobStatus
 } from '@/types/generation';
 
@@ -57,13 +57,25 @@ interface GenerationState {
   pendingRating: boolean;
   setPendingRating: (pending: boolean) => void;
   
-  // History
-  history: HistoryEntry[];
-  addHistoryEntry: (entry: HistoryEntry) => void;
+  // Jobs (formerly History)
+  jobs: JobEntry[];
+  addJob: (job: JobEntry) => void;
+  updateJob: (jobId: string, updates: Partial<JobEntry>) => void;
+  updateJobByJobId: (jobId: string, updates: Partial<JobEntry>) => void;
+  deleteJob: (id: string) => void; // Soft delete
+  getActiveJobs: () => JobEntry[];
+  
+  // Legacy aliases for backward compatibility
+  history: JobEntry[];
+  addHistoryEntry: (entry: JobEntry) => void;
   updateHistoryRating: (id: string, rating: 1 | 2 | 3 | 4 | 5) => void;
   updateHistoryStatus: (id: string, status: JobStatus, error?: string) => void;
   
-  // Selected History Entry (for metadata panel)
+  // Selected Job (for detail view)
+  selectedJobId: string | null;
+  setSelectedJobId: (id: string | null) => void;
+  
+  // Legacy alias
   selectedHistoryId: string | null;
   setSelectedHistoryId: (id: string | null) => void;
   
@@ -147,27 +159,65 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   pendingRating: false,
   setPendingRating: (pending) => set({ pendingRating: pending }),
   
-  // History
-  history: [],
-  addHistoryEntry: (entry) => set((state) => ({
-    history: [entry, ...state.history],
-    selectedHistoryId: entry.id,
+  // Jobs
+  jobs: [],
+  addJob: (job) => set((state) => ({
+    jobs: [job, ...state.jobs],
+    selectedJobId: job.id,
   })),
+  updateJob: (id, updates) => set((state) => ({
+    jobs: state.jobs.map((job) =>
+      job.id === id ? { ...job, ...updates } : job
+    ),
+  })),
+  updateJobByJobId: (jobId, updates) => set((state) => ({
+    jobs: state.jobs.map((job) =>
+      job.jobId === jobId ? { ...job, ...updates } : job
+    ),
+  })),
+  deleteJob: (id) => set((state) => ({
+    jobs: state.jobs.map((job) =>
+      job.id === id ? { ...job, deleted: true, status: 'deleted' as JobStatus } : job
+    ),
+    selectedJobId: state.selectedJobId === id ? null : state.selectedJobId,
+  })),
+  getActiveJobs: () => get().jobs.filter((job) => !job.deleted),
+  
+  // Legacy aliases (computed from jobs)
+  get history() {
+    return get().jobs.filter((job) => !job.deleted);
+  },
+  addHistoryEntry: (entry) => {
+    const jobEntry: JobEntry = {
+      ...entry,
+      deleted: false,
+    };
+    set((state) => ({
+      jobs: [jobEntry, ...state.jobs],
+      selectedJobId: jobEntry.id,
+    }));
+  },
   updateHistoryRating: (id, rating) => set((state) => ({
-    history: state.history.map((entry) =>
-      entry.id === id ? { ...entry, rating } : entry
+    jobs: state.jobs.map((job) =>
+      job.id === id ? { ...job, rating } : job
     ),
     pendingRating: false,
   })),
   updateHistoryStatus: (id, status, error) => set((state) => ({
-    history: state.history.map((entry) =>
-      entry.id === id ? { ...entry, status, error } : entry
+    jobs: state.jobs.map((job) =>
+      job.id === id ? { ...job, status, error } : job
     ),
   })),
   
-  // Selected History Entry
-  selectedHistoryId: null,
-  setSelectedHistoryId: (id) => set({ selectedHistoryId: id }),
+  // Selected Job
+  selectedJobId: null,
+  setSelectedJobId: (id) => set({ selectedJobId: id }),
+  
+  // Legacy alias
+  get selectedHistoryId() {
+    return get().selectedJobId;
+  },
+  setSelectedHistoryId: (id) => set({ selectedJobId: id }),
   
   // Reset
   resetForm: () => set({
