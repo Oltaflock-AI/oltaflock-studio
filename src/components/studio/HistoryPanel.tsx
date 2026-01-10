@@ -1,7 +1,7 @@
 import { useGenerationStore } from '@/store/generationStore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Image as ImageIcon, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Image as ImageIcon, Video, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { JobStatus } from '@/types/generation';
@@ -30,6 +30,7 @@ export function HistoryPanel() {
         {history.map((entry) => {
           const StatusIcon = statusConfig[entry.status].icon;
           const isSelected = selectedHistoryId === entry.id;
+          const ModeIcon = entry.mode === 'image' ? ImageIcon : Video;
 
           return (
             <button
@@ -44,9 +45,12 @@ export function HistoryPanel() {
             >
               {/* Header */}
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium truncate max-w-[140px]">
-                  {entry.model}
-                </span>
+                <div className="flex items-center gap-2">
+                  <ModeIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium truncate max-w-[120px]">
+                    {entry.model}
+                  </span>
+                </div>
                 <StatusIcon className={cn('h-4 w-4', statusConfig[entry.status].className)} />
               </div>
 

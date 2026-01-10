@@ -4,13 +4,14 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { TYPE_LABELS } from '@/types/generation';
+import { TYPE_LABELS, ALL_MODELS } from '@/types/generation';
 import { format } from 'date-fns';
 
 export function MetadataPanel() {
-  const { history, selectedHistoryId, selectedModel, generationType, controls, currentOutput } = useGenerationStore();
+  const { history, selectedHistoryId, selectedModel, generationType, controls, currentOutput, mode, characterIds } = useGenerationStore();
   
   const selectedEntry = history.find((e) => e.id === selectedHistoryId);
+  const modelConfig = ALL_MODELS.find((m) => m.id === selectedModel);
 
   // Show current generation context if no history entry selected
   if (!selectedEntry) {
@@ -23,8 +24,13 @@ export function MetadataPanel() {
             {selectedModel ? (
               <div className="space-y-4">
                 <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">Mode</Label>
+                  <p className="text-sm font-medium capitalize">{mode}</p>
+                </div>
+
+                <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground uppercase tracking-wide">Model</Label>
-                  <p className="text-sm font-medium">{selectedModel}</p>
+                  <p className="text-sm font-medium">{modelConfig?.displayName || selectedModel}</p>
                 </div>
                 
                 {generationType && (
@@ -49,6 +55,19 @@ export function MetadataPanel() {
                       </div>
                     </div>
                   </>
+                )}
+
+                {characterIds.length > 0 && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Character IDs</Label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {characterIds.map((id, index) => (
+                        <Badge key={index} variant="secondary" className="font-mono text-xs">
+                          {id}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 {currentOutput?.refinedPrompt && (
@@ -96,6 +115,11 @@ export function MetadataPanel() {
         {/* Model Info */}
         <div className="space-y-3">
           <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Mode</Label>
+            <p className="text-sm font-medium capitalize">{selectedEntry.mode}</p>
+          </div>
+
+          <div className="space-y-1">
             <Label className="text-xs text-muted-foreground uppercase tracking-wide">Model</Label>
             <p className="text-sm font-medium">{selectedEntry.model}</p>
           </div>
@@ -124,12 +148,29 @@ export function MetadataPanel() {
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground uppercase tracking-wide">Submitted Parameters</Label>
           <div className="space-y-2 mt-2">
-            {Object.entries(selectedEntry.controls).map(([key, value]) => (
-              <div key={key} className="flex justify-between text-sm">
-                <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                <span className="font-mono">{String(value)}</span>
-              </div>
-            ))}
+            {Object.entries(selectedEntry.controls).map(([key, value]) => {
+              // Handle characterIds array separately
+              if (key === 'characterIds' && Array.isArray(value)) {
+                return (
+                  <div key={key} className="space-y-1">
+                    <span className="text-sm text-muted-foreground">Character IDs</span>
+                    <div className="flex flex-wrap gap-1">
+                      {(value as string[]).map((id, i) => (
+                        <Badge key={i} variant="secondary" className="font-mono text-xs">
+                          {id}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div key={key} className="flex justify-between text-sm">
+                  <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                  <span className="font-mono">{String(value)}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 

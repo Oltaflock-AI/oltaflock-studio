@@ -1,10 +1,10 @@
 import { useGenerationStore } from '@/store/generationStore';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Image as ImageIcon, Video } from 'lucide-react';
 
 export function OutputDisplay() {
-  const { currentOutput, isGenerating } = useGenerationStore();
+  const { mode, currentOutput, isGenerating } = useGenerationStore();
 
   if (isGenerating) {
     return (
@@ -18,7 +18,11 @@ export function OutputDisplay() {
   if (!currentOutput) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-card rounded-lg border border-border">
-        <ImageIcon className="h-12 w-12 text-muted-foreground mb-4" />
+        {mode === 'image' ? (
+          <ImageIcon className="h-12 w-12 text-muted-foreground mb-4" />
+        ) : (
+          <Video className="h-12 w-12 text-muted-foreground mb-4" />
+        )}
         <p className="text-sm text-muted-foreground">
           Output will appear here
         </p>
@@ -30,11 +34,19 @@ export function OutputDisplay() {
     <div className="flex-1 flex flex-col gap-4 overflow-hidden">
       {/* Output Preview */}
       <div className="flex-1 bg-card rounded-lg border border-border overflow-hidden">
-        <img
-          src={currentOutput.outputUrl}
-          alt="Generated output"
-          className="w-full h-full object-contain"
-        />
+        {mode === 'image' ? (
+          <img
+            src={currentOutput.outputUrl}
+            alt="Generated output"
+            className="w-full h-full object-contain"
+          />
+        ) : (
+          <video
+            src={currentOutput.outputUrl}
+            controls
+            className="w-full h-full object-contain"
+          />
+        )}
       </div>
 
       {/* Refined Prompt */}
