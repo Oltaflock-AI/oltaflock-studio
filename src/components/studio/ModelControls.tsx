@@ -1,6 +1,11 @@
 import { useGenerationStore } from '@/store/generationStore';
 import { NanoBananaProControls } from './controls/NanoBananaProControls';
 import { Seedream45Controls } from './controls/Seedream45Controls';
+import { Veo3Controls } from './controls/Veo3Controls';
+import { Veo31Controls } from './controls/Veo31Controls';
+import { Sora2ProControls } from './controls/Sora2ProControls';
+import { Kling26Controls } from './controls/Kling26Controls';
+import { Seedance10Controls } from './controls/Seedance10Controls';
 
 export function ModelControls() {
   const { selectedModel } = useGenerationStore();
@@ -10,6 +15,11 @@ export function ModelControls() {
   const controlsMap: Record<string, React.ComponentType> = {
     'nano-banana-pro': NanoBananaProControls,
     'seedream-4.5': Seedream45Controls,
+    'veo-3': Veo3Controls,
+    'veo-3.1': Veo31Controls,
+    'sora-2-pro': Sora2ProControls,
+    'kling-2.6': Kling26Controls,
+    'seedance-1.0': Seedance10Controls,
   };
 
   const ControlsComponent = controlsMap[selectedModel];

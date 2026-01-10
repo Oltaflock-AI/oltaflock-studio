@@ -1,5 +1,5 @@
 import { useGenerationStore } from '@/store/generationStore';
-import { IMAGE_MODELS, type Model } from '@/types/generation';
+import { IMAGE_MODELS, VIDEO_MODELS, type Model } from '@/types/generation';
 import {
   Select,
   SelectContent,
@@ -10,7 +10,9 @@ import {
 import { Label } from '@/components/ui/label';
 
 export function ModelSelector() {
-  const { selectedModel, setSelectedModel, pendingRating } = useGenerationStore();
+  const { mode, selectedModel, setSelectedModel, pendingRating } = useGenerationStore();
+
+  const models = mode === 'image' ? IMAGE_MODELS : VIDEO_MODELS;
 
   return (
     <div className="space-y-2">
@@ -26,7 +28,7 @@ export function ModelSelector() {
           <SelectValue placeholder="Select model" />
         </SelectTrigger>
         <SelectContent>
-          {IMAGE_MODELS.map((model) => (
+          {models.map((model) => (
             <SelectItem key={model.id} value={model.id}>
               {model.displayName}
             </SelectItem>

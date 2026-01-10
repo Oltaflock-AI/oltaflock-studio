@@ -8,6 +8,10 @@ import type {
 } from '@/types/generation';
 
 interface GenerationState {
+  // Current Mode
+  mode: GenerationMode;
+  setMode: (mode: GenerationMode) => void;
+  
   // Selected Model
   selectedModel: Model | null;
   setSelectedModel: (model: Model | null) => void;
@@ -30,6 +34,12 @@ interface GenerationState {
   addReferenceFiles: (files: File[]) => void;
   removeReferenceFile: (index: number) => void;
   clearReferenceFiles: () => void;
+  
+  // Character IDs (Sora 2 Pro)
+  characterIds: string[];
+  addCharacterId: (id: string) => void;
+  removeCharacterId: (index: number) => void;
+  clearCharacterIds: () => void;
   
   // Generation State
   isGenerating: boolean;
@@ -62,6 +72,19 @@ interface GenerationState {
 }
 
 export const useGenerationStore = create<GenerationState>((set, get) => ({
+  // Current Mode
+  mode: 'image',
+  setMode: (mode) => set({ 
+    mode, 
+    selectedModel: null, 
+    generationType: null,
+    controls: {},
+    referenceFiles: [],
+    characterIds: [],
+    currentOutput: null,
+    pendingRating: false,
+  }),
+  
   // Selected Model
   selectedModel: null,
   setSelectedModel: (model) => set({ 
@@ -69,6 +92,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     generationType: null,
     controls: {},
     referenceFiles: [],
+    characterIds: [],
   }),
   
   // Generation Type
@@ -99,6 +123,17 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     referenceFiles: state.referenceFiles.filter((_, i) => i !== index)
   })),
   clearReferenceFiles: () => set({ referenceFiles: [] }),
+  
+  // Character IDs
+  characterIds: [],
+  addCharacterId: (id) => set((state) => {
+    if (state.characterIds.length >= 5) return state;
+    return { characterIds: [...state.characterIds, id] };
+  }),
+  removeCharacterId: (index) => set((state) => ({
+    characterIds: state.characterIds.filter((_, i) => i !== index)
+  })),
+  clearCharacterIds: () => set({ characterIds: [] }),
   
   // Generation State
   isGenerating: false,
@@ -139,6 +174,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     rawPrompt: '',
     controls: {},
     referenceFiles: [],
+    characterIds: [],
     currentOutput: null,
     pendingRating: false,
   }),
