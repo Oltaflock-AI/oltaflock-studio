@@ -6,8 +6,8 @@ import { ReferenceUpload } from '@/components/studio/ReferenceUpload';
 import { ModelControls } from '@/components/studio/ModelControls';
 import { OutputDisplay } from '@/components/studio/OutputDisplay';
 import { RatingPanel } from '@/components/studio/RatingPanel';
-import { HistoryPanel } from '@/components/studio/HistoryPanel';
-import { MetadataPanel } from '@/components/studio/MetadataPanel';
+import { RequestsPanel } from '@/components/studio/RequestsPanel';
+import { RequestDetailPanel } from '@/components/studio/RequestDetailPanel';
 import { GenerateButton } from '@/components/studio/GenerateButton';
 import { useGenerationStore } from '@/store/generationStore';
 import { Separator } from '@/components/ui/separator';
@@ -29,23 +29,23 @@ const Index = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Mode + History */}
+        {/* Left Sidebar - Mode + Requests */}
         <aside className="w-64 border-r border-border bg-card flex flex-col overflow-hidden">
           {/* Mode Selector */}
           <div className="p-3 border-b border-border">
             <ModeSelector />
           </div>
           
-          {/* History Header */}
+          {/* Requests Header */}
           <div className="px-4 py-3 border-b border-border">
             <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Generation History
+              Requests
             </h2>
           </div>
           
-          {/* History List */}
+          {/* Requests List */}
           <div className="flex-1 overflow-hidden">
-            <HistoryPanel />
+            <RequestsPanel />
           </div>
         </aside>
 
@@ -90,15 +90,15 @@ const Index = () => {
           </div>
         </main>
 
-        {/* Right Panel - Metadata */}
+        {/* Right Panel - Request Details */}
         <aside className="w-72 border-l border-border bg-card flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
             <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Details
+              Request Details
             </h2>
           </div>
           <div className="flex-1 overflow-hidden">
-            <MetadataPanel />
+            <RequestDetailPanel />
           </div>
         </aside>
       </div>

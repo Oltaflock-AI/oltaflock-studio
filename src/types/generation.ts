@@ -115,29 +115,32 @@ export type ModelControls =
   | Kling26Controls
   | Seedance10Controls;
 
-// Job Status
-export type JobStatus = 'processing' | 'success' | 'failed';
+// Job Status - Extended for proper lifecycle
+export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'deleted';
 
 // Generation Request
 export interface GenerationRequest {
+  job_id: string;
   mode: GenerationMode;
   model: string;
-  generationType: GenerationType;
-  rawPrompt: string;
+  generation_type: GenerationType;
+  raw_prompt: string;
   controls: Record<string, unknown>;
-  referenceFiles?: File[];
 }
 
-// Generation Response
+// Generation Response from webhook
 export interface GenerationResponse {
-  jobId: string;
-  outputUrl: string;
-  refinedPrompt: string;
+  job_id: string;
+  status: 'success' | 'failed';
+  output_url?: string;
+  refined_prompt?: string;
+  error?: string;
 }
 
-// History Entry
-export interface HistoryEntry {
-  id: string;
+// Job Entry (formerly HistoryEntry)
+export interface JobEntry {
+  id: string; // Internal frontend ID
+  jobId: string; // Job ID sent to backend (job_<timestamp>_<random>)
   timestamp: Date;
   mode: GenerationMode;
   model: string;
@@ -148,10 +151,14 @@ export interface HistoryEntry {
   outputUrl: string;
   controls: Record<string, unknown>;
   rating?: 1 | 2 | 3 | 4 | 5;
-  jobId: string;
   status: JobStatus;
   error?: string;
+  referenceFiles?: string[]; // Store file names for display
+  deleted: boolean; // Soft delete flag
 }
+
+// Legacy alias for backward compatibility
+export type HistoryEntry = JobEntry;
 
 // Model Registry
 export const IMAGE_MODELS: ModelConfig[] = [
@@ -217,3 +224,19 @@ export const TYPE_LABELS: Record<GenerationType, string> = {
   'reference-to-video': 'Reference to Video',
   'storyboard': 'Storyboard',
 };
+
+// Status Labels
+export const STATUS_LABELS: Record<JobStatus, string> = {
+  queued: 'Queued',
+  processing: 'Processing',
+  completed: 'Completed',
+  failed: 'Failed',
+  deleted: 'Deleted',
+};
+
+// Generate unique job ID
+export function generateJobId(): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 7);
+  return `job_${timestamp}_${random}`;
+}
