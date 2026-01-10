@@ -5,33 +5,20 @@ import { Play, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
 
-// Mock generation function - replace with actual API call
-async function mockGenerate(): Promise<{ jobId: string; outputUrl: string; refinedPrompt: string }> {
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-  
-  const isImage = Math.random() > 0.5;
-  return {
-    jobId: `job_${uuidv4().slice(0, 8)}`,
-    outputUrl: isImage 
-      ? 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800'
-      : 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4',
-    refinedPrompt: 'Backend-optimized prompt with enhanced parameters and style tokens applied.',
-  };
-}
+const WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT';
 
 export function GenerateButton() {
   const {
-    mode,
     selectedModel,
     generationType,
     rawPrompt,
     controls,
     referenceFiles,
-    characterIds,
     isGenerating,
     setIsGenerating,
     setCurrentOutput,
     addHistoryEntry,
+    updateHistoryStatus,
     setPendingRating,
     pendingRating,
     currentOutput,
@@ -39,10 +26,18 @@ export function GenerateButton() {
 
   const modelConfig = ALL_MODELS.find((m) => m.id === selectedModel);
 
+  // Check if reference image is required but not provided
+  const requiresReferenceImage = 
+    (selectedModel === 'nano-banana-pro' && generationType === 'image-edit') ||
+    (selectedModel === 'seedream-4.5' && generationType === 'image-to-image');
+  
+  const hasRequiredFiles = !requiresReferenceImage || referenceFiles.length > 0;
+
   const canGenerate = 
     selectedModel && 
     generationType && 
     rawPrompt.trim() && 
+    hasRequiredFiles &&
     !isGenerating &&
     !pendingRating;
 
@@ -52,31 +47,93 @@ export function GenerateButton() {
     setIsGenerating(true);
     setCurrentOutput(null);
 
-    try {
-      // In production, this would call the backend webhook
-      const response = await mockGenerate();
+    const jobId = `job_${uuidv4().slice(0, 8)}`;
+    const entryId = uuidv4();
 
-      setCurrentOutput(response);
+    // Add entry with processing status
+    const entry = {
+      id: entryId,
+      timestamp: new Date(),
+      mode: 'image' as const,
+      model: modelConfig.displayName,
+      modelId: selectedModel,
+      generationType,
+      rawPrompt,
+      refinedPrompt: '',
+      outputUrl: '',
+      controls: { ...controls },
+      jobId,
+      status: 'processing' as const,
+    };
+    
+    addHistoryEntry(entry);
+
+    try {
+      let response: Response;
+
+      if (referenceFiles.length > 0) {
+        // Send as multipart/form-data
+        const formData = new FormData();
+        formData.append('mode', 'image');
+        formData.append('model', modelConfig.displayName);
+        formData.append('generation_type', generationType);
+        formData.append('raw_prompt', rawPrompt);
+        formData.append('controls', JSON.stringify(controls));
+        
+        referenceFiles.forEach((file) => {
+          formData.append('image_input[]', file);
+        });
+
+        response = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          body: formData,
+        });
+      } else {
+        // Send as JSON
+        response = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            mode: 'image',
+            model: modelConfig.displayName,
+            generation_type: generationType,
+            raw_prompt: rawPrompt,
+            controls,
+          }),
+        });
+      }
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
       
-      // Add to history
-      const entry = {
-        id: uuidv4(),
-        timestamp: new Date(),
-        mode,
-        model: modelConfig.displayName,
-        generationType,
-        rawPrompt,
-        refinedPrompt: response.refinedPrompt,
-        outputUrl: response.outputUrl,
-        controls: { ...controls, characterIds },
-        jobId: response.jobId,
+      const output = {
+        jobId: data.job_id || jobId,
+        outputUrl: data.output_url,
+        refinedPrompt: data.refined_prompt || '',
       };
+
+      setCurrentOutput(output);
+      updateHistoryStatus(entryId, 'success');
       
-      addHistoryEntry(entry);
+      // Update the history entry with full data
+      useGenerationStore.setState((state) => ({
+        history: state.history.map((e) =>
+          e.id === entryId
+            ? { ...e, refinedPrompt: output.refinedPrompt, outputUrl: output.outputUrl, jobId: output.jobId }
+            : e
+        ),
+      }));
+
       setPendingRating(true);
-      
       toast.success('Generation complete');
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      updateHistoryStatus(entryId, 'failed', errorMessage);
       toast.error('Generation failed');
       console.error(error);
     } finally {

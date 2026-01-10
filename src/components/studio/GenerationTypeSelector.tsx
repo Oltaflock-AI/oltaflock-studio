@@ -1,5 +1,5 @@
 import { useGenerationStore } from '@/store/generationStore';
-import { ALL_MODELS, type GenerationType } from '@/types/generation';
+import { ALL_MODELS, TYPE_LABELS, type GenerationType } from '@/types/generation';
 import {
   Select,
   SelectContent,
@@ -8,15 +8,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-
-const TYPE_LABELS: Record<GenerationType, string> = {
-  'text-to-image': 'Text to Image',
-  'image-edit': 'Image Edit (Reference Image)',
-  'text-to-video': 'Text to Video',
-  'image-to-video': 'Image to Video',
-  'reference-to-video': 'Reference to Video',
-  'storyboard': 'Storyboard',
-};
 
 export function GenerationTypeSelector() {
   const { selectedModel, generationType, setGenerationType, pendingRating } = useGenerationStore();

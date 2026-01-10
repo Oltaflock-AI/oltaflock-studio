@@ -8,13 +8,13 @@ export function PromptInput() {
   return (
     <div className="space-y-2">
       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        Raw Prompt
+        Raw Prompt (sent to backend as-is)
       </Label>
       <Textarea
         value={rawPrompt}
         onChange={(e) => setRawPrompt(e.target.value)}
         placeholder="Enter your prompt..."
-        className="min-h-[120px] bg-input border-border resize-none font-mono text-sm"
+        className="min-h-[160px] bg-input border-border resize-none text-sm"
         disabled={pendingRating}
       />
       <p className="text-xs text-muted-foreground">

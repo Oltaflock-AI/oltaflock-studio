@@ -1,8 +1,7 @@
 import { useCallback } from 'react';
 import { useGenerationStore } from '@/store/generationStore';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const MAX_FILES = 8;
@@ -19,9 +18,13 @@ export function ReferenceUpload() {
     generationType
   } = useGenerationStore();
 
+  // Show upload for image-edit (Nano Banana) or image-to-image (Seedream 4.5)
   const showUpload = 
     (selectedModel === 'nano-banana-pro' && generationType === 'image-edit') ||
-    (selectedModel && generationType && ['image-to-video', 'reference-to-video'].includes(generationType));
+    (selectedModel === 'seedream-4.5' && generationType === 'image-to-image');
+
+  // Determine if this is a required field
+  const isRequired = showUpload && referenceFiles.length === 0;
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -43,7 +46,8 @@ export function ReferenceUpload() {
   return (
     <div className="space-y-2">
       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        Reference {selectedModel === 'nano-banana-pro' ? 'Images' : 'Image/Video'} ({referenceFiles.length}/{MAX_FILES})
+        Reference Images ({referenceFiles.length}/{MAX_FILES})
+        {isRequired && <span className="text-destructive ml-1">*</span>}
       </Label>
       
       <div className="grid grid-cols-4 gap-2">
@@ -70,7 +74,10 @@ export function ReferenceUpload() {
         {referenceFiles.length < MAX_FILES && (
           <label
             className={cn(
-              'aspect-square border-2 border-dashed border-border rounded flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-secondary transition-colors',
+              'aspect-square border-2 border-dashed rounded flex flex-col items-center justify-center cursor-pointer transition-colors',
+              isRequired 
+                ? 'border-destructive/50 hover:border-destructive hover:bg-destructive/5' 
+                : 'border-border hover:border-primary hover:bg-secondary',
               pendingRating && 'opacity-50 cursor-not-allowed'
             )}
           >

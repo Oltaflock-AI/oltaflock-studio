@@ -4,16 +4,10 @@ import type {
   Model, 
   GenerationType, 
   HistoryEntry,
-  ModelConfig,
-  IMAGE_MODELS,
-  VIDEO_MODELS
+  JobStatus
 } from '@/types/generation';
 
 interface GenerationState {
-  // Current Mode
-  mode: GenerationMode;
-  setMode: (mode: GenerationMode) => void;
-  
   // Selected Model
   selectedModel: Model | null;
   setSelectedModel: (model: Model | null) => void;
@@ -37,12 +31,6 @@ interface GenerationState {
   removeReferenceFile: (index: number) => void;
   clearReferenceFiles: () => void;
   
-  // Character IDs (Sora 2 Pro)
-  characterIds: string[];
-  addCharacterId: (id: string) => void;
-  removeCharacterId: (index: number) => void;
-  clearCharacterIds: () => void;
-  
   // Generation State
   isGenerating: boolean;
   setIsGenerating: (generating: boolean) => void;
@@ -63,23 +51,17 @@ interface GenerationState {
   history: HistoryEntry[];
   addHistoryEntry: (entry: HistoryEntry) => void;
   updateHistoryRating: (id: string, rating: 1 | 2 | 3 | 4 | 5) => void;
+  updateHistoryStatus: (id: string, status: JobStatus, error?: string) => void;
+  
+  // Selected History Entry (for metadata panel)
+  selectedHistoryId: string | null;
+  setSelectedHistoryId: (id: string | null) => void;
   
   // Reset
   resetForm: () => void;
 }
 
 export const useGenerationStore = create<GenerationState>((set, get) => ({
-  // Current Mode
-  mode: 'image',
-  setMode: (mode) => set({ 
-    mode, 
-    selectedModel: null, 
-    generationType: null,
-    controls: {},
-    referenceFiles: [],
-    characterIds: [],
-  }),
-  
   // Selected Model
   selectedModel: null,
   setSelectedModel: (model) => set({ 
@@ -87,7 +69,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     generationType: null,
     controls: {},
     referenceFiles: [],
-    characterIds: [],
   }),
   
   // Generation Type
@@ -119,17 +100,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   })),
   clearReferenceFiles: () => set({ referenceFiles: [] }),
   
-  // Character IDs
-  characterIds: [],
-  addCharacterId: (id) => set((state) => {
-    if (state.characterIds.length >= 5) return state;
-    return { characterIds: [...state.characterIds, id] };
-  }),
-  removeCharacterId: (index) => set((state) => ({
-    characterIds: state.characterIds.filter((_, i) => i !== index)
-  })),
-  clearCharacterIds: () => set({ characterIds: [] }),
-  
   // Generation State
   isGenerating: false,
   setIsGenerating: (generating) => set({ isGenerating: generating }),
@@ -145,7 +115,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   // History
   history: [],
   addHistoryEntry: (entry) => set((state) => ({
-    history: [entry, ...state.history]
+    history: [entry, ...state.history],
+    selectedHistoryId: entry.id,
   })),
   updateHistoryRating: (id, rating) => set((state) => ({
     history: state.history.map((entry) =>
@@ -153,13 +124,21 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     ),
     pendingRating: false,
   })),
+  updateHistoryStatus: (id, status, error) => set((state) => ({
+    history: state.history.map((entry) =>
+      entry.id === id ? { ...entry, status, error } : entry
+    ),
+  })),
+  
+  // Selected History Entry
+  selectedHistoryId: null,
+  setSelectedHistoryId: (id) => set({ selectedHistoryId: id }),
   
   // Reset
   resetForm: () => set({
     rawPrompt: '',
     controls: {},
     referenceFiles: [],
-    characterIds: [],
     currentOutput: null,
     pendingRating: false,
   }),
