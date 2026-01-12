@@ -131,47 +131,54 @@ export function GenerateButton() {
 
       const data = await response.json();
       
-      // Match response job_id with our job
-      const responseJobId = data.job_id;
+      // Parse the response - handle nested resultJson structure
+      let outputUrl = '';
+      let refinedPrompt = '';
       
-      // Only update if job_id matches (or use our generated one if not returned)
-      if (!responseJobId || responseJobId === jobId) {
-        const output = {
-          jobId: responseJobId || jobId,
-          outputUrl: data.output_url,
-          refinedPrompt: data.refined_prompt || '',
-        };
+      // Check for nested resultJson (from n8n webhook)
+      if (data.data?.resultJson) {
+        try {
+          const resultJson = typeof data.data.resultJson === 'string' 
+            ? JSON.parse(data.data.resultJson) 
+            : data.data.resultJson;
+          
+          if (resultJson.resultUrls && resultJson.resultUrls.length > 0) {
+            outputUrl = resultJson.resultUrls[0];
+          }
+        } catch (e) {
+          console.error('Failed to parse resultJson:', e);
+        }
+      }
+      
+      // Fallback to direct output_url if present
+      if (!outputUrl && data.output_url) {
+        outputUrl = data.output_url;
+      }
+      
+      // Get refined prompt from response
+      refinedPrompt = data.refined_prompt || data.data?.refined_prompt || '';
+      
+      const output = {
+        jobId: jobId,
+        outputUrl,
+        refinedPrompt,
+      };
 
-        setCurrentOutput(output);
-        
-        // Update job with completed status and data
-        updateJob(entryId, {
-          status: 'completed',
-          refinedPrompt: output.refinedPrompt,
-          outputUrl: output.outputUrl,
-        });
+      setCurrentOutput(output);
+      
+      // Update job with completed status and data
+      updateJob(entryId, {
+        status: outputUrl ? 'completed' : 'failed',
+        refinedPrompt: output.refinedPrompt,
+        outputUrl: output.outputUrl,
+        error: outputUrl ? undefined : 'No output URL in response',
+      });
 
+      if (outputUrl) {
         setPendingRating(true);
         toast.success('Generation complete');
       } else {
-        // Job ID mismatch - log warning but still update our job
-        console.warn(`Job ID mismatch: expected ${jobId}, got ${responseJobId}`);
-        const output = {
-          jobId: responseJobId,
-          outputUrl: data.output_url,
-          refinedPrompt: data.refined_prompt || '',
-        };
-
-        setCurrentOutput(output);
-        updateJob(entryId, {
-          status: 'completed',
-          refinedPrompt: output.refinedPrompt,
-          outputUrl: output.outputUrl,
-          jobId: responseJobId,
-        });
-
-        setPendingRating(true);
-        toast.success('Generation complete');
+        toast.error('No image received');
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
