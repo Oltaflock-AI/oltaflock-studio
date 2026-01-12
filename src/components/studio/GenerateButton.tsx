@@ -1,6 +1,6 @@
 import { useGenerationStore } from '@/store/generationStore';
-import { ALL_MODELS, generateJobId } from '@/types/generation';
-import type { JobEntry } from '@/types/generation';
+import { ALL_MODELS, generateJobId, MODEL_API_NAMES } from '@/types/generation';
+import type { JobEntry, Model } from '@/types/generation';
 import { Button } from '@/components/ui/button';
 import { Play, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,8 +15,6 @@ export function GenerateButton() {
     generationType,
     rawPrompt,
     controls,
-    referenceFiles,
-    characterIds,
     isGenerating,
     setIsGenerating,
     setCurrentOutput,
@@ -29,15 +27,8 @@ export function GenerateButton() {
 
   const modelConfig = ALL_MODELS.find((m) => m.id === selectedModel);
 
-  // Check if reference media is required but not provided
-  const requiresReferenceMedia = 
-    // Image models
-    (selectedModel === 'nano-banana-pro' && generationType === 'image-edit') ||
-    (selectedModel === 'seedream-4.5' && generationType === 'image-to-image') ||
-    // Video models
-    (selectedModel && generationType && ['image-to-video', 'reference-to-video', 'storyboard'].includes(generationType));
-  
-  const hasRequiredFiles = !requiresReferenceMedia || referenceFiles.length > 0;
+  // Text-to-image and text-to-video don't require reference media
+  const hasRequiredFiles = true;
 
   const canGenerate = 
     selectedModel && 
@@ -57,13 +48,12 @@ export function GenerateButton() {
     const jobId = generateJobId();
     const entryId = uuidv4();
 
-    // Build controls object including character IDs for Sora 2 Pro
-    const submittedControls = selectedModel === 'sora-2-pro' && characterIds.length > 0
-      ? { ...controls, characterIds }
-      : { ...controls };
+    // Build controls object
+    const submittedControls = { ...controls };
+    
+    // Get API model name (e.g., "seedream/4.5-text-to-image")
+    const apiModelName = `${MODEL_API_NAMES[selectedModel as Model]}-${generationType}`;
 
-    // Store reference file names for display
-    const referenceFileNames = referenceFiles.map((f) => f.name);
 
     // Create job entry with processing status
     const jobEntry: JobEntry = {
@@ -79,7 +69,6 @@ export function GenerateButton() {
       outputUrl: '',
       controls: submittedControls,
       status: 'processing',
-      referenceFiles: referenceFileNames,
       deleted: false,
     };
     
@@ -88,42 +77,21 @@ export function GenerateButton() {
     try {
       let response: Response;
 
-      if (referenceFiles.length > 0) {
-        // Send as multipart/form-data
-        const formData = new FormData();
-        formData.append('job_id', jobId);
-        formData.append('mode', mode);
-        formData.append('model', modelConfig.displayName);
-        formData.append('generation_type', generationType);
-        formData.append('raw_prompt', rawPrompt);
-        formData.append('controls', JSON.stringify(submittedControls));
-        
-        const fileFieldName = mode === 'video' ? 'video_input[]' : 'image_input[]';
-        referenceFiles.forEach((file) => {
-          formData.append(fileFieldName, file);
-        });
-
-        response = await fetch(WEBHOOK_URL, {
-          method: 'POST',
-          body: formData,
-        });
-      } else {
-        // Send as JSON with job_id
-        response = await fetch(WEBHOOK_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            job_id: jobId,
-            mode,
-            model: modelConfig.displayName,
-            generation_type: generationType,
-            raw_prompt: rawPrompt,
-            controls: submittedControls,
-          }),
-        });
-      }
+      // Send as JSON with job_id and proper model name format
+      response = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          job_id: jobId,
+          mode,
+          model: apiModelName,
+          generation_type: generationType,
+          raw_prompt: rawPrompt,
+          controls: submittedControls,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);
