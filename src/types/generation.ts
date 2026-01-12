@@ -10,23 +10,19 @@ export type VideoModel = 'veo-3' | 'veo-3.1' | 'sora-2-pro' | 'kling-2.6' | 'see
 // All Models
 export type Model = ImageModel | VideoModel;
 
-// Generation Types per Model
-export type NanoBananaProGenerationType = 'text-to-image' | 'image-edit';
-export type Seedream45GenerationType = 'text-to-image' | 'image-to-image';
-export type Veo3GenerationType = 'text-to-video' | 'image-to-video' | 'reference-to-video';
-export type Veo31GenerationType = 'text-to-video' | 'image-to-video' | 'reference-to-video';
-export type Sora2ProGenerationType = 'text-to-video' | 'image-to-video' | 'storyboard';
-export type Kling26GenerationType = 'text-to-video' | 'image-to-video';
-export type Seedance10GenerationType = 'text-to-video' | 'image-to-video';
+// Simplified Generation Types - only text-to-image and text-to-video
+export type GenerationType = 'text-to-image' | 'text-to-video';
 
-export type GenerationType = 
-  | NanoBananaProGenerationType 
-  | Seedream45GenerationType
-  | Veo3GenerationType
-  | Veo31GenerationType
-  | Sora2ProGenerationType
-  | Kling26GenerationType
-  | Seedance10GenerationType;
+// Model API name mapping for webhook payload
+export const MODEL_API_NAMES: Record<Model, string> = {
+  'nano-banana-pro': 'nano-banana/pro',
+  'seedream-4.5': 'seedream/4.5',
+  'veo-3': 'veo/3',
+  'veo-3.1': 'veo/3.1',
+  'sora-2-pro': 'sora/2-pro',
+  'kling-2.6': 'kling/2.6',
+  'seedance-1.0': 'seedance/1.0',
+};
 
 // Model Configurations
 export interface ModelConfig {
@@ -166,13 +162,13 @@ export const IMAGE_MODELS: ModelConfig[] = [
     id: 'nano-banana-pro',
     displayName: 'Nano Banana Pro',
     mode: 'image',
-    generationTypes: ['text-to-image', 'image-edit'],
+    generationTypes: ['text-to-image'],
   },
   {
     id: 'seedream-4.5',
     displayName: 'Seedream 4.5',
     mode: 'image',
-    generationTypes: ['text-to-image', 'image-to-image'],
+    generationTypes: ['text-to-image'],
   },
 ];
 
@@ -181,33 +177,33 @@ export const VIDEO_MODELS: ModelConfig[] = [
     id: 'veo-3',
     displayName: 'Veo 3',
     mode: 'video',
-    generationTypes: ['text-to-video', 'image-to-video', 'reference-to-video'],
+    generationTypes: ['text-to-video'],
     variants: ['Veo 3 Fast', 'Veo 3 Quality'],
   },
   {
     id: 'veo-3.1',
     displayName: 'Veo 3.1',
     mode: 'video',
-    generationTypes: ['text-to-video', 'image-to-video', 'reference-to-video'],
+    generationTypes: ['text-to-video'],
     variants: ['Veo 3.1 Fast', 'Veo 3.1 Quality'],
   },
   {
     id: 'sora-2-pro',
     displayName: 'Sora 2 Pro',
     mode: 'video',
-    generationTypes: ['text-to-video', 'image-to-video', 'storyboard'],
+    generationTypes: ['text-to-video'],
   },
   {
     id: 'kling-2.6',
     displayName: 'Kling 2.6',
     mode: 'video',
-    generationTypes: ['text-to-video', 'image-to-video'],
+    generationTypes: ['text-to-video'],
   },
   {
     id: 'seedance-1.0',
     displayName: 'Seedance 1.0',
     mode: 'video',
-    generationTypes: ['text-to-video', 'image-to-video'],
+    generationTypes: ['text-to-video'],
     variants: ['V1 Lite', 'V1 Pro', 'V1 Pro Fast'],
   },
 ];
@@ -217,12 +213,7 @@ export const ALL_MODELS = [...IMAGE_MODELS, ...VIDEO_MODELS];
 // Generation Type Labels
 export const TYPE_LABELS: Record<GenerationType, string> = {
   'text-to-image': 'Text to Image',
-  'image-edit': 'Image Edit',
-  'image-to-image': 'Image to Image (Edit)',
   'text-to-video': 'Text to Video',
-  'image-to-video': 'Image to Video',
-  'reference-to-video': 'Reference to Video',
-  'storyboard': 'Storyboard',
 };
 
 // Status Labels
