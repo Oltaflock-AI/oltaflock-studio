@@ -6,9 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Mail, Lock } from 'lucide-react';
+import { Loader2, Mail, Lock, Feather } from 'lucide-react';
 import { toast } from 'sonner';
-import oltaflockLogo from '@/assets/oltaflock-logo.jpeg';
 
 export default function Auth() {
   const { user, loading, signIn, signUp, signInWithMagicLink } = useAuth();
@@ -84,7 +83,9 @@ export default function Auth() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-2">
-            <img src={oltaflockLogo} alt="Oltaflock" className="h-10 w-10 object-contain" />
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Feather className="h-6 w-6 text-primary" />
+            </div>
             <h1 className="text-2xl font-semibold tracking-tight">
               Oltaflock AI Studio
             </h1>
