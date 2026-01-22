@@ -44,13 +44,24 @@ export default function Auth() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate inputs before sending to Supabase
+    if (!email || !email.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    if (!password || password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    
     setIsSubmitting(true);
     const { error } = await signUp(email, password);
     setIsSubmitting(false);
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('Account created! You can now sign in.');
+      toast.success('Account created! You are now signed in.');
     }
   };
 
