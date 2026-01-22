@@ -1,6 +1,5 @@
 import { ModeSelector } from '@/components/studio/ModeSelector';
 import { ModelSelector } from '@/components/studio/ModelSelector';
-import { GenerationTypeSelector } from '@/components/studio/GenerationTypeSelector';
 import { PromptInput } from '@/components/studio/PromptInput';
 import { ReferenceUpload } from '@/components/studio/ReferenceUpload';
 import { ModelControls } from '@/components/studio/ModelControls';
@@ -9,8 +8,10 @@ import { RatingPanel } from '@/components/studio/RatingPanel';
 import { RequestsPanel } from '@/components/studio/RequestsPanel';
 import { RequestDetailPanel } from '@/components/studio/RequestDetailPanel';
 import { GenerateButton } from '@/components/studio/GenerateButton';
+import { UserMenu } from '@/components/studio/UserMenu';
 import { useGenerationStore } from '@/store/generationStore';
 import { Separator } from '@/components/ui/separator';
+import { Sparkles } from 'lucide-react';
 
 const Index = () => {
   const { selectedModel, generationType } = useGenerationStore();
@@ -19,11 +20,17 @@ const Index = () => {
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
-        <h1 className="text-lg font-semibold tracking-tight">
-          Oltaflock AI Studio
-        </h1>
-        <div className="text-xs text-muted-foreground font-mono">
-          Internal Tool v1.0
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <h1 className="text-lg font-semibold tracking-tight">
+            Oltaflock AI Studio
+          </h1>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-xs text-muted-foreground font-mono">
+            Internal Tool v1.0
+          </div>
+          <UserMenu />
         </div>
       </header>
 
@@ -33,6 +40,9 @@ const Index = () => {
         <aside className="w-64 border-r border-border bg-card flex flex-col overflow-hidden">
           {/* Mode Selector */}
           <div className="p-3 border-b border-border">
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              Generation Mode
+            </h2>
             <ModeSelector />
           </div>
           
@@ -62,9 +72,6 @@ const Index = () => {
               {/* Model Selection */}
               <ModelSelector />
 
-              {/* Generation Type */}
-              {selectedModel && <GenerationTypeSelector />}
-
               {/* Reference Upload */}
               <ReferenceUpload />
 
@@ -91,11 +98,12 @@ const Index = () => {
         </main>
 
         {/* Right Panel - Request Details */}
-        <aside className="w-72 border-l border-border bg-card flex flex-col overflow-hidden">
+        <aside className="w-80 border-l border-border bg-card flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
             <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Request Details
             </h2>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">Debug & Logs</p>
           </div>
           <div className="flex-1 overflow-hidden">
             <RequestDetailPanel />
