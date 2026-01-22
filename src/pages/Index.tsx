@@ -11,7 +11,7 @@ import { GenerateButton } from '@/components/studio/GenerateButton';
 import { UserMenu } from '@/components/studio/UserMenu';
 import { useGenerationStore } from '@/store/generationStore';
 import { Separator } from '@/components/ui/separator';
-import { Sparkles } from 'lucide-react';
+import oltaflockLogo from '@/assets/oltaflock-logo.jpeg';
 
 const Index = () => {
   const { selectedModel, generationType } = useGenerationStore();
@@ -20,8 +20,8 @@ const Index = () => {
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
+        <div className="flex items-center gap-3">
+          <img src={oltaflockLogo} alt="Oltaflock" className="h-8 w-8 object-contain" />
           <h1 className="text-lg font-semibold tracking-tight">
             Oltaflock AI Studio
           </h1>
