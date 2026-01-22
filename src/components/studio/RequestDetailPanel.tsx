@@ -1,12 +1,13 @@
+import { useJobs, type DbJob } from '@/hooks/useJobs';
 import { useGenerationStore } from '@/store/generationStore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { TYPE_LABELS, STATUS_LABELS } from '@/types/generation';
-import type { JobStatus } from '@/types/generation';
-import { format } from 'date-fns';
+import type { JobStatus, GenerationType } from '@/types/generation';
+import { format, formatDistanceStrict } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Image as ImageIcon, Video, FileText, AlertCircle } from 'lucide-react';
+import { Image as ImageIcon, Video, FileText, AlertCircle, Clock, Hash, Workflow } from 'lucide-react';
 
 const statusStyles: Record<JobStatus, string> = {
   queued: 'bg-muted text-muted-foreground',
@@ -17,7 +18,8 @@ const statusStyles: Record<JobStatus, string> = {
 };
 
 export function RequestDetailPanel() {
-  const { jobs, selectedJobId } = useGenerationStore();
+  const { jobs } = useJobs();
+  const { selectedJobId } = useGenerationStore();
   
   const selectedJob = jobs.find((job) => job.id === selectedJobId);
 
@@ -30,7 +32,14 @@ export function RequestDetailPanel() {
     );
   }
 
+  const status = selectedJob.status as JobStatus;
   const ModeIcon = selectedJob.mode === 'image' ? ImageIcon : Video;
+  const controls = selectedJob.controls as Record<string, unknown> | null;
+  const completedAt = selectedJob.completed_at ? new Date(selectedJob.completed_at) : null;
+  const createdAt = new Date(selectedJob.created_at);
+  const timeToComplete = completedAt 
+    ? formatDistanceStrict(createdAt, completedAt)
+    : null;
 
   return (
     <ScrollArea className="h-full">
@@ -42,13 +51,24 @@ export function RequestDetailPanel() {
               <ModeIcon className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium capitalize">{selectedJob.mode}</span>
             </div>
-            <Badge className={cn('text-xs', statusStyles[selectedJob.status])}>
-              {STATUS_LABELS[selectedJob.status]}
+            <Badge className={cn('text-xs', statusStyles[status])}>
+              {STATUS_LABELS[status] || status}
             </Badge>
           </div>
         </div>
 
         <Separator />
+
+        {/* Request ID */}
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <Hash className="h-3 w-3" />
+            Request ID
+          </label>
+          <p className="text-xs font-mono bg-muted/50 px-2 py-1.5 rounded break-all">
+            {selectedJob.id}
+          </p>
+        </div>
 
         {/* Job ID */}
         <div className="space-y-1">
@@ -56,18 +76,29 @@ export function RequestDetailPanel() {
             Job ID
           </label>
           <p className="text-xs font-mono bg-muted/50 px-2 py-1.5 rounded break-all">
-            {selectedJob.jobId}
+            {selectedJob.job_id}
           </p>
         </div>
 
-        {/* Timestamp */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Timestamp
-          </label>
-          <p className="text-sm">
-            {format(new Date(selectedJob.timestamp), 'PPpp')}
-          </p>
+        {/* Timestamps */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Created
+            </label>
+            <p className="text-xs">
+              {format(createdAt, 'PPpp')}
+            </p>
+          </div>
+          {timeToComplete && (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Duration
+              </label>
+              <p className="text-xs">{timeToComplete}</p>
+            </div>
+          )}
         </div>
 
         <Separator />
@@ -77,16 +108,29 @@ export function RequestDetailPanel() {
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Model
           </label>
-          <p className="text-sm">{selectedJob.model}</p>
+          <p className="text-sm font-medium">{selectedJob.model}</p>
         </div>
 
         {/* Generation Type */}
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Generation Type
+            Mode
           </label>
-          <p className="text-sm">{TYPE_LABELS[selectedJob.generationType]}</p>
+          <p className="text-sm">{TYPE_LABELS[selectedJob.generation_type as GenerationType] || selectedJob.generation_type}</p>
         </div>
+
+        {/* Workflow ID (if available) */}
+        {selectedJob.workflow_id && (
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+              <Workflow className="h-3 w-3" />
+              Workflow
+            </label>
+            <p className="text-xs font-mono bg-muted/50 px-2 py-1.5 rounded">
+              {selectedJob.workflow_id}
+            </p>
+          </div>
+        )}
 
         <Separator />
 
@@ -95,19 +139,19 @@ export function RequestDetailPanel() {
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Raw Prompt
           </label>
-          <p className="text-sm bg-muted/50 px-2 py-1.5 rounded whitespace-pre-wrap">
-            {selectedJob.rawPrompt}
+          <p className="text-sm bg-muted/50 px-2 py-1.5 rounded whitespace-pre-wrap max-h-32 overflow-y-auto">
+            {selectedJob.raw_prompt}
           </p>
         </div>
 
         {/* Refined Prompt */}
-        {selectedJob.refinedPrompt && (
+        {selectedJob.refined_prompt && (
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Refined Prompt (Backend)
+              Backend Refined Prompt
             </label>
-            <p className="text-sm bg-muted/50 px-2 py-1.5 rounded whitespace-pre-wrap text-muted-foreground">
-              {selectedJob.refinedPrompt}
+            <p className="text-sm bg-muted/50 px-2 py-1.5 rounded whitespace-pre-wrap text-muted-foreground max-h-32 overflow-y-auto">
+              {selectedJob.refined_prompt}
             </p>
           </div>
         )}
@@ -120,9 +164,9 @@ export function RequestDetailPanel() {
             Controls
           </label>
           <div className="bg-muted/50 px-2 py-1.5 rounded">
-            {Object.entries(selectedJob.controls).length > 0 ? (
+            {controls && Object.entries(controls).length > 0 ? (
               <div className="space-y-1">
-                {Object.entries(selectedJob.controls).map(([key, value]) => (
+                {Object.entries(controls).map(([key, value]) => (
                   <div key={key} className="flex justify-between text-xs">
                     <span className="text-muted-foreground">{key}:</span>
                     <span className="font-mono">
@@ -141,39 +185,23 @@ export function RequestDetailPanel() {
           </div>
         </div>
 
-        {/* Reference Files */}
-        {selectedJob.referenceFiles && selectedJob.referenceFiles.length > 0 && (
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Reference Files
-            </label>
-            <div className="flex flex-wrap gap-1">
-              {selectedJob.referenceFiles.map((fileName, index) => (
-                <Badge key={index} variant="secondary" className="text-[10px]">
-                  {fileName}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
         <Separator />
 
         {/* Output */}
-        {selectedJob.outputUrl && (
+        {selectedJob.output_url && (
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Output
             </label>
             {selectedJob.mode === 'image' ? (
               <img 
-                src={selectedJob.outputUrl} 
+                src={selectedJob.output_url} 
                 alt="Generated output"
                 className="w-full rounded-md border border-border"
               />
             ) : (
               <video 
-                src={selectedJob.outputUrl}
+                src={selectedJob.output_url}
                 controls
                 className="w-full rounded-md border border-border"
               />
@@ -182,37 +210,15 @@ export function RequestDetailPanel() {
         )}
 
         {/* Error */}
-        {selectedJob.error && (
+        {selectedJob.error_message && (
           <div className="space-y-1">
             <label className="text-xs font-medium text-destructive uppercase tracking-wide flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
               Error
             </label>
             <p className="text-sm text-destructive bg-destructive/10 px-2 py-1.5 rounded">
-              {selectedJob.error}
+              {selectedJob.error_message}
             </p>
-          </div>
-        )}
-
-        {/* Rating */}
-        {selectedJob.rating && (
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Rating
-            </label>
-            <div className="flex items-center gap-1">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <span 
-                  key={star}
-                  className={cn(
-                    "text-lg",
-                    star <= selectedJob.rating! ? "text-yellow-500" : "text-muted"
-                  )}
-                >
-                  ★
-                </span>
-              ))}
-            </div>
           </div>
         )}
       </div>

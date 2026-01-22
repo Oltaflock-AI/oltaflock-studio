@@ -1,14 +1,18 @@
 import { useGenerationStore } from '@/store/generationStore';
+import { useJobs } from '@/hooks/useJobs';
+import { useAuth } from '@/hooks/useAuth';
 import { ALL_MODELS, generateJobId, MODEL_API_NAMES } from '@/types/generation';
-import type { JobEntry, Model } from '@/types/generation';
+import type { Model } from '@/types/generation';
 import { Button } from '@/components/ui/button';
 import { Play, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { v4 as uuidv4 } from 'uuid';
+import type { Json } from '@/integrations/supabase/types';
 
 const WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT';
 
 export function GenerateButton() {
+  const { user } = useAuth();
+  const { createJob, updateJob } = useJobs();
   const {
     mode,
     selectedModel,
@@ -18,11 +22,10 @@ export function GenerateButton() {
     isGenerating,
     setIsGenerating,
     setCurrentOutput,
-    addJob,
-    updateJob,
     setPendingRating,
     pendingRating,
     currentOutput,
+    setSelectedJobId,
   } = useGenerationStore();
 
   const modelConfig = ALL_MODELS.find((m) => m.id === selectedModel);
@@ -31,6 +34,7 @@ export function GenerateButton() {
   const hasRequiredFiles = true;
 
   const canGenerate = 
+    user &&
     selectedModel && 
     generationType && 
     rawPrompt.trim() && 
@@ -39,40 +43,45 @@ export function GenerateButton() {
     !pendingRating;
 
   const handleGenerate = async () => {
-    if (!canGenerate || !modelConfig) return;
+    if (!canGenerate || !modelConfig || !user) return;
 
     setIsGenerating(true);
     setCurrentOutput(null);
 
     // Generate unique job_id with required format
     const jobId = generateJobId();
-    const entryId = uuidv4();
-
+    
     // Build controls object
     const submittedControls = { ...controls };
     
     // Get API model name (e.g., "seedream/4.5-text-to-image")
     const apiModelName = `${MODEL_API_NAMES[selectedModel as Model]}-${generationType}`;
 
-
-    // Create job entry with processing status
-    const jobEntry: JobEntry = {
-      id: entryId,
-      jobId,
-      timestamp: new Date(),
-      mode,
-      model: modelConfig.displayName,
-      modelId: selectedModel,
-      generationType,
-      rawPrompt,
-      refinedPrompt: '',
-      outputUrl: '',
-      controls: submittedControls,
-      status: 'processing',
-      deleted: false,
-    };
-    
-    addJob(jobEntry);
+    // Create job in database
+    let dbJob;
+    try {
+      dbJob = await createJob({
+        job_id: jobId,
+        mode,
+        model: modelConfig.displayName,
+        generation_type: generationType,
+        raw_prompt: rawPrompt,
+        refined_prompt: null,
+        status: 'processing',
+        output_url: null,
+        error_message: null,
+        controls: submittedControls as Json,
+        reference_files: null,
+        workflow_id: null,
+        completed_at: null,
+      });
+      
+      setSelectedJobId(dbJob.id);
+    } catch (error) {
+      toast.error('Failed to create job');
+      setIsGenerating(false);
+      return;
+    }
 
     try {
       let response: Response;
@@ -134,26 +143,36 @@ export function GenerateButton() {
 
       setCurrentOutput(output);
       
-      // Update job with completed status and data
-      updateJob(entryId, {
-        status: outputUrl ? 'completed' : 'failed',
-        refinedPrompt: output.refinedPrompt,
-        outputUrl: output.outputUrl,
-        error: outputUrl ? undefined : 'No output URL in response',
+      // Update job in database
+      await updateJob({
+        id: dbJob.id,
+        updates: {
+          status: outputUrl ? 'completed' : 'failed',
+          refined_prompt: refinedPrompt || null,
+          output_url: outputUrl || null,
+          error_message: outputUrl ? null : 'No output URL in response',
+          completed_at: new Date().toISOString(),
+        },
       });
 
       if (outputUrl) {
         setPendingRating(true);
         toast.success('Generation complete');
       } else {
-        toast.error('No image received');
+        toast.error('No output received');
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      updateJob(entryId, { 
-        status: 'failed', 
-        error: errorMessage 
+      
+      await updateJob({
+        id: dbJob.id,
+        updates: {
+          status: 'failed',
+          error_message: errorMessage,
+          completed_at: new Date().toISOString(),
+        },
       });
+      
       toast.error('Generation failed');
       console.error(error);
     } finally {
@@ -173,6 +192,7 @@ export function GenerateButton() {
         onClick={handleGenerate}
         disabled={!canGenerate}
         className="flex-1"
+        size="lg"
       >
         {isGenerating ? (
           <>
@@ -192,6 +212,7 @@ export function GenerateButton() {
           variant="secondary"
           onClick={handleRegenerate}
           disabled={isGenerating}
+          size="lg"
         >
           <RotateCcw className="h-4 w-4 mr-2" />
           Regenerate
