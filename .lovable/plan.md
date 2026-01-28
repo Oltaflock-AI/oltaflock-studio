@@ -1,160 +1,201 @@
 
-# Fix Request History Persistence
+# Fix Generation Completion, Callbacks & UI State
 
 ## Overview
-Ensure every generation request is stored persistently in Lovable Cloud database and that history remains visible after page refresh.
+Fix the app to use the database as the single source of truth for generation results, enable seamless new generations without page refresh, and ensure Download button works reliably from persisted data.
 
-## Current State Analysis
+## Issues Analysis
 
-The implementation is already well-structured with:
-- `generations` table in Lovable Cloud with correct schema
-- `useGenerations` hook for CRUD operations
-- `RequestsPanel` reading from database
-- `GenerateButton` creating and updating records
-
-## Issues Identified
-
-| Issue | Description | Impact |
-|-------|-------------|--------|
-| Status not cleared for empty outputs | Selecting a generation without output doesn't clear the display | Shows stale content |
-| Database status values | Current: queued/running/done/error vs requested: queued/running/completed/failed | Terminology mismatch |
-| Initial status | Creates with 'running' instead of 'queued' | Skips queued state |
+| Issue | Root Cause | Impact |
+|-------|------------|--------|
+| Results depend on webhook response | `currentOutput` set from API response, not database | Data lost on refresh |
+| Download broken after refresh | Uses ephemeral `currentOutput` from Zustand | Button doesn't work |
+| Can't generate without refresh | `pendingRating` blocks Generate button | Poor UX |
+| History selection incomplete | OutputDisplay reads from store, not DB | Stale data shown |
 
 ## Implementation Plan
 
-### 1. Verify Database Table Schema
+### Part 1: Database as Single Source of Truth
 
-The `generations` table already exists with correct fields:
+**File: `src/components/studio/OutputDisplay.tsx`**
 
-| Field | Type | Status |
-|-------|------|--------|
-| id | uuid (PK) | Exists |
-| request_id | text (unique) | Exists |
-| type | text | Exists |
-| model | text | Exists |
-| user_prompt | text | Exists |
-| final_prompt | text (nullable) | Exists |
-| model_params | jsonb (nullable) | Exists |
-| status | text (default 'queued') | Exists |
-| output_url | text (nullable) | Exists |
-| error_message | text (nullable) | Exists |
-| created_at | timestamptz | Exists |
+Refactor to read from selected generation in database instead of `currentOutput` store:
 
-No database changes needed - schema is complete.
-
-### 2. Update GenerateButton Logic
-
-Modify `src/components/studio/GenerateButton.tsx`:
-
-- Create record with `status: 'queued'` immediately on button click
-- Update to `status: 'running'` when webhook request starts
-- Update to `status: 'done'` with `output_url` on success
-- Update to `status: 'error'` with `error_message` on failure
-
-Flow:
 ```text
-Click Generate → Insert (queued) → Start Request (running) → Complete (done/error)
+Current: Uses currentOutput from Zustand store (ephemeral)
+New: Uses selectedJobId to find generation from useGenerations hook
+
+Changes:
+- Import useGenerations hook
+- Find selected generation by selectedJobId
+- Read output_url, final_prompt directly from database record
+- Remove dependency on currentOutput store state
+- Handle loading and empty states properly
 ```
 
-### 3. Update RequestsPanel Selection
+### Part 2: Fix Download Button
 
-Modify `src/components/studio/RequestsPanel.tsx`:
+**File: `src/components/studio/OutputDisplay.tsx`**
 
-- Always call `setCurrentOutput` when selecting a generation
-- If no `output_url`, pass `null` to clear the display
-- Ensures OutputDisplay shows correct state for each selection
+The Download button will automatically work once OutputDisplay reads from database:
 
-### 4. Add Type for OutputDisplay
+```text
+Current: handleDownload uses currentOutput?.outputUrl
+New: handleDownload uses selectedGeneration?.output_url
 
-Modify `src/components/studio/OutputDisplay.tsx`:
+Benefits:
+- Works after page refresh (reads from DB)
+- Works when selecting history items
+- No dependency on webhook response
+```
 
-- Track the generation type from the selected item
-- Display correct icon (image vs video) based on stored type
+### Part 3: Fix UI State Reset (Generate Without Refresh)
+
+**File: `src/components/studio/GenerateButton.tsx`**
+
+Remove `pendingRating` from generation blocking logic:
+
+```text
+Current canGenerate check (line 33-39):
+- selectedModel && generationType && rawPrompt.trim() 
+- && hasRequiredFiles && !isGenerating && !pendingRating
+
+New canGenerate check:
+- selectedModel && generationType && rawPrompt.trim() 
+- && hasRequiredFiles && !isGenerating
+- (Remove !pendingRating condition)
+
+Also:
+- Remove setPendingRating(true) after successful generation
+- Keep pendingRating for RatingPanel only, not blocking generation
+```
+
+**File: `src/components/studio/RatingPanel.tsx`**
+
+Keep RatingPanel functional but don't let it block new generations.
+
+### Part 4: History Behavior
+
+Already mostly working with current implementation. The fixes in Part 1 will complete this:
+
+```text
+- RequestsPanel reads from database ✓
+- Selection updates selectedJobId ✓  
+- Selection syncs currentOutput (will remove this dependency)
+- OutputDisplay will read directly from DB via selectedJobId
+```
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/studio/GenerateButton.tsx` | Insert with 'queued' status first, then update to 'running' |
-| `src/components/studio/RequestsPanel.tsx` | Always call setCurrentOutput (including null for empty) |
-| `src/hooks/useGenerations.tsx` | No changes needed - already correct |
+| `src/components/studio/OutputDisplay.tsx` | Read from DB via selectedJobId, not currentOutput |
+| `src/components/studio/GenerateButton.tsx` | Remove pendingRating from canGenerate check |
+| `src/components/studio/RequestsPanel.tsx` | Remove setCurrentOutput call (no longer needed) |
+
+## Detailed Changes
+
+### OutputDisplay.tsx (Complete Rewrite Logic)
+
+```text
+Before:
+  const { mode, currentOutput, isGenerating } = useGenerationStore();
+  
+  if (!currentOutput) { show empty state }
+  
+  handleDownload() { uses currentOutput.outputUrl }
+
+After:
+  const { selectedJobId, isGenerating, mode } = useGenerationStore();
+  const { generations, isLoading } = useGenerations();
+  
+  const selectedGeneration = generations.find(g => g.id === selectedJobId);
+  
+  if (isLoading) { show loading }
+  if (!selectedGeneration || !selectedGeneration.output_url) { show empty state }
+  
+  handleDownload() { uses selectedGeneration.output_url }
+  
+  // Determine media type from database record
+  const mediaType = selectedGeneration.type; // 'image' or 'video'
+```
+
+### GenerateButton.tsx (Remove pendingRating Block)
+
+```text
+Line 33-39 change:
+  const canGenerate = 
+    selectedModel && 
+    generationType && 
+    rawPrompt.trim() && 
+    hasRequiredFiles &&
+    !isGenerating;
+    // Remove: && !pendingRating
+
+Line 154-156 change:
+  // Remove: setPendingRating(true);
+```
+
+### RequestsPanel.tsx (Simplify Selection)
+
+```text
+Current handleSelectGeneration:
+  setSelectedJobId(generation.id);
+  setCurrentOutput(...);
+
+New handleSelectGeneration:
+  setSelectedJobId(generation.id);
+  // Remove setCurrentOutput - OutputDisplay reads from DB directly
+```
 
 ## Data Flow After Fix
 
 ```text
-1. User clicks Generate
-   └─→ INSERT record with status='queued'
-   
-2. Webhook request starts
-   └─→ UPDATE record with status='running'
-   
-3a. Success:
-   └─→ UPDATE record with status='done', output_url=<url>, final_prompt=<prompt>
-   
-3b. Failure:
-   └─→ UPDATE record with status='error', error_message=<message>
-   
-4. Page refresh
-   └─→ RequestsPanel fetches all generations from DB
-   └─→ User clicks on any item
-   └─→ OutputDisplay shows stored output_url
+Generate Button Click
+  └─→ INSERT record (status='queued')
+  └─→ UPDATE record (status='running')
+  └─→ Send webhook request
+  └─→ Process response
+  └─→ UPDATE record (status='done', output_url=url)
+  └─→ React Query invalidates cache
+  └─→ OutputDisplay re-renders from DB
+
+Page Refresh
+  └─→ useGenerations fetches all records
+  └─→ RequestsPanel shows all history
+  └─→ User clicks any item
+  └─→ selectedJobId updated
+  └─→ OutputDisplay shows that generation's output
+
+n8n Callback (async)
+  └─→ n8n updates database directly
+  └─→ (Optional) Polling or realtime to detect changes
 ```
 
-## Technical Details
+## Optional Enhancement: Auto-Refresh for Async Callbacks
 
-### GenerateButton.tsx Changes
+If n8n updates the database asynchronously after the initial webhook response returns, add polling:
 
 ```text
-// Current flow (simplified):
-1. setIsGenerating(true)
-2. INSERT with status='running'
-3. Call webhook
-4. UPDATE with done/error
-
-// New flow:
-1. setIsGenerating(true)
-2. INSERT with status='queued'
-3. UPDATE with status='running'
-4. Call webhook
-5. UPDATE with done/error
+// In useGenerations hook
+const generationsQuery = useQuery({
+  queryKey: ['generations'],
+  queryFn: async () => { ... },
+  refetchInterval: (data) => {
+    // Poll every 5s if any record is still 'running'
+    const hasRunning = data?.some(g => g.status === 'running');
+    return hasRunning ? 5000 : false;
+  },
+});
 ```
 
-### RequestsPanel.tsx Changes
+This ensures UI updates when n8n writes back to the database.
 
-```text
-// Current:
-if (generation.output_url) {
-  setCurrentOutput({...});
-}
+## Verification Steps
 
-// New:
-setCurrentOutput(
-  generation.output_url 
-    ? { jobId, outputUrl, refinedPrompt } 
-    : null
-);
-```
-
-## Verification After Implementation
-
-1. Click Generate button
-2. Check database - new record with status='queued' should appear
-3. Record should update to 'running' then 'done' with output_url
-4. Refresh page
-5. All generations should still be visible in Requests panel
-6. Clicking any completed generation should display its image/video
-
-## What Stays the Same
-
-- Database schema (already correct)
-- `useGenerations` hook (already reads from DB)
-- `RequestDetailPanel` (already displays all fields)
-- Webhook integration
-- Model configurations
-
-## Important Notes
-
-1. RLS is disabled for this internal tool (as requested)
-2. No authentication is being added
-3. All data persists in Lovable Cloud database
-4. History survives page refresh by reading from database
+1. Click Generate → Record appears with 'queued' then 'running' status
+2. Generation completes → Output shows, Download works
+3. Refresh page → Same output visible when selecting from history
+4. Click on old history item → Its output displays, Download works
+5. Start new generation immediately after previous one completes
+6. Multiple generations can be created in sequence without refresh
