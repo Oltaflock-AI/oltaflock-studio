@@ -1,48 +1,74 @@
 
-# Add Oltaflock Logo to App
+
+# Connect External Supabase & Create Generations Table
 
 ## Overview
-Add the blue feather Oltaflock logo that was just uploaded to the project, displaying it in:
-1. Auth page header
-2. Main dashboard header  
-3. Browser favicon
+Connect this Lovable app to your external Supabase project and create the `generations` table with your specified schema.
 
-## Changes Required
+## Step 1: Update Supabase Credentials
 
-### 1. Copy Logo Files
-Copy the uploaded logo to two locations:
-- `src/assets/oltaflock-logo.jpeg` - For use in React components (Auth.tsx, Index.tsx)
-- `public/favicon.jpeg` - For the browser tab favicon
+Update the environment configuration to point to your external Supabase project:
 
-### 2. Update Auth Page (`src/pages/Auth.tsx`)
-Replace the placeholder Feather icon with the actual logo:
-- Add import: `import oltaflockLogo from '@/assets/oltaflock-logo.jpeg'`
-- Replace the icon container with an `<img>` tag showing the logo
-- Remove unused `Feather` from lucide-react imports
+| Variable | New Value |
+|----------|-----------|
+| `VITE_SUPABASE_URL` | `https://xynnkyipiwkvbavquypo.supabase.co` |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_9tknUXQO-nUK6_mnyc2bxA_G7Zh0OCe` |
+| `VITE_SUPABASE_PROJECT_ID` | `xynnkyipiwkvbavquypo` |
 
-### 3. Update Dashboard (`src/pages/Index.tsx`)  
-Replace the placeholder Feather icon with the actual logo:
-- Add import: `import oltaflockLogo from '@/assets/oltaflock-logo.jpeg'`
-- Replace the icon container with an `<img>` tag showing the logo
-- Remove unused `Feather` from lucide-react imports
+## Step 2: Create `generations` Table
 
-### 4. Verify Favicon
-The `index.html` already has the correct favicon link:
-```html
-<link rel="icon" href="/favicon.jpeg" type="image/jpeg">
+Run the following SQL in your Supabase SQL Editor (Dashboard → SQL Editor):
+
+```sql
+-- Create the generations table
+CREATE TABLE public.generations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id text UNIQUE NOT NULL,
+  type text NOT NULL,
+  model text NOT NULL,
+  user_prompt text NOT NULL,
+  final_prompt text,
+  model_params jsonb,
+  status text NOT NULL DEFAULT 'queued',
+  output_url text,
+  error text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+-- Add check constraint for type
+ALTER TABLE public.generations 
+ADD CONSTRAINT generations_type_check 
+CHECK (type IN ('image', 'video'));
+
+-- Add check constraint for status
+ALTER TABLE public.generations 
+ADD CONSTRAINT generations_status_check 
+CHECK (status IN ('queued', 'running', 'done', 'error'));
+
+-- Disable RLS (as requested for internal tool)
+ALTER TABLE public.generations DISABLE ROW LEVEL SECURITY;
+
+-- Grant access to anon and authenticated roles
+GRANT ALL ON public.generations TO anon;
+GRANT ALL ON public.generations TO authenticated;
 ```
-Just need to ensure the file is copied to `public/favicon.jpeg`.
 
-## Files to Create/Modify
+## Files to Modify
 
 | File | Action |
 |------|--------|
-| `src/assets/oltaflock-logo.jpeg` | Create (copy from upload) |
-| `public/favicon.jpeg` | Create (copy from upload) |
-| `src/pages/Auth.tsx` | Modify - use logo image |
-| `src/pages/Index.tsx` | Modify - use logo image |
+| `.env` | Update Supabase URL, key, and project ID |
 
-## Technical Notes
-- Using `src/assets` for React component imports provides better bundling and type safety
-- Using `public/` for favicon since it's referenced directly in HTML
-- The logo will appear at approximately 32x32px in the header and 40x40px on the auth page
+## Important Notes
+
+1. **Existing Lovable Cloud**: The current Lovable Cloud connection will remain but won't be used once we update the credentials
+2. **Manual SQL Required**: Since you're connecting to an external Supabase project, you'll need to run the SQL manually in your Supabase dashboard
+3. **No RLS**: As requested, Row Level Security is disabled for this internal tool
+4. **No Auth Changes**: Keeping setup simple with no authentication modifications
+
+## What Happens After Approval
+
+1. I will update the `.env` file with your Supabase credentials
+2. You will run the provided SQL in your Supabase SQL Editor to create the table
+3. The app will connect to your external Supabase project
+
