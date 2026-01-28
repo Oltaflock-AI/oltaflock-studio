@@ -135,8 +135,11 @@ export function GenerateButton() {
   const handleGenerate = async () => {
     if (!canGenerate || !modelConfig) return;
 
-    setIsGenerating(true);
+    // Clear previous state immediately for blank screen
+    setSelectedJobId(null);
     setCurrentOutput(null);
+    setPendingRating(false);
+    setIsGenerating(true);
 
     // Generate unique request_id with required format
     const requestId = generateJobId();
@@ -217,6 +220,8 @@ export function GenerateButton() {
 
         if (outputUrl) {
           toast.success('Generation complete');
+          // Show rating panel after successful generation
+          setPendingRating(true);
         } else {
           toast.error('No output received');
         }
