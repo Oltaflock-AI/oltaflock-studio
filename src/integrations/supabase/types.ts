@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      generations: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          final_prompt: string | null
+          id: string
+          model: string
+          model_params: Json | null
+          output_url: string | null
+          request_id: string
+          status: string
+          type: string
+          user_prompt: string
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          final_prompt?: string | null
+          id?: string
+          model: string
+          model_params?: Json | null
+          output_url?: string | null
+          request_id: string
+          status?: string
+          type: string
+          user_prompt: string
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          final_prompt?: string | null
+          id?: string
+          model?: string
+          model_params?: Json | null
+          output_url?: string | null
+          request_id?: string
+          status?: string
+          type?: string
+          user_prompt?: string
+        }
+        Relationships: []
+      }
       jobs: {
         Row: {
           completed_at: string | null

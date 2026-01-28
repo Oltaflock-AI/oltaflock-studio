@@ -64,7 +64,7 @@ export function GenerateButton() {
         final_prompt: null,
         status: 'running',
         output_url: null,
-        error: null,
+        error_message: null,
         model_params: modelParams,
       });
       
@@ -141,7 +141,7 @@ export function GenerateButton() {
           status: outputUrl ? 'done' : 'error',
           final_prompt: finalPrompt || null,
           output_url: outputUrl || null,
-          error: outputUrl ? null : 'No output URL in response',
+          error_message: outputUrl ? null : 'No output URL in response',
         },
       });
 
@@ -158,7 +158,7 @@ export function GenerateButton() {
         id: dbGeneration.id,
         updates: {
           status: 'error',
-          error: errorMessage,
+          error_message: errorMessage,
         },
       });
       
