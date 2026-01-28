@@ -1,18 +1,15 @@
 import { useGenerationStore } from '@/store/generationStore';
-import { useJobs } from '@/hooks/useJobs';
-import { useAuth } from '@/hooks/useAuth';
+import { useGenerations } from '@/hooks/useGenerations';
 import { ALL_MODELS, generateJobId, MODEL_API_NAMES } from '@/types/generation';
 import type { Model } from '@/types/generation';
 import { Button } from '@/components/ui/button';
 import { Play, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Json } from '@/integrations/supabase/types';
 
 const WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT';
 
 export function GenerateButton() {
-  const { user } = useAuth();
-  const { createJob, updateJob } = useJobs();
+  const { createGeneration, updateGeneration } = useGenerations();
   const {
     mode,
     selectedModel,
@@ -34,7 +31,6 @@ export function GenerateButton() {
   const hasRequiredFiles = true;
 
   const canGenerate = 
-    user &&
     selectedModel && 
     generationType && 
     rawPrompt.trim() && 
@@ -43,62 +39,57 @@ export function GenerateButton() {
     !pendingRating;
 
   const handleGenerate = async () => {
-    if (!canGenerate || !modelConfig || !user) return;
+    if (!canGenerate || !modelConfig) return;
 
     setIsGenerating(true);
     setCurrentOutput(null);
 
-    // Generate unique job_id with required format
-    const jobId = generateJobId();
+    // Generate unique request_id with required format
+    const requestId = generateJobId();
     
-    // Build controls object
-    const submittedControls = { ...controls };
+    // Build model_params object from controls
+    const modelParams = { ...controls };
     
     // Get API model name (e.g., "seedream/4.5-text-to-image")
     const apiModelName = `${MODEL_API_NAMES[selectedModel as Model]}-${generationType}`;
 
-    // Create job in database
-    let dbJob;
+    // Create generation in database
+    let dbGeneration;
     try {
-      dbJob = await createJob({
-        job_id: jobId,
-        mode,
+      dbGeneration = await createGeneration({
+        request_id: requestId,
+        type: mode,
         model: modelConfig.displayName,
-        generation_type: generationType,
-        raw_prompt: rawPrompt,
-        refined_prompt: null,
-        status: 'processing',
+        user_prompt: rawPrompt,
+        final_prompt: null,
+        status: 'running',
         output_url: null,
-        error_message: null,
-        controls: submittedControls as Json,
-        reference_files: null,
-        workflow_id: null,
-        completed_at: null,
+        error: null,
+        model_params: modelParams,
       });
       
-      setSelectedJobId(dbJob.id);
+      setSelectedJobId(dbGeneration.id);
     } catch (error) {
-      toast.error('Failed to create job');
+      console.error('Failed to create generation:', error);
+      toast.error('Failed to create generation');
       setIsGenerating(false);
       return;
     }
 
     try {
-      let response: Response;
-
-      // Send as JSON with job_id and proper model name format
-      response = await fetch(WEBHOOK_URL, {
+      // Send as JSON with request_id and proper model name format
+      const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          job_id: jobId,
+          job_id: requestId,
           mode,
           model: apiModelName,
           generation_type: generationType,
           raw_prompt: rawPrompt,
-          controls: submittedControls,
+          controls: modelParams,
         }),
       });
 
@@ -110,7 +101,7 @@ export function GenerateButton() {
       
       // Parse the response - handle nested resultJson structure
       let outputUrl = '';
-      let refinedPrompt = '';
+      let finalPrompt = '';
       
       // Check for nested resultJson (from n8n webhook)
       if (data.data?.resultJson) {
@@ -132,26 +123,25 @@ export function GenerateButton() {
         outputUrl = data.output_url;
       }
       
-      // Get refined prompt from response
-      refinedPrompt = data.refined_prompt || data.data?.refined_prompt || '';
+      // Get final prompt from response
+      finalPrompt = data.refined_prompt || data.data?.refined_prompt || '';
       
       const output = {
-        jobId: jobId,
+        jobId: requestId,
         outputUrl,
-        refinedPrompt,
+        refinedPrompt: finalPrompt,
       };
 
       setCurrentOutput(output);
       
-      // Update job in database
-      await updateJob({
-        id: dbJob.id,
+      // Update generation in database
+      await updateGeneration({
+        id: dbGeneration.id,
         updates: {
-          status: outputUrl ? 'completed' : 'failed',
-          refined_prompt: refinedPrompt || null,
+          status: outputUrl ? 'done' : 'error',
+          final_prompt: finalPrompt || null,
           output_url: outputUrl || null,
-          error_message: outputUrl ? null : 'No output URL in response',
-          completed_at: new Date().toISOString(),
+          error: outputUrl ? null : 'No output URL in response',
         },
       });
 
@@ -164,12 +154,11 @@ export function GenerateButton() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
-      await updateJob({
-        id: dbJob.id,
+      await updateGeneration({
+        id: dbGeneration.id,
         updates: {
-          status: 'failed',
-          error_message: errorMessage,
-          completed_at: new Date().toISOString(),
+          status: 'error',
+          error: errorMessage,
         },
       });
       
@@ -182,7 +171,7 @@ export function GenerateButton() {
 
   const handleRegenerate = async () => {
     if (!canGenerate) return;
-    // Regenerate creates a NEW job_id
+    // Regenerate creates a NEW request_id
     await handleGenerate();
   };
 

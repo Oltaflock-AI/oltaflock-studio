@@ -1,29 +1,33 @@
-import { useJobs, type DbJob } from '@/hooks/useJobs';
+import { useGenerations, type GenerationStatus } from '@/hooks/useGenerations';
 import { useGenerationStore } from '@/store/generationStore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { TYPE_LABELS, STATUS_LABELS } from '@/types/generation';
-import type { JobStatus, GenerationType } from '@/types/generation';
-import { format, formatDistanceStrict } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Image as ImageIcon, Video, FileText, AlertCircle, Clock, Hash, Workflow } from 'lucide-react';
+import { Image as ImageIcon, Video, FileText, AlertCircle, Clock, Hash } from 'lucide-react';
 
-const statusStyles: Record<JobStatus, string> = {
+const statusLabels: Record<GenerationStatus, string> = {
+  queued: 'Queued',
+  running: 'Running',
+  done: 'Done',
+  error: 'Error',
+};
+
+const statusStyles: Record<GenerationStatus, string> = {
   queued: 'bg-muted text-muted-foreground',
-  processing: 'bg-primary/10 text-primary',
-  completed: 'bg-green-500/10 text-green-500',
-  failed: 'bg-destructive/10 text-destructive',
-  deleted: 'bg-muted text-muted-foreground',
+  running: 'bg-primary/10 text-primary',
+  done: 'bg-green-500/10 text-green-500',
+  error: 'bg-destructive/10 text-destructive',
 };
 
 export function RequestDetailPanel() {
-  const { jobs } = useJobs();
+  const { generations } = useGenerations();
   const { selectedJobId } = useGenerationStore();
   
-  const selectedJob = jobs.find((job) => job.id === selectedJobId);
+  const selectedGeneration = generations.find((g) => g.id === selectedJobId);
 
-  if (!selectedJob) {
+  if (!selectedGeneration) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-4">
         <FileText className="h-8 w-8 mb-2 opacity-50" />
@@ -32,14 +36,10 @@ export function RequestDetailPanel() {
     );
   }
 
-  const status = selectedJob.status as JobStatus;
-  const ModeIcon = selectedJob.mode === 'image' ? ImageIcon : Video;
-  const controls = selectedJob.controls as Record<string, unknown> | null;
-  const completedAt = selectedJob.completed_at ? new Date(selectedJob.completed_at) : null;
-  const createdAt = new Date(selectedJob.created_at);
-  const timeToComplete = completedAt 
-    ? formatDistanceStrict(createdAt, completedAt)
-    : null;
+  const status = selectedGeneration.status;
+  const ModeIcon = selectedGeneration.type === 'image' ? ImageIcon : Video;
+  const modelParams = selectedGeneration.model_params;
+  const createdAt = new Date(selectedGeneration.created_at);
 
   return (
     <ScrollArea className="h-full">
@@ -49,10 +49,10 @@ export function RequestDetailPanel() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ModeIcon className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium capitalize">{selectedJob.mode}</span>
+              <span className="text-sm font-medium capitalize">{selectedGeneration.type}</span>
             </div>
             <Badge className={cn('text-xs', statusStyles[status])}>
-              {STATUS_LABELS[status] || status}
+              {statusLabels[status]}
             </Badge>
           </div>
         </div>
@@ -66,39 +66,19 @@ export function RequestDetailPanel() {
             Request ID
           </label>
           <p className="text-xs font-mono bg-muted/50 px-2 py-1.5 rounded break-all">
-            {selectedJob.id}
+            {selectedGeneration.request_id}
           </p>
         </div>
 
-        {/* Job ID */}
+        {/* Timestamp */}
         <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Job ID
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            Created
           </label>
-          <p className="text-xs font-mono bg-muted/50 px-2 py-1.5 rounded break-all">
-            {selectedJob.job_id}
+          <p className="text-xs">
+            {format(createdAt, 'PPpp')}
           </p>
-        </div>
-
-        {/* Timestamps */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              Created
-            </label>
-            <p className="text-xs">
-              {format(createdAt, 'PPpp')}
-            </p>
-          </div>
-          {timeToComplete && (
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Duration
-              </label>
-              <p className="text-xs">{timeToComplete}</p>
-            </div>
-          )}
         </div>
 
         <Separator />
@@ -108,65 +88,52 @@ export function RequestDetailPanel() {
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Model
           </label>
-          <p className="text-sm font-medium">{selectedJob.model}</p>
+          <p className="text-sm font-medium">{selectedGeneration.model}</p>
         </div>
 
-        {/* Generation Type */}
+        {/* Type */}
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Mode
+            Type
           </label>
-          <p className="text-sm">{TYPE_LABELS[selectedJob.generation_type as GenerationType] || selectedJob.generation_type}</p>
+          <p className="text-sm capitalize">{selectedGeneration.type}</p>
         </div>
-
-        {/* Workflow ID (if available) */}
-        {selectedJob.workflow_id && (
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-              <Workflow className="h-3 w-3" />
-              Workflow
-            </label>
-            <p className="text-xs font-mono bg-muted/50 px-2 py-1.5 rounded">
-              {selectedJob.workflow_id}
-            </p>
-          </div>
-        )}
 
         <Separator />
 
-        {/* Raw Prompt */}
+        {/* User Prompt */}
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Raw Prompt
+            User Prompt
           </label>
           <p className="text-sm bg-muted/50 px-2 py-1.5 rounded whitespace-pre-wrap max-h-32 overflow-y-auto">
-            {selectedJob.raw_prompt}
+            {selectedGeneration.user_prompt}
           </p>
         </div>
 
-        {/* Refined Prompt */}
-        {selectedJob.refined_prompt && (
+        {/* Final Prompt */}
+        {selectedGeneration.final_prompt && (
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Backend Refined Prompt
+              Final Prompt
             </label>
             <p className="text-sm bg-muted/50 px-2 py-1.5 rounded whitespace-pre-wrap text-muted-foreground max-h-32 overflow-y-auto">
-              {selectedJob.refined_prompt}
+              {selectedGeneration.final_prompt}
             </p>
           </div>
         )}
 
         <Separator />
 
-        {/* Controls */}
+        {/* Model Params */}
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Controls
+            Model Parameters
           </label>
           <div className="bg-muted/50 px-2 py-1.5 rounded">
-            {controls && Object.entries(controls).length > 0 ? (
+            {modelParams && Object.entries(modelParams).length > 0 ? (
               <div className="space-y-1">
-                {Object.entries(controls).map(([key, value]) => (
+                {Object.entries(modelParams).map(([key, value]) => (
                   <div key={key} className="flex justify-between text-xs">
                     <span className="text-muted-foreground">{key}:</span>
                     <span className="font-mono">
@@ -180,7 +147,7 @@ export function RequestDetailPanel() {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">No controls set</p>
+              <p className="text-xs text-muted-foreground">No parameters set</p>
             )}
           </div>
         </div>
@@ -188,20 +155,20 @@ export function RequestDetailPanel() {
         <Separator />
 
         {/* Output */}
-        {selectedJob.output_url && (
+        {selectedGeneration.output_url && (
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Output
             </label>
-            {selectedJob.mode === 'image' ? (
+            {selectedGeneration.type === 'image' ? (
               <img 
-                src={selectedJob.output_url} 
+                src={selectedGeneration.output_url} 
                 alt="Generated output"
                 className="w-full rounded-md border border-border"
               />
             ) : (
               <video 
-                src={selectedJob.output_url}
+                src={selectedGeneration.output_url}
                 controls
                 className="w-full rounded-md border border-border"
               />
@@ -210,14 +177,14 @@ export function RequestDetailPanel() {
         )}
 
         {/* Error */}
-        {selectedJob.error_message && (
+        {selectedGeneration.error && (
           <div className="space-y-1">
             <label className="text-xs font-medium text-destructive uppercase tracking-wide flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
               Error
             </label>
             <p className="text-sm text-destructive bg-destructive/10 px-2 py-1.5 rounded">
-              {selectedJob.error_message}
+              {selectedGeneration.error}
             </p>
           </div>
         )}
