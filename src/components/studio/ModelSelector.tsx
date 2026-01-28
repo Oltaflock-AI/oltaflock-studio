@@ -15,11 +15,14 @@ import { Image as ImageIcon, Video } from 'lucide-react';
 const MODEL_DESCRIPTIONS: Record<Model, string> = {
   'nano-banana-pro': 'Fast, high-quality image generation',
   'seedream-4.5': 'Photorealistic image synthesis',
-  'veo-3': 'High-fidelity video generation',
+  'flux-2': 'Advanced diffusion-based image generation',
+  'gpt-4o': 'GPT-4o powered image generation',
+  'z-image': 'Z Image text-to-image generation',
   'veo-3.1': 'Enhanced video with better motion',
   'sora-2-pro': 'Cinematic video generation',
   'kling-2.6': 'Efficient video with sound support',
   'seedance-1.0': 'Motion-focused video generation',
+  'grok-imagine': 'Grok-powered video generation',
 };
 
 export function ModelSelector() {
