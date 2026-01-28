@@ -35,8 +35,7 @@ export function GenerateButton() {
     generationType && 
     rawPrompt.trim() && 
     hasRequiredFiles &&
-    !isGenerating &&
-    !pendingRating;
+    !isGenerating;
 
   const handleGenerate = async () => {
     if (!canGenerate || !modelConfig) return;
@@ -152,7 +151,6 @@ export function GenerateButton() {
       });
 
       if (outputUrl) {
-        setPendingRating(true);
         toast.success('Generation complete');
       } else {
         toast.error('No output received');

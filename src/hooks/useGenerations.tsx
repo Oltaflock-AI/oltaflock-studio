@@ -55,6 +55,12 @@ export function useGenerations() {
       if (error) throw error;
       return data as DbGeneration[];
     },
+    // Poll every 5s if any record is still 'running' or 'queued'
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const hasPending = data?.some(g => g.status === 'running' || g.status === 'queued');
+      return hasPending ? 5000 : false;
+    },
   });
 
   const createGenerationMutation = useMutation({
