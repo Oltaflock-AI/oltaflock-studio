@@ -111,8 +111,21 @@ export type ModelControls =
   | Kling26Controls
   | Seedance10Controls;
 
-// Job Status - Extended for proper lifecycle
+// Job Status - Extended for proper lifecycle (legacy)
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'deleted';
+
+// Generation Status - matches generations table
+export type GenerationStatus = 'queued' | 'running' | 'done' | 'error';
+
+// Map generation status to display status
+export const mapGenerationStatus = (status: GenerationStatus): JobStatus => {
+  switch (status) {
+    case 'queued': return 'queued';
+    case 'running': return 'processing';
+    case 'done': return 'completed';
+    case 'error': return 'failed';
+  }
+};
 
 // Generation Request
 export interface GenerationRequest {

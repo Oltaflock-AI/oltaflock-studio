@@ -1,42 +1,40 @@
-import { useJobs, type DbJob } from '@/hooks/useJobs';
+import { useGenerations, type DbGeneration, type GenerationStatus } from '@/hooks/useGenerations';
 import { useGenerationStore } from '@/store/generationStore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Image as ImageIcon, Video, Clock, CheckCircle2, XCircle, Loader2, Trash2, FileText, RotateCcw } from 'lucide-react';
+import { Image as ImageIcon, Video, Clock, CheckCircle2, XCircle, Loader2, Trash2, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import type { JobStatus } from '@/types/generation';
 
-const statusConfig: Record<JobStatus, { icon: React.ElementType; className: string; label: string }> = {
+const statusConfig: Record<GenerationStatus, { icon: React.ElementType; className: string; label: string }> = {
   queued: { icon: Clock, className: 'text-muted-foreground', label: 'Queued' },
-  processing: { icon: Loader2, className: 'text-primary animate-spin', label: 'Running' },
-  completed: { icon: CheckCircle2, className: 'text-green-500', label: 'Completed' },
-  failed: { icon: XCircle, className: 'text-destructive', label: 'Failed' },
-  deleted: { icon: Trash2, className: 'text-muted-foreground', label: 'Deleted' },
+  running: { icon: Loader2, className: 'text-primary animate-spin', label: 'Running' },
+  done: { icon: CheckCircle2, className: 'text-green-500', label: 'Done' },
+  error: { icon: XCircle, className: 'text-destructive', label: 'Error' },
 };
 
 export function RequestsPanel() {
-  const { jobs, isLoading, deleteJob } = useJobs();
+  const { generations, isLoading, deleteGeneration } = useGenerations();
   const { selectedJobId, setSelectedJobId, setCurrentOutput } = useGenerationStore();
 
-  const handleSelectJob = (job: DbJob) => {
-    setSelectedJobId(job.id);
-    if (job.output_url) {
+  const handleSelectGeneration = (generation: DbGeneration) => {
+    setSelectedJobId(generation.id);
+    if (generation.output_url) {
       setCurrentOutput({
-        jobId: job.job_id,
-        outputUrl: job.output_url,
-        refinedPrompt: job.refined_prompt || '',
+        jobId: generation.request_id,
+        outputUrl: generation.output_url,
+        refinedPrompt: generation.final_prompt || '',
       });
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent, jobId: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     try {
-      await deleteJob(jobId);
+      await deleteGeneration(id);
     } catch (error) {
-      console.error('Failed to delete job:', error);
+      console.error('Failed to delete generation:', error);
     }
   };
 
@@ -49,7 +47,7 @@ export function RequestsPanel() {
     );
   }
 
-  if (jobs.length === 0) {
+  if (generations.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-4">
         <FileText className="h-8 w-8 mb-2 opacity-50" />
@@ -62,19 +60,19 @@ export function RequestsPanel() {
   return (
     <ScrollArea className="h-full">
       <div className="space-y-1 p-2">
-        {jobs.map((job) => {
-          const status = job.status as JobStatus;
+        {generations.map((generation) => {
+          const status = generation.status;
           const StatusIcon = statusConfig[status]?.icon || Clock;
-          const isSelected = selectedJobId === job.id;
-          const ModeIcon = job.mode === 'image' ? ImageIcon : Video;
-          const promptPreview = job.raw_prompt.length > 40 
-            ? job.raw_prompt.slice(0, 40) + '...' 
-            : job.raw_prompt;
+          const isSelected = selectedJobId === generation.id;
+          const ModeIcon = generation.type === 'image' ? ImageIcon : Video;
+          const promptPreview = generation.user_prompt.length > 40 
+            ? generation.user_prompt.slice(0, 40) + '...' 
+            : generation.user_prompt;
 
           return (
             <div
-              key={job.id}
-              onClick={() => handleSelectJob(job)}
+              key={generation.id}
+              onClick={() => handleSelectGeneration(generation)}
               className={cn(
                 'w-full text-left rounded-md border p-3 space-y-2 transition-colors cursor-pointer group',
                 isSelected 
@@ -92,7 +90,7 @@ export function RequestsPanel() {
                 <div className="flex items-center gap-2">
                   <ModeIcon className="h-3 w-3 text-muted-foreground" />
                   <span className="text-[10px] font-medium text-muted-foreground truncate max-w-[100px]">
-                    {job.model}
+                    {generation.model}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
@@ -101,7 +99,7 @@ export function RequestsPanel() {
                     variant="ghost"
                     size="icon"
                     className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => handleDelete(e, job.id)}
+                    onClick={(e) => handleDelete(e, generation.id)}
                   >
                     <Trash2 className="h-2.5 w-2.5 text-muted-foreground hover:text-destructive" />
                   </Button>
@@ -114,16 +112,16 @@ export function RequestsPanel() {
                   variant="outline" 
                   className={cn(
                     "text-[9px] px-1 py-0 h-4",
-                    status === 'completed' && "border-green-500/50 text-green-500",
-                    status === 'failed' && "border-destructive/50 text-destructive",
-                    status === 'processing' && "border-primary/50 text-primary"
+                    status === 'done' && "border-green-500/50 text-green-500",
+                    status === 'error' && "border-destructive/50 text-destructive",
+                    status === 'running' && "border-primary/50 text-primary"
                   )}
                 >
                   {statusConfig[status]?.label || status}
                 </Badge>
                 <div className="flex items-center gap-1">
                   <Clock className="h-2.5 w-2.5" />
-                  <span>{format(new Date(job.created_at), 'HH:mm:ss')}</span>
+                  <span>{format(new Date(generation.created_at), 'HH:mm:ss')}</span>
                 </div>
               </div>
             </div>
