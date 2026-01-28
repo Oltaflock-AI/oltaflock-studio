@@ -1,349 +1,252 @@
 
-# Complete Update: OltaFlock Creative Studio
+# Fix Balance, Download, Rating & UI Reset Issues
 
 ## Overview
-This plan implements all requested changes including:
-1. Global app renaming to "OltaFlock Creative Studio"
-2. New image models (Flux 2, GPT-4o Image, Z Image)
-3. New video model (Grok Imagine)
-4. Remove Veo 3 entirely
-5. Update Seedream 4.5 aspect ratios and Seedance 1.0 variants
-6. GPT-4o Image with dedicated API endpoint and callback handling
-7. Check Remaining Balance feature with database persistence
-8. Password reset functionality
+This plan addresses four issues:
+1. Check balance webhook connection (verify and fix)
+2. Download button CORS failure
+3. Add star rating prompt after generation
+4. Reset UI to blank screen when starting new generation
 
 ---
 
-## Part 1: Global App Settings
+## Issue 1: Balance Button Webhook Connection
 
-### Rename to "OltaFlock Creative Studio"
+### Current State
+The `BalanceButton.tsx` already has the correct webhook URL (`https://directive-ai.app.n8n.cloud/webhook/remainder-credits`) and makes a POST request. The code looks correct.
 
-| File | Current | New |
-|------|---------|-----|
-| `index.html` | "Oltaflock AI Studio" | "OltaFlock Creative Studio" |
-| `src/pages/Index.tsx` | "Oltaflock AI Studio" | "OltaFlock Creative Studio" |
-| `src/pages/Auth.tsx` | "Oltaflock AI Studio" | "OltaFlock Creative Studio" |
+### Potential Issue
+The webhook may be returning an unexpected response format, or there might be a network error being swallowed.
+
+### Fix
+Add better error logging and response parsing in `BalanceButton.tsx`:
+- Log the full response for debugging
+- Handle more response formats
+- Show the raw response if balance extraction fails
 
 ---
 
-## Part 2: Image Models Configuration
+## Issue 2: Download Button Fails (CORS)
 
-### Update `src/types/generation.ts`
+### Problem
+The current download implementation uses `fetch()` to download the image, which fails due to CORS restrictions when the image is hosted on a different domain.
 
-**ImageModel type:**
+### Current Code (OutputDisplay.tsx line 19-36)
 ```text
-Before: 'nano-banana-pro' | 'seedream-4.5'
-After:  'nano-banana-pro' | 'seedream-4.5' | 'flux-2' | 'gpt-4o' | 'z-image'
-```
-
-**VideoModel type (remove Veo 3):**
-```text
-Before: 'veo-3' | 'veo-3.1' | 'sora-2-pro' | 'kling-2.6' | 'seedance-1.0'
-After:  'veo-3.1' | 'sora-2-pro' | 'kling-2.6' | 'seedance-1.0' | 'grok-imagine'
-```
-
-**MODEL_API_NAMES updates:**
-
-| Model ID | API Name |
-|----------|----------|
-| flux-2 | flux/2 |
-| gpt-4o | gpt/4o |
-| z-image | z-image |
-| grok-imagine | grok-imagine/text-to-video |
-| (remove) veo-3 | - |
-
-**New control interfaces:**
-```text
-interface Flux2Controls {
-  aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
-}
-
-interface GPT4oControls {
-  size: '1:1' | '3:2' | '2:3';
-  isEnhance: boolean;
-}
-
-interface ZImageControls {
-  aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
-}
-
-interface GrokImagineControls {
-  aspectRatio: '2:3' | '3:2' | '1:1' | '9:16' | '16:9';
-  mode: 'fun' | 'normal' | 'spicy';
+const handleDownload = async () => {
+  const response = await fetch(selectedGeneration.output_url);  // FAILS: CORS
+  const blob = await response.blob();
+  ...
 }
 ```
 
-**Update Seedream45Controls interface:**
-```text
-Before: aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '2:3'
-After:  aspectRatio: '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '2:3' | '3:2' | '21:9'
-```
-
-**Update Seedance10Controls interface:**
-```text
-Before: variant: 'lite' | 'pro' | 'pro-fast'
-After:  variant: 'lite' | 'pro'
-```
-
-**Update IMAGE_MODELS array - add:**
-- Flux 2 (id: 'flux-2', displayName: 'Flux 2')
-- GPT-4o Image (id: 'gpt-4o', displayName: 'GPT-4o Image')
-- Z Image (id: 'z-image', displayName: 'Z Image')
-
-**Update VIDEO_MODELS array:**
-- Remove: veo-3 entry
-- Add: grok-imagine (id: 'grok-imagine', displayName: 'Grok Imagine')
+### Fix
+Use a direct link download approach instead of fetch:
+- Create an anchor element with `download` attribute
+- Set `href` directly to the `output_url`
+- For cross-origin images, open in new tab as fallback
 
 ---
 
-## Part 3: GPT-4o Image Integration (Dedicated API)
+## Issue 3: Star Rating After Generation
 
-GPT-4o Image uses a **different API endpoint** than other models.
+### Current State
+- `RatingPanel.tsx` exists but depends on `currentOutput` and `pendingRating`
+- `pendingRating` is never set to `true` after generation completes
+- Rating data stored in Zustand `jobs` array but NOT in the database
+- Database `generations` table has NO `rating` column
 
-### GenerateButton.tsx Updates
+### Required Changes
 
-Add special handling for GPT-4o:
-
-```text
-// When model is 'gpt-4o', use dedicated API:
-// POST https://api.kie.ai/api/v1/gpt4o-image/generate
-// Headers:
-//   Authorization: Bearer <API_KEY>
-//   Content-Type: application/json
-// Body:
-//   {
-//     "prompt": "<user prompt>",
-//     "size": "1:1" | "3:2" | "2:3",
-//     "callBackUrl": "<n8n callback url>",
-//     "isEnhance": boolean
-//   }
-
-// For all other models, continue using the existing n8n webhook
+#### A. Add `rating` column to database
+Create migration to add:
+```sql
+ALTER TABLE generations ADD COLUMN rating integer CHECK (rating >= 1 AND rating <= 5);
 ```
 
-### Required: Add API Key Secret
+#### B. Update `useGenerations` hook
+- Add `rating` to `DbGeneration` interface
+- Add `rating` to `GenerationUpdate` interface
+- Add `updateRating` mutation
 
-The GPT-4o Image API requires a `KIE_API_KEY` secret for authentication.
+#### C. Update `GenerateButton.tsx`
+After successful generation with output:
+- Set `pendingRating: true` to show the rating panel
 
-### GPT-4o Image Control Component
-
-Create `src/components/studio/controls/GPT4oControls.tsx`:
-- Size selector: 1:1, 3:2, 2:3
-- Prompt enhancement toggle (isEnhance)
+#### D. Update `RatingPanel.tsx`
+- Read from database instead of Zustand store
+- Use `useGenerations` hook to update rating in database
+- Show when generation is `done` status AND has no rating yet
 
 ---
 
-## Part 4: Check Remaining Balance Feature
+## Issue 4: UI Not Resetting for New Generation
 
-### Database Table: `credit_logs`
+### Problem
+When user clicks Generate for a new image:
+- `selectedJobId` still points to the previous completed generation
+- OutputDisplay shows the previous image instead of blank/generating state
 
-Create new table with schema:
+### Current Flow
+1. User clicks Generate
+2. `setIsGenerating(true)` is called
+3. New DB record created with `queued` status
+4. `setSelectedJobId(newId)` selects the NEW job
+5. OutputDisplay should show blank/loading for new job
 
-| Field | Type | Notes |
-|-------|------|-------|
-| id | uuid (PK) | Auto-generated |
-| balance | text | Balance value from webhook |
-| raw_response | jsonb | Full webhook response for debugging |
-| checked_at | timestamptz | Auto timestamp |
+### Actual Issue
+Looking at `GenerateButton.tsx` line 139: `setCurrentOutput(null)` is called but `setSelectedJobId` is set to the new job which has no output yet.
 
-### New Hook: `useCreditLogs.tsx`
+The problem is in `OutputDisplay.tsx`:
+- It finds `selectedGeneration` from database
+- If the new job exists but has no `output_url`, it shows the empty state
 
-```text
-- Query latest credit log for display
-- Mutation to create new log entry
-- No polling needed (manual trigger only)
-```
+This should already work. Let me check if the issue is that `selectedJobId` is not being cleared.
 
-### New Component: `BalanceButton.tsx`
+### Fix
+In `GenerateButton.tsx`, when starting a new generation:
+1. First clear `selectedJobId` to show blank state immediately
+2. After creating the DB record, set `selectedJobId` to the new job
 
-Location: Header area (next to UserMenu)
-
-Functionality:
-- Button labeled "Check Remaining Balance"
-- On click: POST to https://directive-ai.app.n8n.cloud/webhook/remainder-credits
-- Show loading state during request
-- Insert result into credit_logs table
-- Display balance in UI
-- Handle errors gracefully
-
-### UI Display
-
-- Show most recent balance from database
-- Persist after page refresh
-- Update immediately after new check
+This ensures the UI immediately shows blank, then shows the new job's progress.
 
 ---
 
-## Part 5: UI Control Components
-
-### Files to Create
-
-| File | Purpose |
-|------|---------|
-| `src/components/studio/controls/Flux2Controls.tsx` | Aspect ratio selector |
-| `src/components/studio/controls/GPT4oControls.tsx` | Size + isEnhance toggle |
-| `src/components/studio/controls/ZImageControls.tsx` | Aspect ratio selector |
-| `src/components/studio/controls/GrokImagineControls.tsx` | Aspect ratio + mode |
-| `src/components/studio/BalanceButton.tsx` | Check balance feature |
-| `src/hooks/useCreditLogs.tsx` | Credit logs data hook |
-
-### Files to Update
+## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/studio/controls/Seedream45Controls.tsx` | Update aspect ratios to 8 options |
-| `src/components/studio/controls/Seedance10Controls.tsx` | Remove "pro-fast" variant |
-| `src/components/studio/ModelControls.tsx` | Add new model mappings, remove veo-3 |
-| `src/components/studio/ModelSelector.tsx` | Add descriptions for new models, remove veo-3 |
-| `src/components/studio/GenerateButton.tsx` | Add GPT-4o dedicated API handling |
-| `src/pages/Index.tsx` | Add BalanceButton to header |
-
-### Files to Delete
-
-- `src/components/studio/controls/Veo3Controls.tsx`
+| `src/components/studio/BalanceButton.tsx` | Add better error handling and logging |
+| `src/components/studio/OutputDisplay.tsx` | Fix download to use direct link instead of fetch |
+| `src/components/studio/RatingPanel.tsx` | Read from database, update rating in database |
+| `src/components/studio/GenerateButton.tsx` | Set `pendingRating: true` after success, clear selectedJobId first |
+| `src/hooks/useGenerations.tsx` | Add rating to interfaces and update mutation |
+| Database migration | Add `rating` column to `generations` table |
 
 ---
 
-## Part 6: Auth Improvements
+## Detailed Changes
 
-### Password Reset
+### 1. Database Migration
 
-**`src/hooks/useAuth.tsx`** - Add:
-```text
-resetPassword: (email: string) => Promise<{ error: Error | null }>
-// Uses supabase.auth.resetPasswordForEmail()
+```sql
+-- Add rating column to generations table
+ALTER TABLE generations 
+ADD COLUMN rating integer 
+CHECK (rating >= 1 AND rating <= 5);
 ```
 
-**`src/pages/Auth.tsx`** - Add:
-- "Forgot Password?" link below password field
-- Password reset form with email input
-- Success message when reset email sent
+### 2. useGenerations.tsx Updates
+
+Add to `DbGeneration` interface:
+```text
+rating: number | null;
+```
+
+Add to `GenerationUpdate` interface:
+```text
+rating?: number | null;
+```
+
+### 3. OutputDisplay.tsx - Fix Download
+
+```text
+const handleDownload = () => {
+  if (!selectedGeneration?.output_url) return;
+  
+  // Create a temporary link and trigger download
+  const link = document.createElement('a');
+  link.href = selectedGeneration.output_url;
+  link.download = `output-${selectedGeneration.request_id}.${mediaType === 'image' ? 'png' : 'mp4'}`;
+  link.target = '_blank'; // Fallback for cross-origin
+  link.rel = 'noopener noreferrer';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  toast.success('Download started');
+};
+```
+
+### 4. RatingPanel.tsx - Database-Driven
+
+```text
+- Import useGenerations hook
+- Get selectedJobId from store
+- Find generation from database by selectedJobId
+- Show panel when generation.status === 'done' && !generation.rating
+- On rating click: call updateGeneration with rating value
+- Hide panel after rating is saved
+```
+
+### 5. GenerateButton.tsx - UI Reset & Rating
+
+At start of `handleGenerate`:
+```text
+setSelectedJobId(null);  // Clear to show blank immediately
+setCurrentOutput(null);
+setIsGenerating(true);
+```
+
+After successful generation:
+```text
+setPendingRating(true);  // Show rating panel
+```
+
+### 6. BalanceButton.tsx - Better Error Handling
+
+Add console.log for debugging:
+```text
+console.log('Balance webhook response:', data);
+```
+
+Show raw response if balance extraction fails:
+```text
+const balance = data.balance || data.remaining || data.credits || 
+                data.data?.balance || JSON.stringify(data);
+```
 
 ---
 
-## Part 7: Files Summary
+## Data Flow After Fix
 
-### Create (8 files)
-
-1. `src/components/studio/controls/Flux2Controls.tsx`
-2. `src/components/studio/controls/GPT4oControls.tsx`
-3. `src/components/studio/controls/ZImageControls.tsx`
-4. `src/components/studio/controls/GrokImagineControls.tsx`
-5. `src/components/studio/BalanceButton.tsx`
-6. `src/hooks/useCreditLogs.tsx`
-7. Database migration for `credit_logs` table
-
-### Modify (11 files)
-
-1. `index.html` - App name
-2. `src/types/generation.ts` - Types, models, API names
-3. `src/pages/Index.tsx` - Header name + BalanceButton
-4. `src/pages/Auth.tsx` - Header name + password reset
-5. `src/hooks/useAuth.tsx` - Add resetPassword
-6. `src/components/studio/ModelSelector.tsx` - Descriptions
-7. `src/components/studio/ModelControls.tsx` - Mappings
-8. `src/components/studio/controls/Seedream45Controls.tsx` - Aspect ratios
-9. `src/components/studio/controls/Seedance10Controls.tsx` - Remove variant
-10. `src/components/studio/GenerateButton.tsx` - GPT-4o API handling
-11. `src/components/studio/UserMenu.tsx` - (optional) add balance display
-
-### Delete (1 file)
-
-- `src/components/studio/controls/Veo3Controls.tsx`
-
----
-
-## Technical Details
-
-### Model ID to API Name Mapping (Final)
-
-| Model ID | Display Name | API Name |
-|----------|--------------|----------|
-| nano-banana-pro | Nano Banana Pro | nano-banana/pro-text-to-image |
-| seedream-4.5 | Seedream 4.5 | seedream/4.5-text-to-image |
-| flux-2 | Flux 2 | flux/2-text-to-image |
-| gpt-4o | GPT-4o Image | gpt/4o-text-to-image |
-| z-image | Z Image | z-image-text-to-image |
-| veo-3.1 | Veo 3.1 | veo/3.1-text-to-video |
-| sora-2-pro | Sora 2 Pro | sora/2-pro-text-to-video |
-| kling-2.6 | Kling 2.6 | kling/2.6-text-to-video |
-| seedance-1.0 | Seedance 1.0 | seedance/1.0-text-to-video |
-| grok-imagine | Grok Imagine | grok-imagine/text-to-video |
-
-### GPT-4o Image Special Handling
-
+### New Generation Flow
 ```text
-When selectedModel === 'gpt-4o':
-  1. Do NOT use the n8n webhook
-  2. POST to: https://api.kie.ai/api/v1/gpt4o-image/generate
-  3. Headers:
-     - Authorization: Bearer <KIE_API_KEY>
-     - Content-Type: application/json
-  4. Body:
-     - prompt: rawPrompt
-     - size: controls.size (1:1, 3:2, 2:3)
-     - callBackUrl: <n8n callback URL>
-     - isEnhance: controls.isEnhance
-
-All other models continue using the existing n8n webhook flow.
+1. User clicks Generate
+   └─→ setSelectedJobId(null) - UI shows blank
+   └─→ setIsGenerating(true) - UI shows "Generating..."
+   
+2. Create DB record (queued)
+   └─→ setSelectedJobId(newId) - UI shows new job (still generating)
+   
+3. Generation completes
+   └─→ Update DB: status='done', output_url=<url>
+   └─→ setPendingRating(true)
+   └─→ UI shows image + RatingPanel
+   
+4. User rates generation
+   └─→ Update DB: rating=<1-5>
+   └─→ RatingPanel hides (rating now set)
 ```
 
-### Check Balance Flow
-
+### Download Flow
 ```text
-1. User clicks "Check Remaining Balance"
-2. Show loading spinner
-3. POST to https://directive-ai.app.n8n.cloud/webhook/remainder-credits
-4. Parse response for balance value
-5. INSERT into credit_logs:
-   - balance: <parsed value>
-   - raw_response: <full response>
-   - checked_at: now()
-6. React Query invalidates credit_logs cache
-7. UI displays new balance
-8. On page refresh: fetch latest from credit_logs table
+1. User clicks Download
+   └─→ Create <a> element with href=output_url
+   └─→ Set download attribute
+   └─→ Click link programmatically
+   └─→ Browser handles download (bypasses CORS)
 ```
-
-### Seedream 4.5 Aspect Ratios (Final)
-
-- 1:1
-- 4:3
-- 3:4
-- 16:9
-- 9:16
-- 2:3
-- 3:2
-- 21:9
-
-### Seedance 1.0 Variants (Final)
-
-- V1 Lite Text-to-Video (value: "lite")
-- V1 Pro Text-to-Video (value: "pro")
-
-### Grok Imagine Controls
-
-- Aspect ratio: 2:3, 3:2, 1:1, 9:16, 16:9
-- Mode: fun, normal, spicy
 
 ---
 
 ## Verification Checklist
 
-After implementation, verify:
+After implementation:
 
-1. App displays "OltaFlock Creative Studio" everywhere
-2. Image models: Nano Banana Pro, Seedream 4.5, Flux 2, GPT-4o Image, Z Image
-3. Veo 3 is NOT visible anywhere
-4. Video models: Veo 3.1, Sora 2 Pro, Kling 2.6, Seedance 1.0, Grok Imagine
-5. Seedream 4.5 shows 8 aspect ratio options
-6. Seedance 1.0 shows only 2 variants (Lite and Pro)
-7. GPT-4o Image shows size and isEnhance controls
-8. GPT-4o Image uses dedicated KIE API endpoint
-9. Z Image sends model as exactly "z-image"
-10. Grok Imagine shows aspect ratio and mode controls
-11. "Check Remaining Balance" button visible in header
-12. Balance persists after page refresh
-13. Password reset functionality works
-14. All generations persist in database
-15. History survives page refresh
-16. Download button works after refresh
+1. Click "Check Balance" - should show balance from webhook
+2. Generate an image - should complete successfully
+3. After generation, 5-star rating prompt should appear
+4. Click a rating - should save to database and hide prompt
+5. Click Download - should download the image without error
+6. Click Generate again - UI should show blank/generating, not old image
+7. After page refresh, ratings should persist (stored in DB)
