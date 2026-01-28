@@ -2,10 +2,10 @@
 export type GenerationMode = 'image' | 'video';
 
 // Image Models
-export type ImageModel = 'nano-banana-pro' | 'seedream-4.5';
+export type ImageModel = 'nano-banana-pro' | 'seedream-4.5' | 'flux-2' | 'gpt-4o' | 'z-image';
 
-// Video Models
-export type VideoModel = 'veo-3' | 'veo-3.1' | 'sora-2-pro' | 'kling-2.6' | 'seedance-1.0';
+// Video Models (Veo 3 removed)
+export type VideoModel = 'veo-3.1' | 'sora-2-pro' | 'kling-2.6' | 'seedance-1.0' | 'grok-imagine';
 
 // All Models
 export type Model = ImageModel | VideoModel;
@@ -17,11 +17,14 @@ export type GenerationType = 'text-to-image' | 'text-to-video';
 export const MODEL_API_NAMES: Record<Model, string> = {
   'nano-banana-pro': 'nano-banana/pro',
   'seedream-4.5': 'seedream/4.5',
-  'veo-3': 'veo/3',
+  'flux-2': 'flux/2',
+  'gpt-4o': 'gpt/4o',
+  'z-image': 'z-image',
   'veo-3.1': 'veo/3.1',
   'sora-2-pro': 'sora/2-pro',
   'kling-2.6': 'kling/2.6',
   'seedance-1.0': 'seedance/1.0',
+  'grok-imagine': 'grok-imagine/text-to-video',
 };
 
 // Model Configurations
@@ -40,7 +43,10 @@ export type AspectRatio =
   | '16:9' 
   | '9:16' 
   | '4:3' 
+  | '3:4'
   | '2:3'
+  | '3:2'
+  | '21:9'
   | 'portrait'
   | 'landscape';
 
@@ -63,14 +69,21 @@ export interface NanoBananaProControls {
 }
 
 export interface Seedream45Controls {
-  aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '2:3';
+  aspectRatio: '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '2:3' | '3:2' | '21:9';
   quality: 'basic' | 'high';
 }
 
-export interface Veo3Controls {
-  variant: 'fast' | 'quality';
-  aspectRatio: 'auto' | '16:9' | '9:16';
-  seed?: number;
+export interface Flux2Controls {
+  aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
+}
+
+export interface GPT4oControls {
+  size: '1:1' | '3:2' | '2:3';
+  isEnhance: boolean;
+}
+
+export interface ZImageControls {
+  aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
 }
 
 export interface Veo31Controls {
@@ -94,7 +107,7 @@ export interface Kling26Controls {
 }
 
 export interface Seedance10Controls {
-  variant: 'lite' | 'pro' | 'pro-fast';
+  variant: 'lite' | 'pro';
   aspectRatio: '16:9' | '9:16' | '1:1';
   resolution: VideoResolution;
   duration: 5 | 10;
@@ -102,14 +115,22 @@ export interface Seedance10Controls {
   seed: number;
 }
 
+export interface GrokImagineControls {
+  aspectRatio: '2:3' | '3:2' | '1:1' | '9:16' | '16:9';
+  mode: 'fun' | 'normal' | 'spicy';
+}
+
 export type ModelControls = 
   | NanoBananaProControls 
   | Seedream45Controls
-  | Veo3Controls
+  | Flux2Controls
+  | GPT4oControls
+  | ZImageControls
   | Veo31Controls
   | Sora2ProControls
   | Kling26Controls
-  | Seedance10Controls;
+  | Seedance10Controls
+  | GrokImagineControls;
 
 // Job Status - Extended for proper lifecycle (legacy)
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'deleted';
@@ -183,16 +204,27 @@ export const IMAGE_MODELS: ModelConfig[] = [
     mode: 'image',
     generationTypes: ['text-to-image'],
   },
+  {
+    id: 'flux-2',
+    displayName: 'Flux 2',
+    mode: 'image',
+    generationTypes: ['text-to-image'],
+  },
+  {
+    id: 'gpt-4o',
+    displayName: 'GPT-4o Image',
+    mode: 'image',
+    generationTypes: ['text-to-image'],
+  },
+  {
+    id: 'z-image',
+    displayName: 'Z Image',
+    mode: 'image',
+    generationTypes: ['text-to-image'],
+  },
 ];
 
 export const VIDEO_MODELS: ModelConfig[] = [
-  {
-    id: 'veo-3',
-    displayName: 'Veo 3',
-    mode: 'video',
-    generationTypes: ['text-to-video'],
-    variants: ['Veo 3 Fast', 'Veo 3 Quality'],
-  },
   {
     id: 'veo-3.1',
     displayName: 'Veo 3.1',
@@ -217,7 +249,13 @@ export const VIDEO_MODELS: ModelConfig[] = [
     displayName: 'Seedance 1.0',
     mode: 'video',
     generationTypes: ['text-to-video'],
-    variants: ['V1 Lite', 'V1 Pro', 'V1 Pro Fast'],
+    variants: ['V1 Lite Text-to-Video', 'V1 Pro Text-to-Video'],
+  },
+  {
+    id: 'grok-imagine',
+    displayName: 'Grok Imagine',
+    mode: 'video',
+    generationTypes: ['text-to-video'],
   },
 ];
 

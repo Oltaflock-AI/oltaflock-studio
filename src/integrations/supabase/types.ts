@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_logs: {
+        Row: {
+          balance: string
+          checked_at: string
+          id: string
+          raw_response: Json | null
+        }
+        Insert: {
+          balance: string
+          checked_at?: string
+          id?: string
+          raw_response?: Json | null
+        }
+        Update: {
+          balance?: string
+          checked_at?: string
+          id?: string
+          raw_response?: Json | null
+        }
+        Relationships: []
+      }
       generations: {
         Row: {
           created_at: string | null

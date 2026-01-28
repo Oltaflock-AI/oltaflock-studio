@@ -29,9 +29,8 @@ export function Seedance10Controls() {
             <SelectValue placeholder="Select variant" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="lite">V1 Lite</SelectItem>
-            <SelectItem value="pro">V1 Pro</SelectItem>
-            <SelectItem value="pro-fast">V1 Pro Fast</SelectItem>
+            <SelectItem value="lite">V1 Lite Text-to-Video</SelectItem>
+            <SelectItem value="pro">V1 Pro Text-to-Video</SelectItem>
           </SelectContent>
         </Select>
       </div>
