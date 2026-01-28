@@ -1,124 +1,160 @@
 
-
-# Switch to Lovable Cloud Database
+# Fix Request History Persistence
 
 ## Overview
-Simplify the application by switching from the external Supabase project to Lovable's built-in managed database, creating the `generations` table with the specified schema.
+Ensure every generation request is stored persistently in Lovable Cloud database and that history remains visible after page refresh.
 
-## Current State
-- The app is currently configured to use an external Supabase project (credentials in `.env`)
-- The `useGenerations` hook uses an untyped Supabase client (`supabase as any`) to bypass type-checking
-- The Lovable Cloud database already has `jobs` and `profiles` tables (from `types.ts`)
-- The `.env` currently points to `uqlzysrcsqcxxaxchufb` which is the Lovable Cloud project
+## Current State Analysis
 
-## What Changes
+The implementation is already well-structured with:
+- `generations` table in Lovable Cloud with correct schema
+- `useGenerations` hook for CRUD operations
+- `RequestsPanel` reading from database
+- `GenerateButton` creating and updating records
 
-### Step 1: Create `generations` Table in Lovable Cloud
+## Issues Identified
 
-Create a new database migration with the following schema:
+| Issue | Description | Impact |
+|-------|-------------|--------|
+| Status not cleared for empty outputs | Selecting a generation without output doesn't clear the display | Shows stale content |
+| Database status values | Current: queued/running/done/error vs requested: queued/running/completed/failed | Terminology mismatch |
+| Initial status | Creates with 'running' instead of 'queued' | Skips queued state |
 
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | uuid | Primary key, auto-generated |
-| request_id | text | Unique, not null |
-| type | text | Not null (image/video) |
-| model | text | Not null |
-| user_prompt | text | Not null |
-| final_prompt | text | Nullable |
-| model_params | jsonb | Nullable |
-| status | text | Not null, default "queued" |
-| output_url | text | Nullable |
-| error_message | text | Nullable |
-| created_at | timestamptz | Default now() |
+## Implementation Plan
 
-RLS will be disabled for this internal tool.
+### 1. Verify Database Table Schema
 
-### Step 2: Update `useGenerations` Hook
+The `generations` table already exists with correct fields:
 
-Modify the hook to:
-- Use the properly typed Supabase client (once the table exists in Lovable Cloud)
-- Rename `error` field to `error_message` to match the new schema
-- Remove the untyped client workaround
+| Field | Type | Status |
+|-------|------|--------|
+| id | uuid (PK) | Exists |
+| request_id | text (unique) | Exists |
+| type | text | Exists |
+| model | text | Exists |
+| user_prompt | text | Exists |
+| final_prompt | text (nullable) | Exists |
+| model_params | jsonb (nullable) | Exists |
+| status | text (default 'queued') | Exists |
+| output_url | text (nullable) | Exists |
+| error_message | text (nullable) | Exists |
+| created_at | timestamptz | Exists |
 
-### Step 3: Update GenerateButton Component
+No database changes needed - schema is complete.
 
-Update the `handleGenerate` function to:
-- Insert new records with `status: "queued"` initially
-- Use `error_message` instead of `error` field
-- Properly capture and store any pipeline failures
+### 2. Update GenerateButton Logic
 
-### Step 4: Update RequestDetailPanel
+Modify `src/components/studio/GenerateButton.tsx`:
 
-Update to display `error_message` field instead of `error`.
+- Create record with `status: 'queued'` immediately on button click
+- Update to `status: 'running'` when webhook request starts
+- Update to `status: 'done'` with `output_url` on success
+- Update to `status: 'error'` with `error_message` on failure
+
+Flow:
+```text
+Click Generate → Insert (queued) → Start Request (running) → Complete (done/error)
+```
+
+### 3. Update RequestsPanel Selection
+
+Modify `src/components/studio/RequestsPanel.tsx`:
+
+- Always call `setCurrentOutput` when selecting a generation
+- If no `output_url`, pass `null` to clear the display
+- Ensures OutputDisplay shows correct state for each selection
+
+### 4. Add Type for OutputDisplay
+
+Modify `src/components/studio/OutputDisplay.tsx`:
+
+- Track the generation type from the selected item
+- Display correct icon (image vs video) based on stored type
 
 ## Files to Modify
 
-| File | Action |
-|------|--------|
-| Database migration | Create `generations` table with new schema |
-| `src/hooks/useGenerations.tsx` | Update to use typed client and new schema |
-| `src/components/studio/GenerateButton.tsx` | Use `error_message` field |
-| `src/components/studio/RequestDetailPanel.tsx` | Display `error_message` field |
+| File | Changes |
+|------|---------|
+| `src/components/studio/GenerateButton.tsx` | Insert with 'queued' status first, then update to 'running' |
+| `src/components/studio/RequestsPanel.tsx` | Always call setCurrentOutput (including null for empty) |
+| `src/hooks/useGenerations.tsx` | No changes needed - already correct |
+
+## Data Flow After Fix
+
+```text
+1. User clicks Generate
+   └─→ INSERT record with status='queued'
+   
+2. Webhook request starts
+   └─→ UPDATE record with status='running'
+   
+3a. Success:
+   └─→ UPDATE record with status='done', output_url=<url>, final_prompt=<prompt>
+   
+3b. Failure:
+   └─→ UPDATE record with status='error', error_message=<message>
+   
+4. Page refresh
+   └─→ RequestsPanel fetches all generations from DB
+   └─→ User clicks on any item
+   └─→ OutputDisplay shows stored output_url
+```
 
 ## Technical Details
 
-### Database Migration SQL
+### GenerateButton.tsx Changes
 
 ```text
--- Create generations table for Lovable Cloud
-CREATE TABLE IF NOT EXISTS public.generations (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  request_id text UNIQUE NOT NULL,
-  type text NOT NULL,
-  model text NOT NULL,
-  user_prompt text NOT NULL,
-  final_prompt text,
-  model_params jsonb,
-  status text NOT NULL DEFAULT 'queued',
-  output_url text,
-  error_message text,
-  created_at timestamp with time zone DEFAULT now()
-);
+// Current flow (simplified):
+1. setIsGenerating(true)
+2. INSERT with status='running'
+3. Call webhook
+4. UPDATE with done/error
 
--- Add check constraints
-ALTER TABLE public.generations 
-ADD CONSTRAINT generations_type_check 
-CHECK (type IN ('image', 'video'));
-
-ALTER TABLE public.generations 
-ADD CONSTRAINT generations_status_check 
-CHECK (status IN ('queued', 'running', 'done', 'error'));
-
--- Disable RLS for internal tool
-ALTER TABLE public.generations DISABLE ROW LEVEL SECURITY;
+// New flow:
+1. setIsGenerating(true)
+2. INSERT with status='queued'
+3. UPDATE with status='running'
+4. Call webhook
+5. UPDATE with done/error
 ```
 
-### Hook Changes
+### RequestsPanel.tsx Changes
 
-The hook will be updated to:
-- Use the typed Supabase client from `@/integrations/supabase/client`
-- Map the `error_message` field correctly
-- Interface `DbGeneration` will have `error_message` instead of `error`
+```text
+// Current:
+if (generation.output_url) {
+  setCurrentOutput({...});
+}
 
-### Error Handling Flow
+// New:
+setCurrentOutput(
+  generation.output_url 
+    ? { jobId, outputUrl, refinedPrompt } 
+    : null
+);
+```
 
-When generation fails:
-1. Catch the error in `handleGenerate`
-2. Extract human-readable error message
-3. Update record with `status: 'error'` and `error_message: '...'`
+## Verification After Implementation
+
+1. Click Generate button
+2. Check database - new record with status='queued' should appear
+3. Record should update to 'running' then 'done' with output_url
+4. Refresh page
+5. All generations should still be visible in Requests panel
+6. Clicking any completed generation should display its image/video
 
 ## What Stays the Same
 
-- The UI components structure
-- The generation store (`generationStore.ts`)
-- The webhook integration to n8n
-- The request/response flow
-- All model configurations and types
+- Database schema (already correct)
+- `useGenerations` hook (already reads from DB)
+- `RequestDetailPanel` (already displays all fields)
+- Webhook integration
+- Model configurations
 
 ## Important Notes
 
-1. **Lovable Cloud**: The `.env` already points to Lovable Cloud (`uqlzysrcsqcxxaxchufb`), so no credential changes needed
-2. **No Authentication**: As requested, no auth is added - this is for internal use
-3. **Simple Setup**: No billing, prompt enhancement, or additional API calls
-4. **Schema Update**: Changed `error` to `error_message` as per your specification
-
+1. RLS is disabled for this internal tool (as requested)
+2. No authentication is being added
+3. All data persists in Lovable Cloud database
+4. History survives page refresh by reading from database
