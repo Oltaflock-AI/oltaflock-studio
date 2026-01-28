@@ -20,13 +20,16 @@ export function RequestsPanel() {
 
   const handleSelectGeneration = (generation: DbGeneration) => {
     setSelectedJobId(generation.id);
-    if (generation.output_url) {
-      setCurrentOutput({
-        jobId: generation.request_id,
-        outputUrl: generation.output_url,
-        refinedPrompt: generation.final_prompt || '',
-      });
-    }
+    // Always update currentOutput - clear if no output_url, or set if exists
+    setCurrentOutput(
+      generation.output_url
+        ? {
+            jobId: generation.request_id,
+            outputUrl: generation.output_url,
+            refinedPrompt: generation.final_prompt || '',
+          }
+        : null
+    );
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
