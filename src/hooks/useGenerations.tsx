@@ -18,6 +18,7 @@ export interface DbGeneration {
   output_url: string | null;
   error_message: string | null;
   created_at: string;
+  rating: number | null;
 }
 
 // Insert type (omitting auto-generated fields)
@@ -39,6 +40,7 @@ export interface GenerationUpdate {
   output_url?: string | null;
   final_prompt?: string | null;
   error_message?: string | null;
+  rating?: number | null;
 }
 
 export function useGenerations() {

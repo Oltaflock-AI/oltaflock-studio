@@ -16,24 +16,19 @@ export function OutputDisplay() {
   // Determine media type from database record
   const mediaType = selectedGeneration?.type || 'image';
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!selectedGeneration?.output_url) return;
     
-    try {
-      const response = await fetch(selectedGeneration.output_url);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `output-${selectedGeneration.request_id}.${mediaType === 'image' ? 'png' : 'mp4'}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      toast.success('Download started');
-    } catch (error) {
-      toast.error('Download failed');
-    }
+    // Use direct link approach to bypass CORS
+    const link = document.createElement('a');
+    link.href = selectedGeneration.output_url;
+    link.download = `output-${selectedGeneration.request_id}.${mediaType === 'image' ? 'png' : 'mp4'}`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Download started');
   };
 
   const handleCopyUrl = () => {

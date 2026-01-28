@@ -15,21 +15,29 @@ export function BalanceButton() {
     setIsChecking(true);
     
     try {
+      console.log('Calling balance webhook:', BALANCE_WEBHOOK_URL);
+      
       const response = await fetch(BALANCE_WEBHOOK_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({}),
       });
+
+      console.log('Balance webhook response status:', response.status);
 
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);
       }
 
       const data = await response.json();
+      console.log('Balance webhook response data:', data);
       
-      // Extract balance from response - adapt based on actual response structure
-      const balance = data.balance || data.remaining || data.credits || JSON.stringify(data);
+      // Extract balance from response - handle multiple response formats
+      const balance = data.balance || data.remaining || data.credits || 
+                      data.data?.balance || data.data?.remaining || data.data?.credits ||
+                      (typeof data === 'number' ? String(data) : JSON.stringify(data));
       
       // Store in database
       await createCreditLog({
