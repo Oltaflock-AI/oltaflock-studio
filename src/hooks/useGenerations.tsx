@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 
 // Status type matching the generations table
 export type GenerationStatus = 'queued' | 'running' | 'done' | 'error';
@@ -15,7 +16,7 @@ export interface DbGeneration {
   model_params: Record<string, unknown> | null;
   status: GenerationStatus;
   output_url: string | null;
-  error: string | null;
+  error_message: string | null;
   created_at: string;
 }
 
@@ -29,7 +30,7 @@ export interface GenerationInsert {
   model_params?: Record<string, unknown> | null;
   status?: GenerationStatus;
   output_url?: string | null;
-  error?: string | null;
+  error_message?: string | null;
 }
 
 // Update type
@@ -37,12 +38,8 @@ export interface GenerationUpdate {
   status?: GenerationStatus;
   output_url?: string | null;
   final_prompt?: string | null;
-  error?: string | null;
+  error_message?: string | null;
 }
-
-// Get untyped client for external table access
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const untypedSupabase = supabase as any;
 
 export function useGenerations() {
   const queryClient = useQueryClient();
@@ -50,7 +47,7 @@ export function useGenerations() {
   const generationsQuery = useQuery({
     queryKey: ['generations'],
     queryFn: async () => {
-      const { data, error } = await untypedSupabase
+      const { data, error } = await supabase
         .from('generations')
         .select('*')
         .order('created_at', { ascending: false });
@@ -62,7 +59,7 @@ export function useGenerations() {
 
   const createGenerationMutation = useMutation({
     mutationFn: async (generation: GenerationInsert) => {
-      const { data, error } = await untypedSupabase
+      const { data, error } = await supabase
         .from('generations')
         .insert({
           request_id: generation.request_id,
@@ -70,10 +67,10 @@ export function useGenerations() {
           model: generation.model,
           user_prompt: generation.user_prompt,
           final_prompt: generation.final_prompt,
-          model_params: generation.model_params,
+          model_params: generation.model_params as Json,
           status: generation.status || 'queued',
           output_url: generation.output_url,
-          error: generation.error,
+          error_message: generation.error_message,
         })
         .select()
         .single();
@@ -88,7 +85,7 @@ export function useGenerations() {
 
   const updateGenerationMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: GenerationUpdate }) => {
-      const { data, error } = await untypedSupabase
+      const { data, error } = await supabase
         .from('generations')
         .update(updates)
         .eq('id', id)
@@ -105,7 +102,7 @@ export function useGenerations() {
 
   const deleteGenerationMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await untypedSupabase
+      const { error } = await supabase
         .from('generations')
         .delete()
         .eq('id', id);

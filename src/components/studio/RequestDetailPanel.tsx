@@ -177,14 +177,14 @@ export function RequestDetailPanel() {
         )}
 
         {/* Error */}
-        {selectedGeneration.error && (
+        {selectedGeneration.error_message && (
           <div className="space-y-1">
             <label className="text-xs font-medium text-destructive uppercase tracking-wide flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
               Error
             </label>
             <p className="text-sm text-destructive bg-destructive/10 px-2 py-1.5 rounded">
-              {selectedGeneration.error}
+              {selectedGeneration.error_message}
             </p>
           </div>
         )}
