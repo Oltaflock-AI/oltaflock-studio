@@ -53,7 +53,7 @@ export function GenerateButton() {
     // Get API model name (e.g., "seedream/4.5-text-to-image")
     const apiModelName = `${MODEL_API_NAMES[selectedModel as Model]}-${generationType}`;
 
-    // Create generation in database
+    // Create generation in database with 'queued' status
     let dbGeneration;
     try {
       dbGeneration = await createGeneration({
@@ -62,7 +62,7 @@ export function GenerateButton() {
         model: modelConfig.displayName,
         user_prompt: rawPrompt,
         final_prompt: null,
-        status: 'running',
+        status: 'queued',
         output_url: null,
         error_message: null,
         model_params: modelParams,
@@ -77,6 +77,12 @@ export function GenerateButton() {
     }
 
     try {
+      // Update status to 'running' before making the request
+      await updateGeneration({
+        id: dbGeneration.id,
+        updates: { status: 'running' },
+      });
+
       // Send as JSON with request_id and proper model name format
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
