@@ -1,23 +1,31 @@
 import { useGenerationStore } from '@/store/generationStore';
+import { useGenerations } from '@/hooks/useGenerations';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, Image as ImageIcon, Video, Download, Copy, ExternalLink, RotateCcw } from 'lucide-react';
+import { Loader2, Image as ImageIcon, Video, Download, Copy, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function OutputDisplay() {
-  const { mode, currentOutput, isGenerating } = useGenerationStore();
+  const { selectedJobId, isGenerating } = useGenerationStore();
+  const { generations, isLoading } = useGenerations();
+
+  // Find selected generation from database
+  const selectedGeneration = generations.find(g => g.id === selectedJobId);
+  
+  // Determine media type from database record
+  const mediaType = selectedGeneration?.type || 'image';
 
   const handleDownload = async () => {
-    if (!currentOutput?.outputUrl) return;
+    if (!selectedGeneration?.output_url) return;
     
     try {
-      const response = await fetch(currentOutput.outputUrl);
+      const response = await fetch(selectedGeneration.output_url);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `output-${currentOutput.jobId}.${mode === 'image' ? 'png' : 'mp4'}`;
+      a.download = `output-${selectedGeneration.request_id}.${mediaType === 'image' ? 'png' : 'mp4'}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -29,16 +37,27 @@ export function OutputDisplay() {
   };
 
   const handleCopyUrl = () => {
-    if (!currentOutput?.outputUrl) return;
-    navigator.clipboard.writeText(currentOutput.outputUrl);
+    if (!selectedGeneration?.output_url) return;
+    navigator.clipboard.writeText(selectedGeneration.output_url);
     toast.success('URL copied to clipboard');
   };
 
   const handleOpenInNewTab = () => {
-    if (!currentOutput?.outputUrl) return;
-    window.open(currentOutput.outputUrl, '_blank');
+    if (!selectedGeneration?.output_url) return;
+    window.open(selectedGeneration.output_url, '_blank');
   };
 
+  // Loading state for initial fetch
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-card rounded-lg border border-border">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  // Generating state
   if (isGenerating) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-card rounded-lg border border-border">
@@ -49,10 +68,32 @@ export function OutputDisplay() {
     );
   }
 
-  if (!currentOutput) {
+  // No selection or no output yet
+  if (!selectedGeneration || !selectedGeneration.output_url) {
+    // Show running state if selected but still processing
+    if (selectedGeneration?.status === 'running') {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center bg-card rounded-lg border border-border">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+          <p className="text-sm text-muted-foreground">Processing...</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">Waiting for result</p>
+        </div>
+      );
+    }
+
+    // Show error state if failed
+    if (selectedGeneration?.status === 'error') {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center bg-card rounded-lg border border-border">
+          <p className="text-sm text-destructive mb-2">Generation failed</p>
+          <p className="text-xs text-muted-foreground">{selectedGeneration.error_message || 'Unknown error'}</p>
+        </div>
+      );
+    }
+
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-card rounded-lg border border-border">
-        {mode === 'image' ? (
+        {mediaType === 'image' ? (
           <ImageIcon className="h-12 w-12 text-muted-foreground/50 mb-4" />
         ) : (
           <Video className="h-12 w-12 text-muted-foreground/50 mb-4" />
@@ -68,15 +109,15 @@ export function OutputDisplay() {
     <div className="flex-1 flex flex-col gap-4 overflow-hidden">
       {/* Output Preview */}
       <div className="flex-1 bg-card rounded-lg border border-border overflow-hidden relative group">
-        {mode === 'image' ? (
+        {mediaType === 'image' ? (
           <img
-            src={currentOutput.outputUrl}
+            src={selectedGeneration.output_url}
             alt="Generated output"
             className="w-full h-full object-contain"
           />
         ) : (
           <video
-            src={currentOutput.outputUrl}
+            src={selectedGeneration.output_url}
             controls
             className="w-full h-full object-contain"
           />
@@ -102,13 +143,13 @@ export function OutputDisplay() {
       </div>
 
       {/* Refined Prompt */}
-      {currentOutput.refinedPrompt && (
+      {selectedGeneration.final_prompt && (
         <div className="space-y-2">
           <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Refined Prompt (Read-Only)
           </Label>
           <Textarea
-            value={currentOutput.refinedPrompt}
+            value={selectedGeneration.final_prompt}
             readOnly
             className="min-h-[80px] bg-muted border-border resize-none font-mono text-xs opacity-80"
           />
@@ -117,7 +158,7 @@ export function OutputDisplay() {
 
       {/* Job ID */}
       <div className="text-xs text-muted-foreground font-mono">
-        Job ID: {currentOutput.jobId}
+        Job ID: {selectedGeneration.request_id}
       </div>
     </div>
   );

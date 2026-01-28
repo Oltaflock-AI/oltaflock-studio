@@ -16,20 +16,11 @@ const statusConfig: Record<GenerationStatus, { icon: React.ElementType; classNam
 
 export function RequestsPanel() {
   const { generations, isLoading, deleteGeneration } = useGenerations();
-  const { selectedJobId, setSelectedJobId, setCurrentOutput } = useGenerationStore();
+  const { selectedJobId, setSelectedJobId } = useGenerationStore();
 
   const handleSelectGeneration = (generation: DbGeneration) => {
+    // Just set the selected ID - OutputDisplay reads directly from DB
     setSelectedJobId(generation.id);
-    // Always update currentOutput - clear if no output_url, or set if exists
-    setCurrentOutput(
-      generation.output_url
-        ? {
-            jobId: generation.request_id,
-            outputUrl: generation.output_url,
-            refinedPrompt: generation.final_prompt || '',
-          }
-        : null
-    );
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
