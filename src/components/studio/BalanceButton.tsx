@@ -17,12 +17,19 @@ export function BalanceButton() {
     try {
       console.log('Calling balance webhook:', BALANCE_WEBHOOK_URL);
       
+      const payload = {
+        action: 'check_balance',
+        timestamp: new Date().toISOString(),
+      };
+      
+      console.log('Sending balance check payload:', payload);
+      
       const response = await fetch(BALANCE_WEBHOOK_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify(payload),
       });
 
       console.log('Balance webhook response status:', response.status);

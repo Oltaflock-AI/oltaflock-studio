@@ -1,10 +1,10 @@
 // Generation Mode
 export type GenerationMode = 'image' | 'video';
 
-// Image Models
-export type ImageModel = 'nano-banana-pro' | 'seedream-4.5' | 'flux-2' | 'gpt-4o' | 'z-image';
+// Image Models - Split Flux into Flex and Flex Pro
+export type ImageModel = 'nano-banana-pro' | 'seedream-4.5' | 'flux-flex' | 'flux-flex-pro' | 'gpt-4o' | 'z-image';
 
-// Video Models (Veo 3 removed)
+// Video Models (Veo 3 removed, only Veo 3.1)
 export type VideoModel = 'veo-3.1' | 'sora-2-pro' | 'kling-2.6' | 'seedance-1.0' | 'grok-imagine';
 
 // All Models
@@ -17,10 +17,11 @@ export type GenerationType = 'text-to-image' | 'text-to-video';
 export const MODEL_API_NAMES: Record<Model, string> = {
   'nano-banana-pro': 'nano-banana/pro',
   'seedream-4.5': 'seedream/4.5',
-  'flux-2': 'flux/2',
+  'flux-flex': 'flux-2/flex',
+  'flux-flex-pro': 'flux-2/pro',
   'gpt-4o': 'gpt/4o',
   'z-image': 'z-image',
-  'veo-3.1': 'veo/3.1',
+  'veo-3.1': 'veo-3.1',
   'sora-2-pro': 'sora/2-pro',
   'kling-2.6': 'kling/2.6',
   'seedance-1.0': 'seedance/1.0',
@@ -73,8 +74,16 @@ export interface Seedream45Controls {
   quality: 'basic' | 'high';
 }
 
-export interface Flux2Controls {
+// Flux Flex Controls - requires aspect ratio and resolution
+export interface FluxFlexControls {
   aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
+  resolution: '1K' | '2K';
+}
+
+// Flux Flex Pro Controls - requires aspect ratio and resolution
+export interface FluxFlexProControls {
+  aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
+  resolution: '1K' | '2K';
 }
 
 export interface GPT4oControls {
@@ -86,8 +95,9 @@ export interface ZImageControls {
   aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
 }
 
+// Veo 3.1 Controls - uses veo3_fast and veo3_quality variants
 export interface Veo31Controls {
-  variant: 'fast' | 'quality';
+  variant: 'veo3_fast' | 'veo3_quality';
   aspectRatio: 'auto' | '16:9' | '9:16';
   seed?: number;
 }
@@ -123,7 +133,8 @@ export interface GrokImagineControls {
 export type ModelControls = 
   | NanoBananaProControls 
   | Seedream45Controls
-  | Flux2Controls
+  | FluxFlexControls
+  | FluxFlexProControls
   | GPT4oControls
   | ZImageControls
   | Veo31Controls
@@ -190,7 +201,7 @@ export interface JobEntry {
 // Legacy alias for backward compatibility
 export type HistoryEntry = JobEntry;
 
-// Model Registry
+// Model Registry - Flux split into Flex and Flex Pro
 export const IMAGE_MODELS: ModelConfig[] = [
   {
     id: 'nano-banana-pro',
@@ -205,8 +216,14 @@ export const IMAGE_MODELS: ModelConfig[] = [
     generationTypes: ['text-to-image'],
   },
   {
-    id: 'flux-2',
-    displayName: 'Flux 2',
+    id: 'flux-flex',
+    displayName: 'Flux Flex',
+    mode: 'image',
+    generationTypes: ['text-to-image'],
+  },
+  {
+    id: 'flux-flex-pro',
+    displayName: 'Flux Flex Pro',
     mode: 'image',
     generationTypes: ['text-to-image'],
   },
@@ -224,6 +241,7 @@ export const IMAGE_MODELS: ModelConfig[] = [
   },
 ];
 
+// Video Models - Only Veo 3.1 (no Veo 3)
 export const VIDEO_MODELS: ModelConfig[] = [
   {
     id: 'veo-3.1',

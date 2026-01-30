@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-export function Flux2Controls() {
+export function FluxFlexControls() {
   const { controls, setControl, pendingRating } = useGenerationStore();
 
   return (
@@ -32,6 +32,26 @@ export function Flux2Controls() {
             <SelectItem value="9:16">9:16</SelectItem>
             <SelectItem value="4:3">4:3</SelectItem>
             <SelectItem value="3:4">3:4</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Resolution */}
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Resolution <span className="text-destructive">*</span>
+        </Label>
+        <Select
+          value={(controls.resolution as string) || ''}
+          onValueChange={(value) => setControl('resolution', value)}
+          disabled={pendingRating}
+        >
+          <SelectTrigger className="w-full bg-input border-border">
+            <SelectValue placeholder="Select resolution" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1K">1K</SelectItem>
+            <SelectItem value="2K">2K</SelectItem>
           </SelectContent>
         </Select>
       </div>

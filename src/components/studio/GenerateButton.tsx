@@ -7,8 +7,6 @@ import { Play, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT';
-const GPT4O_API_URL = 'https://api.kie.ai/api/v1/gpt4o-image/generate';
-const N8N_CALLBACK_URL = 'https://directive-ai.app.n8n.cloud/webhook/gpt4o-callback';
 
 export function GenerateButton() {
   const { createGeneration, updateGeneration } = useGenerations();
@@ -39,101 +37,36 @@ export function GenerateButton() {
     hasRequiredFiles &&
     !isGenerating;
 
-  const handleGPT4oGenerate = async (requestId: string, dbGenerationId: string) => {
-    // GPT-4o uses dedicated KIE API
-    const response = await fetch(GPT4O_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Note: KIE_API_KEY should be configured in edge function for production
-        // For now, the callback will be used for result retrieval
-      },
-      body: JSON.stringify({
-        prompt: rawPrompt,
-        size: (controls.size as string) || '1:1',
-        callBackUrl: N8N_CALLBACK_URL,
-        isEnhance: (controls.isEnhance as boolean) || false,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`GPT-4o API request failed with status ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    // GPT-4o returns task_id, result comes via callback
-    // Update status to running - n8n callback will update to done
-    if (data.taskId || data.data?.taskId) {
-      toast.info('GPT-4o generation started - waiting for callback');
-      return { outputUrl: '', finalPrompt: '' };
-    }
-    
-    // Direct result (if API returns immediately)
-    let outputUrl = '';
-    if (data.data?.info?.result_urls && data.data.info.result_urls.length > 0) {
-      outputUrl = data.data.info.result_urls[0];
-    } else if (data.result_urls && data.result_urls.length > 0) {
-      outputUrl = data.result_urls[0];
-    }
-    
-    return { outputUrl, finalPrompt: '' };
-  };
-
-  const handleStandardGenerate = async (requestId: string, apiModelName: string, modelParams: Record<string, unknown>) => {
-    const response = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        job_id: requestId,
-        mode,
-        model: apiModelName,
-        generation_type: generationType,
-        raw_prompt: rawPrompt,
-        controls: modelParams,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    // Parse the response - handle nested resultJson structure
-    let outputUrl = '';
-    let finalPrompt = '';
-    
-    // Check for nested resultJson (from n8n webhook)
-    if (data.data?.resultJson) {
-      try {
-        const resultJson = typeof data.data.resultJson === 'string' 
-          ? JSON.parse(data.data.resultJson) 
-          : data.data.resultJson;
-        
-        if (resultJson.resultUrls && resultJson.resultUrls.length > 0) {
-          outputUrl = resultJson.resultUrls[0];
-        }
-      } catch (e) {
-        console.error('Failed to parse resultJson:', e);
-      }
-    }
-    
-    // Fallback to direct output_url if present
-    if (!outputUrl && data.output_url) {
-      outputUrl = data.output_url;
-    }
-    
-    // Get final prompt from response
-    finalPrompt = data.refined_prompt || data.data?.refined_prompt || '';
-    
-    return { outputUrl, finalPrompt };
-  };
-
   const handleGenerate = async () => {
     if (!canGenerate || !modelConfig) return;
+
+    // Validate required fields for specific models
+    if (selectedModel === 'veo-3.1') {
+      if (!controls.variant) {
+        toast.error('Variant is required for Veo 3.1');
+        return;
+      }
+      if (!controls.aspectRatio) {
+        toast.error('Aspect ratio is required for Veo 3.1');
+        return;
+      }
+    }
+
+    if (selectedModel === 'z-image' && !controls.aspectRatio) {
+      toast.error('Aspect ratio is required for Z Image');
+      return;
+    }
+
+    if ((selectedModel === 'flux-flex' || selectedModel === 'flux-flex-pro')) {
+      if (!controls.aspectRatio) {
+        toast.error('Aspect ratio is required for Flux');
+        return;
+      }
+      if (!controls.resolution) {
+        toast.error('Resolution is required for Flux');
+        return;
+      }
+    }
 
     // Clear previous state immediately for blank screen
     setSelectedJobId(null);
@@ -180,19 +113,58 @@ export function GenerateButton() {
         updates: { status: 'running' },
       });
 
+      // Build the webhook payload with required fields
+      const webhookPayload = {
+        request_id: requestId,
+        timestamp: new Date().toISOString(),
+        model: apiModelName,
+        generation_type: generationType === 'text-to-image' ? 'TEXT_2_IMAGE' : 'TEXT_2_VIDEO',
+        raw_prompt: rawPrompt,
+        controls: modelParams,
+      };
+
+      console.log('Sending generation webhook payload:', webhookPayload);
+
+      const response = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookPayload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Parse the response - handle nested resultJson structure
       let outputUrl = '';
       let finalPrompt = '';
-
-      // Route to appropriate API based on model
-      if (selectedModel === 'gpt-4o') {
-        const result = await handleGPT4oGenerate(requestId, dbGeneration.id);
-        outputUrl = result.outputUrl;
-        finalPrompt = result.finalPrompt;
-      } else {
-        const result = await handleStandardGenerate(requestId, apiModelName, modelParams);
-        outputUrl = result.outputUrl;
-        finalPrompt = result.finalPrompt;
+      
+      // Check for nested resultJson (from n8n webhook)
+      if (data.data?.resultJson) {
+        try {
+          const resultJson = typeof data.data.resultJson === 'string' 
+            ? JSON.parse(data.data.resultJson) 
+            : data.data.resultJson;
+          
+          if (resultJson.resultUrls && resultJson.resultUrls.length > 0) {
+            outputUrl = resultJson.resultUrls[0];
+          }
+        } catch (e) {
+          console.error('Failed to parse resultJson:', e);
+        }
       }
+      
+      // Fallback to direct output_url if present
+      if (!outputUrl && data.output_url) {
+        outputUrl = data.output_url;
+      }
+      
+      // Get final prompt from response
+      finalPrompt = data.refined_prompt || data.data?.refined_prompt || '';
       
       const output = {
         jobId: requestId,
@@ -203,28 +175,22 @@ export function GenerateButton() {
       setCurrentOutput(output);
       
       // Update generation in database
-      // For GPT-4o with callback, status stays 'running' until callback updates it
-      if (selectedModel === 'gpt-4o' && !outputUrl) {
-        // GPT-4o is async via callback - keep status as running
-        toast.info('Generation in progress - results will appear when ready');
-      } else {
-        await updateGeneration({
-          id: dbGeneration.id,
-          updates: {
-            status: outputUrl ? 'done' : 'error',
-            final_prompt: finalPrompt || null,
-            output_url: outputUrl || null,
-            error_message: outputUrl ? null : 'No output URL in response',
-          },
-        });
+      await updateGeneration({
+        id: dbGeneration.id,
+        updates: {
+          status: outputUrl ? 'done' : 'error',
+          final_prompt: finalPrompt || null,
+          output_url: outputUrl || null,
+          error_message: outputUrl ? null : 'No output URL in response',
+        },
+      });
 
-        if (outputUrl) {
-          toast.success('Generation complete');
-          // Show rating panel after successful generation
-          setPendingRating(true);
-        } else {
-          toast.error('No output received');
-        }
+      if (outputUrl) {
+        toast.success('Generation complete');
+        // Show rating panel after successful generation
+        setPendingRating(true);
+      } else {
+        toast.error('No output received');
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

@@ -1,6 +1,5 @@
 import { useGenerationStore } from '@/store/generationStore';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -9,31 +8,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-export function Veo31Controls() {
+export function FluxFlexProControls() {
   const { controls, setControl, pendingRating } = useGenerationStore();
 
   return (
     <div className="space-y-4">
-      {/* Variant */}
-      <div className="space-y-2">
-        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Variant <span className="text-destructive">*</span>
-        </Label>
-        <Select
-          value={(controls.variant as string) || ''}
-          onValueChange={(value) => setControl('variant', value)}
-          disabled={pendingRating}
-        >
-          <SelectTrigger className="w-full bg-input border-border">
-            <SelectValue placeholder="Select variant" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="veo3_fast">Veo 3.1 Fast</SelectItem>
-            <SelectItem value="veo3_quality">Veo 3.1 Quality</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       {/* Aspect Ratio */}
       <div className="space-y-2">
         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -48,26 +27,33 @@ export function Veo31Controls() {
             <SelectValue placeholder="Select aspect ratio" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="auto">Auto</SelectItem>
+            <SelectItem value="1:1">1:1</SelectItem>
             <SelectItem value="16:9">16:9</SelectItem>
             <SelectItem value="9:16">9:16</SelectItem>
+            <SelectItem value="4:3">4:3</SelectItem>
+            <SelectItem value="3:4">3:4</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Seed */}
+      {/* Resolution */}
       <div className="space-y-2">
         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Seed (optional)
+          Resolution <span className="text-destructive">*</span>
         </Label>
-        <Input
-          type="number"
-          placeholder="Leave empty for random"
-          value={(controls.seed as number) || ''}
-          onChange={(e) => setControl('seed', e.target.value ? parseInt(e.target.value) : undefined)}
+        <Select
+          value={(controls.resolution as string) || ''}
+          onValueChange={(value) => setControl('resolution', value)}
           disabled={pendingRating}
-          className="bg-input border-border"
-        />
+        >
+          <SelectTrigger className="w-full bg-input border-border">
+            <SelectValue placeholder="Select resolution" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1K">1K</SelectItem>
+            <SelectItem value="2K">2K</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );
