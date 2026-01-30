@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Wallet, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-
-const BALANCE_WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/remainder-credits';
+import { supabase } from '@/integrations/supabase/client';
 
 export function BalanceButton() {
   const [balance, setBalance] = useState<string | null>(null);
@@ -13,28 +12,22 @@ export function BalanceButton() {
     setIsChecking(true);
     
     try {
-      console.log('Calling balance webhook:', BALANCE_WEBHOOK_URL);
+      console.log('Calling balance check edge function');
       
-      const response = await fetch(BALANCE_WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'check_balance',
-          timestamp: new Date().toISOString(),
-        }),
-      });
-
-      console.log('Balance webhook response status:', response.status);
-
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+      const { data, error } = await supabase.functions.invoke('check-balance');
+      
+      if (error) {
+        throw new Error(error.message);
       }
 
-      const data = await response.json();
-      console.log('Balance webhook response data:', data);
-      
+      console.log('Balance response:', data);
+
+      // Check for error response from webhook
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
       // Extract balance from response - handle various response formats
       let balanceValue: string;
       if (typeof data === 'number') {
