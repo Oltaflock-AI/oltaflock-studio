@@ -15,7 +15,8 @@ import { Image as ImageIcon, Video } from 'lucide-react';
 const MODEL_DESCRIPTIONS: Record<Model, string> = {
   'nano-banana-pro': 'Fast, high-quality image generation',
   'seedream-4.5': 'Photorealistic image synthesis',
-  'flux-2': 'Advanced diffusion-based image generation',
+  'flux-flex': 'Flux Flex fast image generation',
+  'flux-flex-pro': 'Flux Flex Pro high-quality generation',
   'gpt-4o': 'GPT-4o powered image generation',
   'z-image': 'Z Image text-to-image generation',
   'veo-3.1': 'Enhanced video with better motion',
