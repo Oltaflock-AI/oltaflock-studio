@@ -1,5 +1,5 @@
 import { useGenerationStore } from '@/store/generationStore';
-import { IMAGE_MODELS, VIDEO_MODELS, type Model, type ModelConfig } from '@/types/generation';
+import { IMAGE_MODELS, VIDEO_MODELS, IMAGE_TO_IMAGE_MODELS, type Model, type ModelConfig } from '@/types/generation';
 import {
   Select,
   SelectContent,
@@ -10,20 +10,28 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Image as ImageIcon, Video } from 'lucide-react';
+import { Image as ImageIcon, Video, ImagePlus } from 'lucide-react';
 
 const MODEL_DESCRIPTIONS: Record<Model, string> = {
+  // Text-to-Image
   'nano-banana-pro': 'Fast, high-quality image generation',
   'seedream-4.5': 'Photorealistic image synthesis',
   'flux-flex': 'Flux Flex fast image generation',
   'flux-flex-pro': 'Flux Flex Pro high-quality generation',
   'gpt-4o': 'GPT-4o powered image generation',
   'z-image': 'Z Image text-to-image generation',
+  // Text-to-Video
   'veo-3.1': 'Enhanced video with better motion',
   'sora-2-pro': 'Cinematic video generation',
   'kling-2.6': 'Efficient video with sound support',
   'seedance-1.0': 'Motion-focused video generation',
   'grok-imagine': 'Grok-powered video generation',
+  // Image-to-Image
+  'nano-banana-pro-i2i': 'Transform images with Nano Banana Pro',
+  'seedream-4.5-edit': 'Edit images with Seedream 4.5',
+  'flux-flex-i2i': 'Transform images with Flux Flex',
+  'flux-pro-i2i': 'High-quality image transformation',
+  'qwen-image-edit': 'Advanced image editing with Qwen',
 };
 
 export function ModelSelector() {
@@ -36,10 +44,33 @@ export function ModelSelector() {
     // Auto-set generation type based on mode
     if (mode === 'image') {
       setGenerationType('text-to-image');
-    } else {
+    } else if (mode === 'video') {
       setGenerationType('text-to-video');
+    } else if (mode === 'image-to-image') {
+      setGenerationType('image-to-image');
     }
   };
+
+  // Get models to display based on current mode
+  const getModelsForMode = () => {
+    if (mode === 'image') return IMAGE_MODELS;
+    if (mode === 'video') return VIDEO_MODELS;
+    if (mode === 'image-to-image') return IMAGE_TO_IMAGE_MODELS;
+    return IMAGE_MODELS;
+  };
+
+  const modelsToDisplay = getModelsForMode();
+
+  // Get icon and label for current mode
+  const getModeInfo = () => {
+    if (mode === 'image') return { icon: ImageIcon, label: 'Image Models' };
+    if (mode === 'video') return { icon: Video, label: 'Video Models' };
+    if (mode === 'image-to-image') return { icon: ImagePlus, label: 'Image → Image Models' };
+    return { icon: ImageIcon, label: 'Models' };
+  };
+
+  const modeInfo = getModeInfo();
+  const ModeIcon = modeInfo.icon;
 
   return (
     <div className="space-y-2">
@@ -55,40 +86,15 @@ export function ModelSelector() {
           <SelectValue placeholder="Select model" />
         </SelectTrigger>
         <SelectContent>
-          {/* Image Models */}
           <SelectGroup>
             <SelectLabel className="flex items-center gap-2 text-xs">
-              <ImageIcon className="h-3 w-3" />
-              Image Models
+              <ModeIcon className="h-3 w-3" />
+              {modeInfo.label}
             </SelectLabel>
-            {IMAGE_MODELS.map((model) => (
+            {modelsToDisplay.map((model) => (
               <SelectItem 
                 key={model.id} 
                 value={model.id}
-                disabled={mode === 'video'}
-                className="py-2"
-              >
-                <div className="flex flex-col">
-                  <span className="font-medium">{model.displayName}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {MODEL_DESCRIPTIONS[model.id]}
-                  </span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectGroup>
-          
-          {/* Video Models */}
-          <SelectGroup>
-            <SelectLabel className="flex items-center gap-2 text-xs">
-              <Video className="h-3 w-3" />
-              Video Models
-            </SelectLabel>
-            {VIDEO_MODELS.map((model) => (
-              <SelectItem 
-                key={model.id} 
-                value={model.id}
-                disabled={mode === 'image'}
                 className="py-2"
               >
                 <div className="flex flex-col">

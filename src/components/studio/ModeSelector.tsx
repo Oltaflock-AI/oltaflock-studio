@@ -23,7 +23,7 @@ const modes: ModeOption[] = [
     value: 'image-to-image', 
     label: 'Image → Image', 
     icon: ImagePlus, 
-    enabled: false,
+    enabled: true,
     description: 'Transform existing images',
   },
   { 
@@ -43,23 +43,33 @@ const modes: ModeOption[] = [
 ];
 
 export function ModeSelector() {
-  const { mode, setMode, pendingRating, isGenerating } = useGenerationStore();
+  const { mode, setMode, pendingRating, isGenerating, setGenerationType } = useGenerationStore();
 
   // Map mode + generationType to composite mode
   const getActiveMode = () => {
     const { generationType } = useGenerationStore.getState();
     if (mode === 'image' && generationType === 'text-to-image') return 'text-to-image';
     if (mode === 'video' && generationType === 'text-to-video') return 'text-to-video';
-    return mode === 'image' ? 'text-to-image' : 'text-to-video';
+    if (mode === 'image-to-image' && generationType === 'image-to-image') return 'image-to-image';
+    // Default based on mode
+    if (mode === 'image') return 'text-to-image';
+    if (mode === 'video') return 'text-to-video';
+    if (mode === 'image-to-image') return 'image-to-image';
+    return 'text-to-image';
   };
 
   const handleModeClick = (option: ModeOption) => {
     if (!option.enabled || pendingRating || isGenerating) return;
     
-    if (option.value === 'text-to-image' || option.value === 'image-to-image') {
+    if (option.value === 'text-to-image') {
       setMode('image');
-    } else {
+      setGenerationType('text-to-image');
+    } else if (option.value === 'image-to-image') {
+      setMode('image-to-image');
+      setGenerationType('image-to-image');
+    } else if (option.value === 'text-to-video') {
       setMode('video');
+      setGenerationType('text-to-video');
     }
   };
 

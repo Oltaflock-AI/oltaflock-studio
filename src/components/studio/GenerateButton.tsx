@@ -7,6 +7,7 @@ import { Play, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT';
+const IMAGE_TO_IMAGE_WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/image-to-video';
 
 export function GenerateButton() {
   const { createGeneration, updateGeneration } = useGenerations();
@@ -16,6 +17,7 @@ export function GenerateButton() {
     generationType,
     rawPrompt,
     controls,
+    uploadedImageUrls,
     isGenerating,
     setIsGenerating,
     setCurrentOutput,
@@ -23,22 +25,43 @@ export function GenerateButton() {
     pendingRating,
     currentOutput,
     setSelectedJobId,
+    clearUploadedImageUrls,
   } = useGenerationStore();
 
   const modelConfig = ALL_MODELS.find((m) => m.id === selectedModel);
 
-  // Text-to-image and text-to-video don't require reference media
-  const hasRequiredFiles = true;
+  // Image-to-Image requires uploaded images
+  const hasRequiredImages = mode === 'image-to-image' ? uploadedImageUrls.length > 0 : true;
+  
+  // Validate specific model requirements for Image-to-Image
+  const validateImageRequirements = () => {
+    if (mode !== 'image-to-image') return true;
+    
+    if (selectedModel === 'qwen-image-edit' && uploadedImageUrls.length !== 1) {
+      toast.error('Qwen Image Edit requires exactly 1 image');
+      return false;
+    }
+    
+    if ((selectedModel === 'flux-flex-i2i' || selectedModel === 'flux-pro-i2i') && 
+        (uploadedImageUrls.length < 1 || uploadedImageUrls.length > 8)) {
+      toast.error('Flux requires 1-8 images');
+      return false;
+    }
+    
+    return true;
+  };
 
   const canGenerate = 
     selectedModel && 
     generationType && 
     rawPrompt.trim() && 
-    hasRequiredFiles &&
+    hasRequiredImages &&
     !isGenerating;
 
   const handleGenerate = async () => {
     if (!canGenerate || !modelConfig) return;
+    
+    if (!validateImageRequirements()) return;
 
     // Validate required fields for specific models
     if (selectedModel === 'veo-3.1') {
@@ -68,6 +91,29 @@ export function GenerateButton() {
       }
     }
 
+    // Validate Image-to-Image model controls
+    if (selectedModel === 'seedream-4.5-edit') {
+      if (!controls.aspect_ratio) {
+        toast.error('Aspect ratio is required for Seedream 4.5 Edit');
+        return;
+      }
+      if (!controls.quality) {
+        toast.error('Quality is required for Seedream 4.5 Edit');
+        return;
+      }
+    }
+
+    if (selectedModel === 'flux-flex-i2i' || selectedModel === 'flux-pro-i2i') {
+      if (!controls.aspect_ratio) {
+        toast.error('Aspect ratio is required');
+        return;
+      }
+      if (!controls.resolution) {
+        toast.error('Resolution is required');
+        return;
+      }
+    }
+
     // Clear previous state immediately for blank screen
     setSelectedJobId(null);
     setCurrentOutput(null);
@@ -80,22 +126,28 @@ export function GenerateButton() {
     // Build model_params object from controls
     const modelParams = { ...controls };
     
-    // Get API model name (e.g., "seedream/4.5-text-to-image")
-    const apiModelName = `${MODEL_API_NAMES[selectedModel as Model]}-${generationType}`;
+    // Get API model name
+    const apiModelName = MODEL_API_NAMES[selectedModel as Model];
+
+    // Determine the correct type for database
+    const dbType = mode === 'image-to-image' ? 'image' : mode;
 
     // Create generation in database with 'queued' status
     let dbGeneration;
     try {
       dbGeneration = await createGeneration({
         request_id: requestId,
-        type: mode,
+        type: dbType as 'image' | 'video',
         model: modelConfig.displayName,
         user_prompt: rawPrompt,
         final_prompt: null,
         status: 'queued',
         output_url: null,
         error_message: null,
-        model_params: modelParams,
+        model_params: {
+          ...modelParams,
+          image_urls: mode === 'image-to-image' ? uploadedImageUrls : undefined,
+        },
       });
       
       setSelectedJobId(dbGeneration.id);
@@ -113,19 +165,38 @@ export function GenerateButton() {
         updates: { status: 'running' },
       });
 
-      // Build the webhook payload with required fields
-      const webhookPayload = {
-        request_id: requestId,
-        timestamp: new Date().toISOString(),
-        model: apiModelName,
-        generation_type: generationType === 'text-to-image' ? 'TEXT_2_IMAGE' : 'TEXT_2_VIDEO',
-        raw_prompt: rawPrompt,
-        controls: modelParams,
-      };
+      // Determine webhook URL based on mode
+      const webhookUrl = mode === 'image-to-image' ? IMAGE_TO_IMAGE_WEBHOOK_URL : WEBHOOK_URL;
+
+      // Build the webhook payload based on mode
+      let webhookPayload: Record<string, unknown>;
+      
+      if (mode === 'image-to-image') {
+        // Image-to-Image payload format
+        webhookPayload = {
+          request_id: requestId,
+          timestamp: new Date().toISOString(),
+          generation_type: 'IMAGE_2_IMAGE',
+          model: apiModelName,
+          raw_prompt: rawPrompt,
+          controls: modelParams,
+          image_urls: uploadedImageUrls,
+        };
+      } else {
+        // Text-to-Image / Text-to-Video payload format
+        webhookPayload = {
+          request_id: requestId,
+          timestamp: new Date().toISOString(),
+          model: `${apiModelName}-${generationType}`,
+          generation_type: generationType === 'text-to-image' ? 'TEXT_2_IMAGE' : 'TEXT_2_VIDEO',
+          raw_prompt: rawPrompt,
+          controls: modelParams,
+        };
+      }
 
       console.log('Sending generation webhook payload:', webhookPayload);
 
-      const response = await fetch(WEBHOOK_URL, {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,6 +260,10 @@ export function GenerateButton() {
         toast.success('Generation complete');
         // Show rating panel after successful generation
         setPendingRating(true);
+        // Clear uploaded images after successful generation
+        if (mode === 'image-to-image') {
+          clearUploadedImageUrls();
+        }
       } else {
         toast.error('No output received');
       }
@@ -216,6 +291,13 @@ export function GenerateButton() {
     await handleGenerate();
   };
 
+  // Get button text based on mode
+  const getButtonText = () => {
+    if (isGenerating) return 'Generating...';
+    if (mode === 'image-to-image') return 'Transform';
+    return 'Generate';
+  };
+
   return (
     <div className="flex gap-2">
       <Button
@@ -227,12 +309,12 @@ export function GenerateButton() {
         {isGenerating ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Generating...
+            {getButtonText()}
           </>
         ) : (
           <>
             <Play className="h-4 w-4 mr-2" />
-            Generate
+            {getButtonText()}
           </>
         )}
       </Button>

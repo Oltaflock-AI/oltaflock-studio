@@ -35,6 +35,13 @@ interface GenerationState {
   removeReferenceFile: (index: number) => void;
   clearReferenceFiles: () => void;
   
+  // Uploaded Image URLs (for Image → Image)
+  uploadedImageUrls: string[];
+  setUploadedImageUrls: (urls: string[]) => void;
+  addUploadedImageUrl: (url: string) => void;
+  removeUploadedImageUrl: (index: number) => void;
+  clearUploadedImageUrls: () => void;
+  
   // Character IDs (Sora 2 Pro)
   characterIds: string[];
   addCharacterId: (id: string) => void;
@@ -89,9 +96,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setMode: (mode) => set({ 
     mode, 
     selectedModel: null, 
-    generationType: null,
+    generationType: mode === 'image' ? 'text-to-image' : mode === 'video' ? 'text-to-video' : 'image-to-image',
     controls: {},
     referenceFiles: [],
+    uploadedImageUrls: [],
     characterIds: [],
     currentOutput: null,
     pendingRating: false,
@@ -101,9 +109,9 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   selectedModel: null,
   setSelectedModel: (model) => set({ 
     selectedModel: model, 
-    generationType: null,
     controls: {},
     referenceFiles: [],
+    uploadedImageUrls: [],
     characterIds: [],
   }),
   
@@ -112,6 +120,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setGenerationType: (type) => set({ 
     generationType: type,
     referenceFiles: [],
+    uploadedImageUrls: [],
   }),
   
   // Raw Prompt
@@ -135,6 +144,17 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     referenceFiles: state.referenceFiles.filter((_, i) => i !== index)
   })),
   clearReferenceFiles: () => set({ referenceFiles: [] }),
+  
+  // Uploaded Image URLs
+  uploadedImageUrls: [],
+  setUploadedImageUrls: (urls) => set({ uploadedImageUrls: urls }),
+  addUploadedImageUrl: (url) => set((state) => ({
+    uploadedImageUrls: [...state.uploadedImageUrls, url].slice(0, 8)
+  })),
+  removeUploadedImageUrl: (index) => set((state) => ({
+    uploadedImageUrls: state.uploadedImageUrls.filter((_, i) => i !== index)
+  })),
+  clearUploadedImageUrls: () => set({ uploadedImageUrls: [] }),
   
   // Character IDs
   characterIds: [],
@@ -224,6 +244,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     rawPrompt: '',
     controls: {},
     referenceFiles: [],
+    uploadedImageUrls: [],
     characterIds: [],
     currentOutput: null,
     pendingRating: false,

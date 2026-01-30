@@ -1,5 +1,5 @@
-// Generation Mode
-export type GenerationMode = 'image' | 'video';
+// Generation Mode - includes 'image-to-image' now
+export type GenerationMode = 'image' | 'video' | 'image-to-image';
 
 // Image Models - Split Flux into Flex and Flex Pro
 export type ImageModel = 'nano-banana-pro' | 'seedream-4.5' | 'flux-flex' | 'flux-flex-pro' | 'gpt-4o' | 'z-image';
@@ -7,25 +7,36 @@ export type ImageModel = 'nano-banana-pro' | 'seedream-4.5' | 'flux-flex' | 'flu
 // Video Models (Veo 3 removed, only Veo 3.1)
 export type VideoModel = 'veo-3.1' | 'sora-2-pro' | 'kling-2.6' | 'seedance-1.0' | 'grok-imagine';
 
-// All Models
-export type Model = ImageModel | VideoModel;
+// Image to Image Models
+export type ImageToImageModel = 'nano-banana-pro-i2i' | 'seedream-4.5-edit' | 'flux-flex-i2i' | 'flux-pro-i2i' | 'qwen-image-edit';
 
-// Simplified Generation Types - only text-to-image and text-to-video
-export type GenerationType = 'text-to-image' | 'text-to-video';
+// All Models
+export type Model = ImageModel | VideoModel | ImageToImageModel;
+
+// Generation Types - now includes image-to-image
+export type GenerationType = 'text-to-image' | 'text-to-video' | 'image-to-image';
 
 // Model API name mapping for webhook payload
 export const MODEL_API_NAMES: Record<Model, string> = {
+  // Text-to-Image models
   'nano-banana-pro': 'nano-banana/pro',
   'seedream-4.5': 'seedream/4.5',
   'flux-flex': 'flux-2/flex',
   'flux-flex-pro': 'flux-2/pro',
   'gpt-4o': 'gpt/4o',
   'z-image': 'z-image',
+  // Text-to-Video models
   'veo-3.1': 'veo-3.1',
   'sora-2-pro': 'sora/2-pro',
   'kling-2.6': 'kling/2.6',
   'seedance-1.0': 'seedance/1.0',
   'grok-imagine': 'grok-imagine/text-to-video',
+  // Image-to-Image models
+  'nano-banana-pro-i2i': 'nano-banana-pro',
+  'seedream-4.5-edit': 'seedream/4.5-edit',
+  'flux-flex-i2i': 'flux-2/flex-image-to-image',
+  'flux-pro-i2i': 'flux-2/pro-image-to-image',
+  'qwen-image-edit': 'qwen/image-edit',
 };
 
 // Model Configurations
@@ -48,6 +59,8 @@ export type AspectRatio =
   | '2:3'
   | '3:2'
   | '21:9'
+  | '4:5'
+  | '5:4'
   | 'portrait'
   | 'landscape';
 
@@ -57,12 +70,12 @@ export type VideoResolution = '480p' | '720p' | '1080p';
 export type Quality = 'basic' | 'high' | 'standard';
 
 // Output Format
-export type OutputFormat = 'PNG' | 'JPG';
+export type OutputFormat = 'PNG' | 'JPG' | 'png' | 'jpg';
 
 // Duration Options
 export type VideoDuration = 5 | 10 | 15;
 
-// Model-specific Controls
+// Model-specific Controls - Text-to-Image
 export interface NanoBananaProControls {
   aspectRatio: 'auto' | '1:1' | '16:9' | '9:16';
   resolution: ImageResolution;
@@ -130,6 +143,40 @@ export interface GrokImagineControls {
   mode: 'fun' | 'normal' | 'spicy';
 }
 
+// Image-to-Image Model Controls
+export interface NanoBananaProI2IControls {
+  aspect_ratio: 'Auto' | '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9';
+  resolution: '1K' | '2K' | '4K';
+  output_format: 'PNG' | 'JPG';
+}
+
+export interface Seedream45EditControls {
+  aspect_ratio: '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '2:3' | '3:2' | '21:9';
+  quality: 'basic' | 'high';
+}
+
+export interface FluxFlexI2IControls {
+  aspect_ratio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
+  resolution: '1K' | '2K';
+}
+
+export interface FluxProI2IControls {
+  aspect_ratio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
+  resolution: '1K' | '2K';
+}
+
+export interface QwenImageEditControls {
+  acceleration?: string;
+  image_size?: string;
+  num_inference_steps?: number;
+  seed?: number;
+  guidance_scale?: number;
+  sync_mode?: boolean;
+  enable_safety_checker?: boolean;
+  output_format?: 'png' | 'jpg';
+  negative_prompt?: string;
+}
+
 export type ModelControls = 
   | NanoBananaProControls 
   | Seedream45Controls
@@ -141,7 +188,12 @@ export type ModelControls =
   | Sora2ProControls
   | Kling26Controls
   | Seedance10Controls
-  | GrokImagineControls;
+  | GrokImagineControls
+  | NanoBananaProI2IControls
+  | Seedream45EditControls
+  | FluxFlexI2IControls
+  | FluxProI2IControls
+  | QwenImageEditControls;
 
 // Job Status - Extended for proper lifecycle (legacy)
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'deleted';
@@ -167,6 +219,7 @@ export interface GenerationRequest {
   generation_type: GenerationType;
   raw_prompt: string;
   controls: Record<string, unknown>;
+  image_urls?: string[];
 }
 
 // Generation Response from webhook
@@ -195,13 +248,14 @@ export interface JobEntry {
   status: JobStatus;
   error?: string;
   referenceFiles?: string[]; // Store file names for display
+  imageUrls?: string[]; // Public URLs of uploaded images for Image → Image
   deleted: boolean; // Soft delete flag
 }
 
 // Legacy alias for backward compatibility
 export type HistoryEntry = JobEntry;
 
-// Model Registry - Flux split into Flex and Flex Pro
+// Model Registry - Text-to-Image
 export const IMAGE_MODELS: ModelConfig[] = [
   {
     id: 'nano-banana-pro',
@@ -277,12 +331,47 @@ export const VIDEO_MODELS: ModelConfig[] = [
   },
 ];
 
-export const ALL_MODELS = [...IMAGE_MODELS, ...VIDEO_MODELS];
+// Image-to-Image Models
+export const IMAGE_TO_IMAGE_MODELS: ModelConfig[] = [
+  {
+    id: 'nano-banana-pro-i2i',
+    displayName: 'Nano Banana Pro',
+    mode: 'image-to-image',
+    generationTypes: ['image-to-image'],
+  },
+  {
+    id: 'seedream-4.5-edit',
+    displayName: 'Seedream 4.5 Edit',
+    mode: 'image-to-image',
+    generationTypes: ['image-to-image'],
+  },
+  {
+    id: 'flux-flex-i2i',
+    displayName: 'Flux Flex',
+    mode: 'image-to-image',
+    generationTypes: ['image-to-image'],
+  },
+  {
+    id: 'flux-pro-i2i',
+    displayName: 'Flux Pro',
+    mode: 'image-to-image',
+    generationTypes: ['image-to-image'],
+  },
+  {
+    id: 'qwen-image-edit',
+    displayName: 'Qwen Image Edit',
+    mode: 'image-to-image',
+    generationTypes: ['image-to-image'],
+  },
+];
+
+export const ALL_MODELS = [...IMAGE_MODELS, ...VIDEO_MODELS, ...IMAGE_TO_IMAGE_MODELS];
 
 // Generation Type Labels
 export const TYPE_LABELS: Record<GenerationType, string> = {
   'text-to-image': 'Text to Image',
   'text-to-video': 'Text to Video',
+  'image-to-image': 'Image to Image',
 };
 
 // Status Labels
