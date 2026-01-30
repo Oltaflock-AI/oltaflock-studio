@@ -53,6 +53,13 @@ export default function Auth() {
       toast.error('Please enter a valid email address');
       return;
     }
+    
+    // Restrict signup to @oltaflock.ai domain only
+    if (!email.toLowerCase().endsWith('@oltaflock.ai')) {
+      toast.error('Sign up is restricted to @oltaflock.ai email addresses only');
+      return;
+    }
+    
     if (!password || password.length < 6) {
       toast.error('Password must be at least 6 characters');
       return;
