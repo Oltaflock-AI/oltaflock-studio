@@ -172,6 +172,18 @@ export function GenerateButton() {
       let webhookPayload: Record<string, unknown>;
       
       if (mode === 'image-to-image') {
+        // Build controls based on the specific model
+        let imageToImageControls: Record<string, unknown> = { ...modelParams };
+        
+        // Add default values for Nano Banana Pro I2I
+        if (selectedModel === 'nano-banana-pro-i2i') {
+          imageToImageControls = {
+            aspect_ratio: modelParams.aspect_ratio || '1:1',
+            resolution: modelParams.resolution || '1K',
+            output_format: modelParams.output_format || 'PNG',
+          };
+        }
+        
         // Image-to-Image payload format
         webhookPayload = {
           request_id: requestId,
@@ -179,7 +191,7 @@ export function GenerateButton() {
           generation_type: 'IMAGE_2_IMAGE',
           model: apiModelName,
           raw_prompt: rawPrompt,
-          controls: modelParams,
+          controls: imageToImageControls,
           image_urls: uploadedImageUrls,
         };
       } else {
