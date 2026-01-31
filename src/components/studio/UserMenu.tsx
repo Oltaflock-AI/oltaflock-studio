@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useGenerationStore } from '@/store/generationStore';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -10,19 +12,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, User, Settings } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { ProfileDialog } from './ProfileDialog';
 
 export function UserMenu() {
   const { user, signOut } = useAuth();
+  const queryClient = useQueryClient();
+  const { clearAll } = useGenerationStore();
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 
-  // Fetch display name from profiles
   useEffect(() => {
     if (user) {
       fetchDisplayName();
+    } else {
+      setDisplayName(null);
     }
   }, [user]);
 
@@ -60,6 +65,10 @@ export function UserMenu() {
     .toUpperCase();
 
   const handleSignOut = async () => {
+    // Clear all cached data first
+    clearAll();
+    queryClient.clear();
+    
     await signOut();
     toast.success('Signed out successfully');
   };

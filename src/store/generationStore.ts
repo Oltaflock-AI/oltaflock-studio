@@ -88,6 +88,9 @@ interface GenerationState {
   
   // Reset
   resetForm: () => void;
+  
+  // Clear all state (for logout)
+  clearAll: () => void;
 }
 
 export const useGenerationStore = create<GenerationState>((set, get) => ({
@@ -248,5 +251,22 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     characterIds: [],
     currentOutput: null,
     pendingRating: false,
+  }),
+  
+  // Clear all state (for logout)
+  clearAll: () => set({
+    mode: 'image',
+    selectedModel: null,
+    generationType: null,
+    rawPrompt: '',
+    controls: {},
+    referenceFiles: [],
+    uploadedImageUrls: [],
+    characterIds: [],
+    isGenerating: false,
+    currentOutput: null,
+    pendingRating: false,
+    jobs: [],
+    selectedJobId: null,
   }),
 }));

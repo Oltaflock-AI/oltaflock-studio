@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import type { Json } from '@/integrations/supabase/types';
 
 // Status type matching the generations table
@@ -19,6 +20,7 @@ export interface DbGeneration {
   error_message: string | null;
   created_at: string;
   rating: number | null;
+  user_id: string | null;
 }
 
 // Insert type (omitting auto-generated fields)
@@ -45,18 +47,23 @@ export interface GenerationUpdate {
 
 export function useGenerations() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const generationsQuery = useQuery({
-    queryKey: ['generations'],
+    queryKey: ['generations', user?.id],
     queryFn: async () => {
+      if (!user?.id) return [];
+      
       const { data, error } = await supabase
         .from('generations')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data as DbGeneration[];
     },
+    enabled: !!user?.id,
     // Poll every 5s if any record is still 'running' or 'queued'
     refetchInterval: (query) => {
       const data = query.state.data;
@@ -67,6 +74,8 @@ export function useGenerations() {
 
   const createGenerationMutation = useMutation({
     mutationFn: async (generation: GenerationInsert) => {
+      if (!user?.id) throw new Error('User not authenticated');
+      
       const { data, error } = await supabase
         .from('generations')
         .insert({
@@ -79,6 +88,7 @@ export function useGenerations() {
           status: generation.status || 'queued',
           output_url: generation.output_url,
           error_message: generation.error_message,
+          user_id: user.id,
         })
         .select()
         .single();
@@ -87,7 +97,7 @@ export function useGenerations() {
       return data as DbGeneration;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['generations'] });
+      queryClient.invalidateQueries({ queryKey: ['generations', user?.id] });
     },
   });
 
@@ -104,7 +114,7 @@ export function useGenerations() {
       return data as DbGeneration;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['generations'] });
+      queryClient.invalidateQueries({ queryKey: ['generations', user?.id] });
     },
   });
 
@@ -118,7 +128,7 @@ export function useGenerations() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['generations'] });
+      queryClient.invalidateQueries({ queryKey: ['generations', user?.id] });
     },
   });
 
