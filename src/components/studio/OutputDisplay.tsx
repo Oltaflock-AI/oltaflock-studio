@@ -1,16 +1,19 @@
 import { useGenerationStore } from '@/store/generationStore';
 import { useGenerations } from '@/hooks/useGenerations';
+import { useGenerationProgress } from '@/hooks/useGenerationProgress';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Loader2, Image as ImageIcon, Video, Download, Copy, ExternalLink, Maximize2, Sparkles } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Loader2, Image as ImageIcon, Video, Download, Copy, ExternalLink, Maximize2, Sparkles, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 
 export function OutputDisplay() {
-  const { selectedJobId, isGenerating } = useGenerationStore();
+  const { selectedJobId } = useGenerationStore();
   const { generations, isLoading } = useGenerations();
+  const progress = useGenerationProgress(selectedJobId);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const selectedGeneration = generations.find(g => g.id === selectedJobId);
@@ -40,7 +43,16 @@ export function OutputDisplay() {
     window.open(selectedGeneration.output_url, '_blank');
   };
 
-  // Loading state
+  // Get progress label based on percentage
+  const getProgressLabel = () => {
+    if (progress < 15) return 'Queuing...';
+    if (progress < 30) return 'Starting...';
+    if (progress < 60) return 'Generating...';
+    if (progress < 85) return 'Processing...';
+    return 'Finalizing...';
+  };
+
+  // Loading initial data
   if (isLoading) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-muted/30 rounded-xl">
@@ -50,43 +62,50 @@ export function OutputDisplay() {
     );
   }
 
-  // Generating state
-  if (isGenerating) {
+  // Generating state - show progress bar
+  if (selectedGeneration?.status === 'queued' || selectedGeneration?.status === 'running') {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-muted/30 rounded-xl">
-        <div className="relative">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <Sparkles className="h-4 w-4 text-primary absolute -top-1 -right-1 animate-pulse" />
+      <div className="h-full flex flex-col items-center justify-center bg-muted/30 rounded-xl p-8">
+        <div className="relative mb-6">
+          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+            <Sparkles className="h-8 w-8 text-primary animate-pulse" />
+          </div>
+          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-background border-2 border-primary flex items-center justify-center">
+            <span className="text-[10px] font-bold text-primary">{progress}%</span>
+          </div>
         </div>
-        <p className="text-sm font-medium text-foreground mt-4">Creating your masterpiece...</p>
-        <p className="text-xs text-muted-foreground mt-1">This may take a moment</p>
+        
+        <Progress value={progress} className="w-48 h-2 mb-4" />
+        
+        <p className="text-sm font-medium text-foreground">{getProgressLabel()}</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {selectedGeneration.model}
+        </p>
+        
+        <p className="text-[10px] text-muted-foreground mt-4 text-center max-w-[200px] opacity-60">
+          You can start another generation while this one runs
+        </p>
       </div>
     );
   }
 
-  // No selection or processing
+  // Error state
+  if (selectedGeneration?.status === 'error') {
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-muted/30 rounded-xl p-8">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+          <AlertCircle className="h-8 w-8 text-destructive" />
+        </div>
+        <p className="text-sm font-medium text-destructive mb-1">Generation failed</p>
+        <p className="text-xs text-muted-foreground text-center max-w-[250px]">
+          {selectedGeneration.error_message || 'Unknown error occurred'}
+        </p>
+      </div>
+    );
+  }
+
+  // Empty state - no selection or no output
   if (!selectedGeneration || !selectedGeneration.output_url) {
-    if (selectedGeneration?.status === 'running') {
-      return (
-        <div className="h-full flex flex-col items-center justify-center bg-muted/30 rounded-xl">
-          <Loader2 className="h-6 w-6 animate-spin text-primary mb-2" />
-          <p className="text-xs text-muted-foreground">Processing...</p>
-        </div>
-      );
-    }
-
-    if (selectedGeneration?.status === 'error') {
-      return (
-        <div className="h-full flex flex-col items-center justify-center bg-muted/30 rounded-xl p-6">
-          <p className="text-sm text-destructive mb-1">Generation failed</p>
-          <p className="text-xs text-muted-foreground text-center max-w-[250px]">
-            {selectedGeneration.error_message || 'Unknown error occurred'}
-          </p>
-        </div>
-      );
-    }
-
-    // Empty state - no selection
     return (
       <div className="h-full flex flex-col items-center justify-center bg-muted/30 rounded-xl p-8">
         <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
@@ -104,6 +123,7 @@ export function OutputDisplay() {
     );
   }
 
+  // Success state - show output
   return (
     <>
       <div className="h-full flex flex-col gap-3 overflow-hidden">

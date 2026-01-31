@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useGenerationStore } from '@/store/generationStore';
-import { useGenerations, type DbGeneration } from '@/hooks/useGenerations';
+import { useGenerations } from '@/hooks/useGenerations';
 import { ALL_MODELS, generateJobId, MODEL_API_NAMES } from '@/types/generation';
 import type { Model } from '@/types/generation';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,8 @@ const IMAGE_TO_IMAGE_WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/i
 
 export function GenerateButton() {
   const { createGeneration, updateGeneration, generations } = useGenerations();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const {
     mode,
     selectedModel,
@@ -18,8 +21,8 @@ export function GenerateButton() {
     rawPrompt,
     controls,
     uploadedImageUrls,
-    isGenerating,
-    setIsGenerating,
+    addActiveGeneration,
+    removeActiveGeneration,
     setCurrentOutput,
     setPendingRating,
     pendingRating,
@@ -52,12 +55,13 @@ export function GenerateButton() {
     return true;
   };
 
+  // Note: No global isGenerating check - allows multiple concurrent generations
   const canGenerate = 
     selectedModel && 
     generationType && 
     rawPrompt.trim() && 
     hasRequiredImages &&
-    !isGenerating;
+    !isSubmitting; // Only block during the brief submission phase
 
   const handleGenerate = async () => {
     if (!canGenerate || !modelConfig) return;
@@ -115,11 +119,8 @@ export function GenerateButton() {
       }
     }
 
-    // Clear previous state immediately for blank screen
-    setSelectedJobId(null);
-    setCurrentOutput(null);
-    setPendingRating(false);
-    setIsGenerating(true);
+    // Brief submission lock - only while creating DB record
+    setIsSubmitting(true);
 
     // Generate unique request_id with required format
     const requestId = generateJobId();
@@ -151,7 +152,15 @@ export function GenerateButton() {
         },
       });
       
+      // Immediately select the new job and add to active set
       setSelectedJobId(dbGeneration.id);
+      addActiveGeneration(dbGeneration.id);
+      
+      // Clear previous output state for fresh view
+      setCurrentOutput(null);
+      setPendingRating(false);
+      
+      toast.success('Generation started');
     } catch (error) {
       console.error('Failed to create generation:', error);
       const errorDetails = error instanceof Error 
@@ -161,15 +170,30 @@ export function GenerateButton() {
         duration: 5000,
         description: 'Check console for details'
       });
-      setIsGenerating(false);
+      setIsSubmitting(false);
       return;
     }
 
+    // Unlock button immediately after DB record created
+    setIsSubmitting(false);
+
+    // Continue with webhook call in background (fire and forget pattern)
+    // This allows user to start new generations immediately
+    processGeneration(dbGeneration.id, requestId, modelParams, apiModelName);
+  };
+
+  // Separate async function for the actual generation processing
+  const processGeneration = async (
+    generationId: string,
+    requestId: string,
+    modelParams: Record<string, unknown>,
+    apiModelName: string
+  ) => {
     try {
       // Update status to 'running' before making the request
       await updateGeneration({
-        id: dbGeneration.id,
-        updates: { status: 'running' },
+        id: generationId,
+        updates: { status: 'running', progress: 25 },
       });
 
       // Determine webhook URL based on mode
@@ -262,23 +286,30 @@ export function GenerateButton() {
         refinedPrompt: finalPrompt,
       };
 
-      setCurrentOutput(output);
+      // Only update currentOutput if this is still the selected job
+      const currentSelectedId = useGenerationStore.getState().selectedJobId;
+      if (currentSelectedId === generationId) {
+        setCurrentOutput(output);
+      }
       
       // Update generation in database
       await updateGeneration({
-        id: dbGeneration.id,
+        id: generationId,
         updates: {
           status: outputUrl ? 'done' : 'error',
           final_prompt: finalPrompt || null,
           output_url: outputUrl || null,
           error_message: outputUrl ? null : 'No output URL in response',
+          progress: outputUrl ? 100 : 0,
         },
       });
 
       if (outputUrl) {
         toast.success('Generation complete');
-        // Show rating panel after successful generation
-        setPendingRating(true);
+        // Show rating panel after successful generation (only if still selected)
+        if (currentSelectedId === generationId) {
+          setPendingRating(true);
+        }
         // Clear uploaded images after successful generation
         if (mode === 'image-to-image') {
           clearUploadedImageUrls();
@@ -290,7 +321,7 @@ export function GenerateButton() {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       await updateGeneration({
-        id: dbGeneration.id,
+        id: generationId,
         updates: {
           status: 'error',
           error_message: errorMessage,
@@ -300,7 +331,8 @@ export function GenerateButton() {
       toast.error('Generation failed');
       console.error(error);
     } finally {
-      setIsGenerating(false);
+      // Remove from active set when done (success or error)
+      removeActiveGeneration(generationId);
     }
   };
 
@@ -310,17 +342,16 @@ export function GenerateButton() {
     await handleGenerate();
   };
 
-  // Get button text based on mode and current status
+  // Get button text based on submission state
   const getButtonText = () => {
-    if (isGenerating) {
-      const selectedJob = generations.find(g => g.id === selectedJobId);
-      if (selectedJob?.status === 'queued') return 'Queuing...';
-      if (selectedJob?.status === 'running') return 'Generating...';
-      return 'Processing...';
-    }
+    if (isSubmitting) return 'Starting...';
     if (mode === 'image-to-image') return 'Transform';
     return 'Generate';
   };
+
+  // Check if there's a completed output to show regenerate option
+  const selectedGeneration = generations.find(g => g.id === selectedJobId);
+  const hasCompletedOutput = selectedGeneration?.status === 'done' && selectedGeneration?.output_url;
 
   return (
     <div className="space-y-2">
@@ -330,7 +361,7 @@ export function GenerateButton() {
         className="w-full h-11"
         size="lg"
       >
-        {isGenerating ? (
+        {isSubmitting ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             {getButtonText()}
@@ -343,11 +374,11 @@ export function GenerateButton() {
         )}
       </Button>
       
-      {currentOutput && !pendingRating && !isGenerating && (
+      {hasCompletedOutput && !pendingRating && !isSubmitting && (
         <Button
           variant="outline"
           onClick={handleRegenerate}
-          disabled={isGenerating}
+          disabled={isSubmitting}
           className="w-full h-9 text-xs"
         >
           <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
