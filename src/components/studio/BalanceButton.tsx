@@ -28,70 +28,65 @@ export function BalanceButton() {
         return;
       }
 
-      // Extract balance from response - handle various response formats
+      // Parse the response - webhook returns plain text like "Credits Remaining : 8825.4"
       let balanceValue: string;
-      if (typeof data === 'number') {
+      
+      if (typeof data === 'string') {
+        // Extract number from text like "Credits Remaining : 8825.4"
+        const match = data.match(/[\d,]+\.?\d*/);
+        if (match) {
+          balanceValue = match[0];
+        } else {
+          balanceValue = data.trim();
+        }
+      } else if (typeof data === 'number') {
         balanceValue = String(data);
-      } else if (typeof data === 'string') {
-        balanceValue = data;
-      } else if (data.balance !== undefined) {
+      } else if (data?.balance !== undefined) {
         balanceValue = String(data.balance);
-      } else if (data.remaining !== undefined) {
+      } else if (data?.remaining !== undefined) {
         balanceValue = String(data.remaining);
-      } else if (data.credits !== undefined) {
+      } else if (data?.credits !== undefined) {
         balanceValue = String(data.credits);
-      } else if (data.data?.balance !== undefined) {
-        balanceValue = String(data.data.balance);
-      } else if (data.data?.remaining !== undefined) {
-        balanceValue = String(data.data.remaining);
-      } else if (data.data?.credits !== undefined) {
-        balanceValue = String(data.data.credits);
       } else {
-        // If we can't parse it, show the raw response
+        // Fallback: stringify
         balanceValue = JSON.stringify(data);
       }
       
       setBalance(balanceValue);
-      toast.success('Balance updated');
+      toast.success(`Credits: ${balanceValue}`);
     } catch (error) {
       console.error('Failed to check balance:', error);
-      toast.error('Failed to check balance');
+      toast.error('Unable to check balance. Please try again.');
     } finally {
       setIsChecking(false);
     }
   };
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Display balance if available */}
+    <div className="flex items-center gap-1.5">
       {balance && (
-        <div className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
-          Balance: {balance}
+        <div className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-md">
+          {balance} credits
         </div>
       )}
       
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
         onClick={handleCheckBalance}
         disabled={isChecking}
-        className="gap-2"
+        className="h-7 px-2 gap-1.5"
       >
         {isChecking ? (
-          <>
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Checking...
-          </>
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : balance ? (
+          <RefreshCw className="h-3.5 w-3.5" />
         ) : (
-          <>
-            {balance ? (
-              <RefreshCw className="h-3 w-3" />
-            ) : (
-              <Wallet className="h-3 w-3" />
-            )}
-            {balance ? 'Refresh' : 'Check Balance'}
-          </>
+          <Wallet className="h-3.5 w-3.5" />
         )}
+        <span className="hidden sm:inline text-xs">
+          {isChecking ? 'Checking...' : balance ? 'Refresh' : 'Balance'}
+        </span>
       </Button>
     </div>
   );
