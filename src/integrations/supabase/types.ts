@@ -44,6 +44,7 @@ export type Database = {
           model: string
           model_params: Json | null
           output_url: string | null
+          progress: number | null
           rating: number | null
           request_id: string
           status: string
@@ -59,6 +60,7 @@ export type Database = {
           model: string
           model_params?: Json | null
           output_url?: string | null
+          progress?: number | null
           rating?: number | null
           request_id: string
           status?: string
@@ -74,6 +76,7 @@ export type Database = {
           model?: string
           model_params?: Json | null
           output_url?: string | null
+          progress?: number | null
           rating?: number | null
           request_id?: string
           status?: string

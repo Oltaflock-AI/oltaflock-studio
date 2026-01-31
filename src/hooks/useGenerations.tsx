@@ -21,6 +21,7 @@ export interface DbGeneration {
   created_at: string;
   rating: number | null;
   user_id: string | null;
+  progress: number;
 }
 
 // Insert type (omitting auto-generated fields)
@@ -43,6 +44,7 @@ export interface GenerationUpdate {
   final_prompt?: string | null;
   error_message?: string | null;
   rating?: number | null;
+  progress?: number;
 }
 
 export function useGenerations() {

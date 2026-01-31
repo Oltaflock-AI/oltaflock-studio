@@ -1,13 +1,16 @@
 import { useGenerations, type DbGeneration, type GenerationStatus } from '@/hooks/useGenerations';
 import { useGenerationStore } from '@/store/generationStore';
+import { useMultipleGenerationProgress } from '@/hooks/useGenerationProgress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { Image as ImageIcon, Video, Trash2, FileText, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useMemo } from 'react';
 
 const statusDotColors: Record<GenerationStatus, string> = {
-  queued: 'bg-muted-foreground',
+  queued: 'bg-muted-foreground animate-pulse',
   running: 'bg-primary animate-pulse',
   done: 'bg-green-500',
   error: 'bg-destructive',
@@ -16,6 +19,16 @@ const statusDotColors: Record<GenerationStatus, string> = {
 export function RequestsPanel() {
   const { generations, isLoading, deleteGeneration } = useGenerations();
   const { selectedJobId, setSelectedJobId } = useGenerationStore();
+
+  // Get IDs of active generations for progress tracking
+  const activeGenerationIds = useMemo(() => 
+    generations
+      .filter(g => g.status === 'queued' || g.status === 'running')
+      .map(g => g.id),
+    [generations]
+  );
+  
+  const progressMap = useMultipleGenerationProgress(activeGenerationIds);
 
   const handleSelectGeneration = (generation: DbGeneration) => {
     setSelectedJobId(generation.id);
@@ -55,8 +68,10 @@ export function RequestsPanel() {
     <ScrollArea className="h-full">
       <div className="space-y-1 p-1.5">
         {generations.map((generation) => {
-          const status = generation.status;
+          const status = generation.status as GenerationStatus;
           const isSelected = selectedJobId === generation.id;
+          const isActive = status === 'queued' || status === 'running';
+          const progress = progressMap.get(generation.id) || 0;
           const ModeIcon = generation.type === 'image' ? ImageIcon : Video;
           const promptPreview = generation.user_prompt.length > 50 
             ? generation.user_prompt.slice(0, 50) + '...' 
@@ -77,9 +92,21 @@ export function RequestsPanel() {
               {/* Status dot + Prompt preview */}
               <div className="flex items-start gap-2">
                 <div className={cn('mt-1.5 h-2 w-2 rounded-full shrink-0', statusDotColors[status])} />
-                <p className="text-[11px] line-clamp-2 flex-1 leading-relaxed">
-                  {promptPreview}
-                </p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] line-clamp-2 leading-relaxed">
+                    {promptPreview}
+                  </p>
+                  
+                  {/* Mini progress bar for active jobs */}
+                  {isActive && (
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <Progress value={progress} className="h-1 flex-1" />
+                      <span className="text-[9px] text-primary font-medium w-7 text-right">
+                        {progress}%
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
               
               {/* Footer: Model + Time + Delete */}
@@ -95,6 +122,7 @@ export function RequestsPanel() {
                     size="icon"
                     className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={(e) => handleDelete(e, generation.id)}
+                    disabled={isActive}
                   >
                     <Trash2 className="h-2.5 w-2.5 text-muted-foreground hover:text-destructive" />
                   </Button>

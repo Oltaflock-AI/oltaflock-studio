@@ -48,7 +48,13 @@ interface GenerationState {
   removeCharacterId: (index: number) => void;
   clearCharacterIds: () => void;
   
-  // Generation State
+  // Generation State - now per-job instead of global
+  activeGenerationIds: Set<string>;
+  addActiveGeneration: (id: string) => void;
+  removeActiveGeneration: (id: string) => void;
+  isAnyGenerating: () => boolean;
+  
+  // Legacy alias for backward compatibility (returns true if any active)
   isGenerating: boolean;
   setIsGenerating: (generating: boolean) => void;
   
@@ -170,9 +176,28 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   })),
   clearCharacterIds: () => set({ characterIds: [] }),
   
-  // Generation State
-  isGenerating: false,
-  setIsGenerating: (generating) => set({ isGenerating: generating }),
+  // Generation State - per-job tracking
+  activeGenerationIds: new Set<string>(),
+  addActiveGeneration: (id) => set((state) => {
+    const newSet = new Set(state.activeGenerationIds);
+    newSet.add(id);
+    return { activeGenerationIds: newSet };
+  }),
+  removeActiveGeneration: (id) => set((state) => {
+    const newSet = new Set(state.activeGenerationIds);
+    newSet.delete(id);
+    return { activeGenerationIds: newSet };
+  }),
+  isAnyGenerating: () => get().activeGenerationIds.size > 0,
+  
+  // Legacy compatibility - computed property
+  get isGenerating() {
+    return get().activeGenerationIds.size > 0;
+  },
+  setIsGenerating: (generating) => {
+    // Legacy: this is now a no-op, use addActiveGeneration/removeActiveGeneration instead
+    console.warn('setIsGenerating is deprecated. Use addActiveGeneration/removeActiveGeneration instead.');
+  },
   
   // Current Output
   currentOutput: null,
@@ -263,7 +288,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     referenceFiles: [],
     uploadedImageUrls: [],
     characterIds: [],
-    isGenerating: false,
+    activeGenerationIds: new Set<string>(),
     currentOutput: null,
     pendingRating: false,
     jobs: [],
