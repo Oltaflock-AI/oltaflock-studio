@@ -63,7 +63,7 @@ export function RequestDetailPanel() {
             <Hash className="h-2.5 w-2.5" />
             Request ID
           </label>
-          <p className="text-[10px] font-mono bg-muted/50 px-1.5 py-1 rounded break-all">
+          <p className="text-[10px] font-mono bg-muted/80 px-1.5 py-1 rounded break-all">
             {selectedGeneration.request_id}
           </p>
         </div>
@@ -96,7 +96,7 @@ export function RequestDetailPanel() {
           <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
             User Prompt
           </label>
-          <p className="text-[10px] bg-muted/50 px-1.5 py-1 rounded whitespace-pre-wrap max-h-20 overflow-y-auto">
+          <p className="text-[10px] bg-muted/80 px-1.5 py-1 rounded whitespace-pre-wrap max-h-20 overflow-y-auto">
             {selectedGeneration.user_prompt}
           </p>
         </div>
@@ -107,7 +107,7 @@ export function RequestDetailPanel() {
             <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
               Final Prompt
             </label>
-            <p className="text-[10px] bg-muted/50 px-1.5 py-1 rounded whitespace-pre-wrap text-muted-foreground max-h-20 overflow-y-auto">
+            <p className="text-[10px] bg-muted/80 px-1.5 py-1 rounded whitespace-pre-wrap text-muted-foreground max-h-20 overflow-y-auto">
               {selectedGeneration.final_prompt}
             </p>
           </div>
