@@ -24,7 +24,7 @@ export function BalanceButton() {
 
       // Check for error response from webhook
       if (data?.error) {
-        toast.error(data.error);
+        toast.error(data.error, { duration: 4000 });
         return;
       }
 
@@ -48,12 +48,14 @@ export function BalanceButton() {
       } else if (data?.credits !== undefined) {
         balanceValue = String(data.credits);
       } else {
-        // Fallback: stringify
-        balanceValue = JSON.stringify(data);
+        // Fallback: warn and show raw
+        console.warn('Unexpected balance format:', data);
+        toast.warning('Balance format not recognized', { duration: 3000 });
+        return;
       }
       
       setBalance(balanceValue);
-      toast.success(`Credits: ${balanceValue}`);
+      toast.success(`Credits: ${balanceValue}`, { duration: 3000 });
     } catch (error) {
       console.error('Failed to check balance:', error);
       toast.error('Unable to check balance. Please try again.');

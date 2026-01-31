@@ -21,9 +21,9 @@ const Index = () => {
   return (
     <div className="h-screen w-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-card shrink-0 h-10">
+      <header className="flex items-center justify-between px-2 py-1 border-b border-border bg-card shrink-0 h-9">
         <div className="flex items-center gap-2">
-          <img src={oltaflockLogo} alt="OltaFlock" className="h-6 w-6 rounded-md object-cover" />
+          <img src={oltaflockLogo} alt="OltaFlock" className="h-5 w-5 rounded-md object-cover" />
           <h1 className="text-sm font-semibold tracking-tight hidden md:block">
             OltaFlock Creative Studio
           </h1>
@@ -31,7 +31,7 @@ const Index = () => {
             Studio
           </h1>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <BalanceButton />
           <ThemeToggle />
           <UserMenu />
@@ -41,15 +41,15 @@ const Index = () => {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Left Sidebar - Mode + Requests */}
-        <aside className="w-44 border-r border-border bg-card flex flex-col overflow-hidden shrink-0">
-          <div className="p-2 border-b border-border">
+        <aside className="w-40 border-r border-border bg-card flex flex-col overflow-hidden shrink-0">
+          <div className="p-1.5 border-b border-border">
             <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
               Mode
             </h2>
             <ModeSelector />
           </div>
           
-          <div className="px-2 py-1.5 border-b border-border">
+          <div className="px-1.5 py-1 border-b border-border">
             <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
               History
             </h2>
@@ -61,7 +61,7 @@ const Index = () => {
         </aside>
 
         {/* Center - Controls */}
-        <div className="w-56 border-r border-border bg-background flex flex-col overflow-hidden shrink-0">
+        <div className="w-52 border-r border-border bg-background flex flex-col overflow-hidden shrink-0">
           <div className="flex-1 overflow-y-auto p-2 space-y-3 min-h-0">
             <PromptInput />
             <Separator />
@@ -88,8 +88,8 @@ const Index = () => {
         </main>
 
         {/* Right Sidebar - Request Details */}
-        <aside className="w-56 border-l border-border bg-card flex flex-col overflow-hidden shrink-0">
-          <div className="px-2 py-1.5 border-b border-border">
+        <aside className="w-52 border-l border-border bg-card flex flex-col overflow-hidden shrink-0">
+          <div className="px-1.5 py-1 border-b border-border">
             <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
               Request Details
             </h2>

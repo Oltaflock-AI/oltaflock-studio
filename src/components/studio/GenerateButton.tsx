@@ -1,5 +1,5 @@
 import { useGenerationStore } from '@/store/generationStore';
-import { useGenerations } from '@/hooks/useGenerations';
+import { useGenerations, type DbGeneration } from '@/hooks/useGenerations';
 import { ALL_MODELS, generateJobId, MODEL_API_NAMES } from '@/types/generation';
 import type { Model } from '@/types/generation';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ const WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT';
 const IMAGE_TO_IMAGE_WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/image-to-video';
 
 export function GenerateButton() {
-  const { createGeneration, updateGeneration } = useGenerations();
+  const { createGeneration, updateGeneration, generations } = useGenerations();
   const {
     mode,
     selectedModel,
@@ -24,6 +24,7 @@ export function GenerateButton() {
     setPendingRating,
     pendingRating,
     currentOutput,
+    selectedJobId,
     setSelectedJobId,
     clearUploadedImageUrls,
   } = useGenerationStore();
@@ -153,7 +154,13 @@ export function GenerateButton() {
       setSelectedJobId(dbGeneration.id);
     } catch (error) {
       console.error('Failed to create generation:', error);
-      toast.error('Failed to create generation');
+      const errorDetails = error instanceof Error 
+        ? error.message 
+        : JSON.stringify(error);
+      toast.error(`Generation failed: ${errorDetails}`, { 
+        duration: 5000,
+        description: 'Check console for details'
+      });
       setIsGenerating(false);
       return;
     }
@@ -303,9 +310,14 @@ export function GenerateButton() {
     await handleGenerate();
   };
 
-  // Get button text based on mode
+  // Get button text based on mode and current status
   const getButtonText = () => {
-    if (isGenerating) return 'Generating...';
+    if (isGenerating) {
+      const selectedJob = generations.find(g => g.id === selectedJobId);
+      if (selectedJob?.status === 'queued') return 'Queuing...';
+      if (selectedJob?.status === 'running') return 'Generating...';
+      return 'Processing...';
+    }
     if (mode === 'image-to-image') return 'Transform';
     return 'Generate';
   };

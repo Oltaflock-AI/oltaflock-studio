@@ -82,13 +82,16 @@ export function OutputDisplay() {
     }
 
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-card rounded-lg border border-border">
+      <div className="h-full flex flex-col items-center justify-center bg-card rounded-lg border border-border p-6">
         {mediaType === 'image' ? (
-          <ImageIcon className="h-10 w-10 text-muted-foreground/40 mb-3" />
+          <ImageIcon className="h-12 w-12 text-muted-foreground/30 mb-3" />
         ) : (
-          <Video className="h-10 w-10 text-muted-foreground/40 mb-3" />
+          <Video className="h-12 w-12 text-muted-foreground/30 mb-3" />
         )}
-        <p className="text-sm text-muted-foreground">Output will appear here</p>
+        <p className="text-sm font-medium text-foreground mb-1">No generation selected</p>
+        <p className="text-xs text-muted-foreground text-center max-w-[200px]">
+          Select a model and click Generate to create your first output
+        </p>
       </div>
     );
   }

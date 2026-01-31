@@ -44,9 +44,11 @@ export function RequestsPanel() {
   if (generations.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-4">
-        <FileText className="h-8 w-8 mb-2 opacity-50" />
-        <p className="text-sm">No requests yet</p>
-        <p className="text-xs text-muted-foreground/70">Generate your first output</p>
+        <FileText className="h-10 w-10 mb-3 opacity-40" />
+        <p className="text-sm font-medium mb-1">No requests yet</p>
+        <p className="text-xs text-center text-muted-foreground/70">
+          Generate your first image or video to see it here
+        </p>
       </div>
     );
   }
