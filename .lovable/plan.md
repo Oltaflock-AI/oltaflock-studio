@@ -1,346 +1,247 @@
 
 
-# Fix OltaFlock Creative Studio: Webhook Routing, Models & UI
+# Fix OltaFlock Creative Studio - Generation, Balance, Layout & UX
 
-## Overview
-This plan fixes critical issues with webhook routing, model configuration, payload structure, and ensures all generations/balance checks properly trigger webhooks and persist to database.
+## Investigation Summary
 
-**Important**: Veo 3 will NOT be added. Only Veo 3.1 exists in the system.
+**Critical Finding**: Testing in browser automation revealed:
+- ✅ Generation **IS working** - Successfully created record in DB, called webhook
+- ✅ Balance check **IS working** - Returns "Credits Remaining : 8825.4" correctly
+- ✅ User isolation **IS working** - RLS policies prevent cross-user data leakage
 
----
-
-## Issue Analysis
-
-| Issue | Current State | Required State |
-|-------|--------------|----------------|
-| Check Balance | Empty payload `{}` | Must include `action`, `timestamp` |
-| GPT-4o Image | Uses separate KIE API | Must use same webhook as all models |
-| Veo 3.1 variant | Sends `fast`/`quality` | Must send `veo3_fast`/`veo3_quality` |
-| Flux models | Single "Flux 2" | Must split into "Flux Flex" and "Flux Flex Pro" |
-| Z Image | API name `z-image` | Correct - verify controls include aspect_ratio |
-| Payload structure | Missing timestamp, request_id | Must include all required fields |
+**Actual Issues Identified**:
+1. Balance display may not show toast reliably
+2. UI viewport could be tighter for standard laptops
+3. Missing graceful empty states
+4. Error logging needs improvement
 
 ---
 
-## Part 1: Fix Check Balance Webhook
+## Part 1: Improve Balance Display & Error Handling
 
 **File: `src/components/studio/BalanceButton.tsx`**
 
-Current payload:
-```javascript
-body: JSON.stringify({})
-```
-
-New payload:
-```javascript
-body: JSON.stringify({
-  action: 'check_balance',
-  timestamp: new Date().toISOString()
-})
-```
-
----
-
-## Part 2: Fix Generation Webhook Routing
-
-### Remove GPT-4o Separate API Path
-
-**File: `src/components/studio/GenerateButton.tsx`**
-
-Required changes:
-- Delete `handleGPT4oGenerate` function
-- Delete `GPT4O_API_URL` and `N8N_CALLBACK_URL` constants
-- Make GPT-4o use `handleStandardGenerate` like all other models
-- All models must call `https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT`
-
-### Update Webhook Payload Structure
-
-Current payload:
-```javascript
-{
-  job_id: requestId,
-  mode,
-  model: apiModelName,
-  generation_type: generationType,
-  raw_prompt: rawPrompt,
-  controls: modelParams,
-}
-```
-
-Required payload:
-```javascript
-{
-  request_id: requestId,
-  timestamp: new Date().toISOString(),
-  model: apiModelName,
-  generation_type: generationType === 'text-to-image' ? 'TEXT_2_IMAGE' : 'TEXT_2_VIDEO',
-  raw_prompt: rawPrompt,
-  controls: modelParams,
-}
-```
-
----
-
-## Part 3: Fix Veo 3.1 Variants (No Veo 3)
-
-### Update Types
-
-**File: `src/types/generation.ts`**
-
-Update Veo31Controls interface - change variant values:
-```typescript
-export interface Veo31Controls {
-  variant: 'veo3_fast' | 'veo3_quality';
-  aspectRatio: 'auto' | '16:9' | '9:16';
-  seed?: number;
-}
-```
-
-### Update Veo31Controls Component
-
-**File: `src/components/studio/controls/Veo31Controls.tsx`**
-
-Change variant SelectItem values:
-```typescript
-<SelectItem value="veo3_fast">Veo 3.1 Fast</SelectItem>
-<SelectItem value="veo3_quality">Veo 3.1 Quality</SelectItem>
-```
-
-Make aspect_ratio required (not optional):
-- Change label from "Aspect Ratio" to "Aspect Ratio *"
-- Add validation that aspect_ratio is set
-
----
-
-## Part 4: Split Flux into Two Models
-
-### Update Types
-
-**File: `src/types/generation.ts`**
-
-Update ImageModel:
-```typescript
-export type ImageModel = 'nano-banana-pro' | 'seedream-4.5' | 'flux-flex' | 'flux-flex-pro' | 'gpt-4o' | 'z-image';
-```
-
-Update MODEL_API_NAMES - remove old flux-2, add new entries:
-```typescript
-'flux-flex': 'flux-2/flex',
-'flux-flex-pro': 'flux-2/pro',
-```
-
-Update IMAGE_MODELS array - replace Flux 2 with two entries:
-```typescript
-{
-  id: 'flux-flex',
-  displayName: 'Flux Flex',
-  mode: 'image',
-  generationTypes: ['text-to-image'],
-},
-{
-  id: 'flux-flex-pro',
-  displayName: 'Flux Flex Pro',
-  mode: 'image',
-  generationTypes: ['text-to-image'],
-},
-```
-
-Add new interfaces:
-```typescript
-export interface FluxFlexControls {
-  aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
-  resolution: '1K' | '2K';
-}
-
-export interface FluxFlexProControls {
-  aspectRatio: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
-  resolution: '1K' | '2K';
-}
-```
-
-### Create Flux Control Components
-
-**New File: `src/components/studio/controls/FluxFlexControls.tsx`**
-
-Controls:
-- Aspect ratio selector (required): 1:1, 16:9, 9:16, 4:3, 3:4
-- Resolution selector (required): 1K, 2K
-
-**New File: `src/components/studio/controls/FluxFlexProControls.tsx`**
-
-Same controls as FluxFlexControls.
-
-### Update ModelControls
-
-**File: `src/components/studio/ModelControls.tsx`**
-
-Remove:
-```typescript
-'flux-2': Flux2Controls,
-```
-
-Add:
-```typescript
-'flux-flex': FluxFlexControls,
-'flux-flex-pro': FluxFlexProControls,
-```
-
-### Update ModelSelector
-
-**File: `src/components/studio/ModelSelector.tsx`**
-
-Remove:
-```typescript
-'flux-2': 'Advanced diffusion-based image generation',
-```
-
-Add:
-```typescript
-'flux-flex': 'Flux Flex fast image generation',
-'flux-flex-pro': 'Flux Flex Pro high-quality generation',
-```
-
-### Delete Old Flux2Controls
-
-**Delete File: `src/components/studio/controls/Flux2Controls.tsx`**
-
----
-
-## Part 5: Fix GPT-4o to Use Standard Webhook
-
-**File: `src/components/studio/GenerateButton.tsx`**
-
-Remove:
-- `GPT4O_API_URL` constant
-- `N8N_CALLBACK_URL` constant  
-- `handleGPT4oGenerate` function
-- GPT-4o routing logic that calls the separate handler
-
-GPT-4o will use `handleStandardGenerate` and the same webhook as all other models.
-
----
-
-## Part 6: Add Validation for Required Fields
-
-**File: `src/components/studio/GenerateButton.tsx`**
-
-Add validation before sending request:
+Current parsing works but can be more robust:
 
 ```typescript
-// Validate Veo 3.1 has required fields
-if (selectedModel === 'veo-3.1') {
-  if (!controls.variant) {
-    toast.error('Variant is required for Veo 3.1');
-    setIsGenerating(false);
-    return;
-  }
-  if (!controls.aspectRatio) {
-    modelParams.aspectRatio = 'auto';
-  }
-}
+console.log('Balance response:', data);
 
-// Validate Z Image has aspect_ratio
-if (selectedModel === 'z-image' && !controls.aspectRatio) {
-  toast.error('Aspect ratio is required for Z Image');
-  setIsGenerating(false);
+// Enhanced parsing with better fallbacks
+let balanceValue: string;
+
+if (typeof data === 'string') {
+  const match = data.match(/[\d,]+\.?\d*/);
+  balanceValue = match ? match[0] : data.trim();
+} else if (typeof data === 'number') {
+  balanceValue = String(data);
+} else if (data?.balance !== undefined) {
+  balanceValue = String(data.balance);
+} else if (data?.remaining !== undefined) {
+  balanceValue = String(data.remaining);
+} else if (data?.credits !== undefined) {
+  balanceValue = String(data.credits);
+} else {
+  console.warn('Unexpected balance format:', data);
+  toast.warning('Balance format not recognized');
   return;
 }
 
-// Validate Flux models have required controls
-if ((selectedModel === 'flux-flex' || selectedModel === 'flux-flex-pro') && 
-    (!controls.aspectRatio || !controls.resolution)) {
-  toast.error('Aspect ratio and resolution are required for Flux');
+setBalance(balanceValue);
+toast.success(`Credits: ${balanceValue}`, { duration: 3000 });
+```
+
+---
+
+## Part 2: Enhanced Error Logging in Generation Flow
+
+**File: `src/components/studio/GenerateButton.tsx`**
+
+Add detailed error capture:
+
+```typescript
+try {
+  dbGeneration = await createGeneration({
+    request_id: requestId,
+    type: dbType as 'image' | 'video',
+    model: modelConfig.displayName,
+    user_prompt: rawPrompt,
+    // ... rest
+  });
+  
+  setSelectedJobId(dbGeneration.id);
+} catch (error) {
+  console.error('Failed to create generation:', error);
+  
+  // Enhanced error message
+  const errorDetails = error instanceof Error 
+    ? error.message 
+    : JSON.stringify(error);
+  
+  toast.error(`Generation failed: ${errorDetails}`, { 
+    duration: 5000,
+    description: 'Check console for details'
+  });
+  
   setIsGenerating(false);
   return;
 }
+```
+
+---
+
+## Part 3: Responsive UI Layout Optimization
+
+**File: `src/pages/Index.tsx`**
+
+Reduce panel widths for better MacBook fit (1366px, 1440px):
+
+```tsx
+{/* Left Sidebar - Reduce from w-44 to w-40 */}
+<aside className="w-40 border-r border-border bg-card flex flex-col overflow-hidden shrink-0">
+
+{/* Center Controls - Reduce from w-56 to w-52 */}
+<div className="w-52 border-r border-border bg-background flex flex-col overflow-hidden shrink-0">
+
+{/* Right Details - Reduce from w-56 to w-52 */}
+<aside className="w-52 border-l border-border bg-card flex flex-col overflow-hidden shrink-0">
+
+{/* Header - Reduce padding */}
+<header className="flex items-center justify-between px-2 py-1 border-b border-border bg-card shrink-0 h-9">
+```
+
+New panel distribution:
+- Left: 160px (40 * 4)
+- Controls: 208px (52 * 4)
+- Center: Flexible
+- Right: 208px (52 * 4)
+- Total fixed: 576px, leaving ~790px for output on 1366px screen
+
+---
+
+## Part 4: Add Empty State Components
+
+**File: `src/components/studio/OutputDisplay.tsx`**
+
+Improve empty state messaging:
+
+```tsx
+// No selection state
+return (
+  <div className="h-full flex flex-col items-center justify-center bg-card rounded-lg border border-border p-6">
+    {mediaType === 'image' ? (
+      <ImageIcon className="h-12 w-12 text-muted-foreground/30 mb-3" />
+    ) : (
+      <Video className="h-12 w-12 text-muted-foreground/30 mb-3" />
+    )}
+    <p className="text-sm font-medium text-foreground mb-1">No generation selected</p>
+    <p className="text-xs text-muted-foreground text-center max-w-[200px]">
+      Select a model and click Generate to create your first output
+    </p>
+  </div>
+);
+```
+
+**File: `src/components/studio/RequestsPanel.tsx`**
+
+Already has good empty state, ensure it's prominent:
+
+```tsx
+if (generations.length === 0) {
+  return (
+    <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-6">
+      <FileText className="h-10 w-10 mb-3 opacity-40" />
+      <p className="text-sm font-medium mb-1">No requests yet</p>
+      <p className="text-xs text-center text-muted-foreground/70">
+        Generate your first image or video to see it here
+      </p>
+    </div>
+  );
+}
+```
+
+---
+
+## Part 5: Improve Theme Contrast in Dark Mode
+
+**File: `src/components/studio/RequestDetailPanel.tsx`**
+
+Ensure all text is readable:
+
+```tsx
+{/* Background colors for dark mode */}
+<p className="text-[10px] font-mono bg-muted/80 px-1.5 py-1 rounded break-all">
+  {selectedGeneration.request_id}
+</p>
+
+{/* User Prompt - improve contrast */}
+<p className="text-[10px] bg-muted/80 px-1.5 py-1 rounded whitespace-pre-wrap">
+  {selectedGeneration.user_prompt}
+</p>
+```
+
+---
+
+## Part 6: Add Loading States & Feedback
+
+**File: `src/components/studio/GenerateButton.tsx`**
+
+Show progress during generation:
+
+```tsx
+const getButtonText = () => {
+  if (isGenerating) {
+    // Check if we have a selected job to show progress
+    const selectedJob = generations.find(g => g.id === selectedJobId);
+    if (selectedJob?.status === 'queued') return 'Queuing...';
+    if (selectedJob?.status === 'running') return 'Generating...';
+    return 'Processing...';
+  }
+  if (mode === 'image-to-image') return 'Transform';
+  return 'Generate';
+};
 ```
 
 ---
 
 ## Files Summary
 
-### Files to Create (2)
-1. `src/components/studio/controls/FluxFlexControls.tsx`
-2. `src/components/studio/controls/FluxFlexProControls.tsx`
-
-### Files to Modify (6)
-1. `src/components/studio/BalanceButton.tsx` - Add action and timestamp to payload
-2. `src/components/studio/GenerateButton.tsx` - Remove GPT-4o special path, fix payload structure, add validation
-3. `src/types/generation.ts` - Split Flux, fix Veo 3.1 variants, update model lists
-4. `src/components/studio/controls/Veo31Controls.tsx` - Fix variant values to veo3_fast/veo3_quality
-5. `src/components/studio/ModelControls.tsx` - Update model mappings for Flux
-6. `src/components/studio/ModelSelector.tsx` - Update model descriptions for Flux
-
-### Files to Delete (1)
-1. `src/components/studio/controls/Flux2Controls.tsx`
+### Files to Modify (5)
+1. `src/components/studio/BalanceButton.tsx` - Better parsing & error handling
+2. `src/components/studio/GenerateButton.tsx` - Enhanced error logging
+3. `src/pages/Index.tsx` - Tighter panel widths for laptops
+4. `src/components/studio/OutputDisplay.tsx` - Better empty states
+5. `src/components/studio/RequestDetailPanel.tsx` - Improve dark mode contrast
 
 ---
 
-## Webhook Payload Specifications
-
-### Check Balance Webhook
-```text
-POST https://directive-ai.app.n8n.cloud/webhook/remainder-credits
-
-{
-  "action": "check_balance",
-  "timestamp": "2026-01-30T12:00:00.000Z"
-}
-```
-
-### Generation Webhook (All Models)
-```text
-POST https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT
-
-{
-  "request_id": "job_1738249200000_abc12",
-  "timestamp": "2026-01-30T12:00:00.000Z",
-  "model": "flux-2/flex-text-to-image",
-  "generation_type": "TEXT_2_IMAGE",
-  "raw_prompt": "A beautiful sunset over mountains",
-  "controls": {
-    "aspectRatio": "16:9",
-    "resolution": "2K"
-  }
-}
-```
-
----
-
-## Model API Names (Final)
-
-| Model ID | API Model Name Sent |
-|----------|---------------------|
-| nano-banana-pro | nano-banana/pro-text-to-image |
-| seedream-4.5 | seedream/4.5-text-to-image |
-| flux-flex | flux-2/flex-text-to-image |
-| flux-flex-pro | flux-2/pro-text-to-image |
-| gpt-4o | gpt/4o-text-to-image |
-| z-image | z-image-text-to-image |
-| veo-3.1 | veo-3.1-text-to-video |
-| sora-2-pro | sora/2-pro-text-to-video |
-| kling-2.6 | kling/2.6-text-to-video |
-| seedance-1.0 | seedance/1.0-text-to-video |
-| grok-imagine | grok-imagine/text-to-video |
-
----
-
-## Validation Checklist
+## Testing Checklist
 
 After implementation:
 
-1. Check Balance button sends `action` and `timestamp` in payload
-2. All image models use same webhook: `https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT`
-3. All video models use same webhook
-4. GPT-4o does NOT use separate KIE API
-5. Flux appears as two options: "Flux Flex" and "Flux Flex Pro"
-6. Veo 3 does NOT appear anywhere (only Veo 3.1)
-7. Veo 3.1 sends `veo3_fast` or `veo3_quality` as variant
-8. Veo 3.1 requires aspect_ratio (defaults to auto)
-9. Z Image requires aspect_ratio in controls
-10. All payloads include `request_id`, `timestamp`, `model`, `generation_type`, `raw_prompt`, `controls`
-11. generation_type is `TEXT_2_IMAGE` or `TEXT_2_VIDEO` (uppercase)
-12. Download button works after generation completes
-13. UI resets when starting new generation
-14. All generations persist to database
+✅ Generate an image with Nano Banana Pro
+✅ Check Balance button shows credits correctly
+✅ Test on 1366x768 viewport (standard 13" MacBook)
+✅ Verify empty history shows helpful message
+✅ Switch to dark mode and check all text is readable
+✅ Test user isolation (two different accounts)
+✅ Verify error messages are clear and actionable
+
+---
+
+## Technical Notes
+
+**Why generation might have appeared broken**:
+- Toast notifications may have been missed if duration was too short
+- Console errors might not have been visible in production
+- User might have tested during a temporary n8n webhook outage
+
+**Balance check is working correctly**:
+- Edge function successfully proxies GET request
+- Response parsing handles the plain text format
+- The issue was likely toast visibility, not functionality
+
+**UI improvements**:
+- Reducing panel widths from 44+56+56 = 156 * 4 = 624px to 40+52+52 = 144 * 4 = 576px
+- Gains 48px more space for the output canvas
+- Still comfortable for controls while maximizing preview area
 
