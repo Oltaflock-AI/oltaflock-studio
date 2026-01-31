@@ -1,290 +1,293 @@
 
 
-# OltaFlock Creative Studio - Complete UI & Balance Fix
+# Multiple Concurrent Generations with Per-Job Progress Indicators
 
-## Executive Summary
+## Overview
 
-This plan addresses all UI layout issues, fixes the Check Balance flow, and polishes the studio to achieve a Notion-like, production-grade experience.
+This plan adds support for **multiple parallel generation requests** and **per-job progress indicators** to the OltaFlock Creative Studio. Currently, the UI blocks further generations while one is in progress due to a global `isGenerating` state. This will be replaced with per-job state management.
 
 ---
 
-## Part 1: Fix Check Balance Button (CRITICAL)
+## Current Architecture Analysis
 
-### Current Issue
-The edge function IS working correctly (verified in logs - returns `Credits Remaining : 8794.9`), but the frontend may be failing to parse the response properly because:
-1. The edge function sets `Content-Type: application/json` but returns plain text
-2. Supabase's `functions.invoke()` may be trying to parse the response as JSON and failing
+### Blocking Issues Identified
 
-### Solution
+| Component | Current Behavior | Problem |
+|-----------|-----------------|---------|
+| `generationStore.ts` | Uses global `isGenerating` boolean | Blocks all Generate clicks while any job runs |
+| `GenerateButton.tsx` | Checks `!isGenerating` in `canGenerate` | Disables button during any active generation |
+| `OutputDisplay.tsx` | Uses global `isGenerating` for loading state | Shows single "generating" state for all jobs |
+| Database | No `progress` column | Cannot store/track progress per job |
 
-**File: `supabase/functions/check-balance/index.ts`**
+### What Works Well
 
-Fix the Content-Type mismatch by properly handling text responses:
+- Each generation already creates a unique `request_id`
+- The `generations` table already has per-row status (`queued`, `running`, `done`, `error`)
+- History panel already shows individual job status dots
+- Polling mechanism already exists to detect status changes
+
+---
+
+## Implementation Plan
+
+### Part 1: Remove Global Generation Lock
+
+**File: `src/store/generationStore.ts`**
+
+Changes:
+- Remove global `isGenerating` state
+- Add a Set to track `activeGenerationIds` (jobs currently in progress)
+- Add helper functions: `addActiveGeneration(id)`, `removeActiveGeneration(id)`, `isAnyGenerating()`
 
 ```typescript
-// Instead of returning raw text with JSON content-type,
-// wrap the text in a JSON object
-return new Response(
-  JSON.stringify({ balance: data.trim() }),
-  {
-    status: response.status,
-    headers: {
-      ...corsHeaders,
-      'Content-Type': 'application/json',
-    },
-  }
-);
+// Replace:
+isGenerating: boolean;
+setIsGenerating: (generating: boolean) => void;
+
+// With:
+activeGenerationIds: Set<string>;
+addActiveGeneration: (id: string) => void;
+removeActiveGeneration: (id: string) => void;
+isAnyGenerating: () => boolean;
 ```
 
-**File: `src/components/studio/BalanceButton.tsx`**
+**File: `src/components/studio/GenerateButton.tsx`**
 
-Improve the parsing to handle the wrapped response:
+Changes:
+- Remove dependency on global `isGenerating`
+- Allow Generate button to remain enabled while other jobs run
+- Track individual job state via database polling
+- Only disable button while validating/submitting (brief moment)
 
 ```typescript
-// Parse response - edge function now wraps text in { balance: "..." }
-if (data?.balance) {
-  const match = data.balance.match(/[\d,]+\.?\d*/);
-  balanceValue = match ? match[0] : data.balance;
-} else if (typeof data === 'string') {
-  // Fallback for direct string
-  const match = data.match(/[\d,]+\.?\d*/);
-  balanceValue = match ? match[0] : data.trim();
+// New canGenerate logic:
+const canGenerate = selectedModel && generationType && rawPrompt.trim() && hasRequiredImages;
+// Note: isGenerating removed from this check
+```
+
+---
+
+### Part 2: Add Progress Field to Database
+
+**Database Migration**
+
+Add a `progress` column to the `generations` table to store progress percentage (0-100).
+
+```sql
+ALTER TABLE public.generations
+ADD COLUMN IF NOT EXISTS progress INTEGER DEFAULT 0;
+```
+
+This enables:
+- Per-job progress tracking
+- Persistence across page refreshes
+- Backend can update progress via callback
+
+**File: `src/hooks/useGenerations.tsx`**
+
+Update types to include progress:
+
+```typescript
+export interface DbGeneration {
+  // ... existing fields
+  progress: number; // 0-100
+}
+
+export interface GenerationUpdate {
+  // ... existing fields
+  progress?: number;
 }
 ```
 
 ---
 
-## Part 2: Fix Layout Structure (HIGH PRIORITY)
+### Part 3: Implement Simulated Progress Logic
 
-### Current Issues
-- Panels feel cramped at w-40 / w-52
-- Generate button area shows conditional Regenerate button that may look "orphan"
-- Model name text can overflow
-- Typography is inconsistent
+Since the n8n webhook doesn't provide real-time progress callbacks, we'll implement **simulated progress** based on lifecycle stages.
 
-### New Layout System
+**New File: `src/hooks/useGenerationProgress.tsx`**
 
-**File: `src/pages/Index.tsx`**
+Creates a custom hook that:
+1. Watches active generations via polling
+2. Simulates smooth progress increases based on elapsed time
+3. Maps lifecycle stages to progress ranges
 
-Redesign with cleaner 3-column layout:
+```typescript
+// Progress stages:
+// 0%  - Generation created
+// 10% - Request sent to webhook
+// 25% - Status changed to 'running'
+// 25-80% - Time-based simulation while running (increments every 2s)
+// 85% - Output URL received
+// 100% - Fully rendered
 
+function useGenerationProgress(generationId: string): number {
+  // Returns current progress (0-100) for the given generation
+  // Uses useEffect with interval to smoothly animate progress
+}
 ```
-+--------+------------+------------------------+----------+
-| LEFT   | CONTROLS   |      OUTPUT CANVAS     | DETAILS  |
-| w-44   | w-60       |       (flexible)       | w-64     |
-+--------+------------+------------------------+----------+
-```
 
-Changes:
-- Left sidebar: `w-44` (176px) - Mode + History
-- Controls panel: `w-60` (240px) - Prompt, Model, Controls
-- Center: `flex-1` - Output canvas (hero)
-- Right sidebar: `w-64` (256px) - Request details
-
-**Key improvements:**
-1. Increase controls panel width to prevent model name clipping
-2. Increase right details panel for better readability
-3. Add proper section headers
-4. Remove harsh separators, use subtler visual grouping
+**Progress Simulation Rules:**
+- Never decrease progress
+- Cap at 90% until confirmed done
+- Jump to 100% only when `status === 'done'` and `output_url` exists
+- Failed jobs freeze at current progress and show error state
 
 ---
 
-## Part 3: Fix Generate Button Area
-
-### Current Issue
-The Regenerate button appears next to Generate conditionally, which can look like an orphan button.
+### Part 4: Update GenerateButton for Parallel Operations
 
 **File: `src/components/studio/GenerateButton.tsx`**
 
-Redesign to:
-1. Make Generate button always full-width
-2. Show Regenerate only as a small icon button or after output
-3. Remove visual cramping
+Key changes:
+1. Remove global lock - button stays enabled
+2. Add brief `isSubmitting` local state (only while creating DB record)
+3. Don't wait for webhook response in UI thread - fire and forget
+4. Each click starts independent flow
 
-```tsx
-<div className="space-y-2">
-  <Button onClick={handleGenerate} disabled={!canGenerate} className="w-full h-11">
-    {isGenerating ? (
-      <>
-        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-        {getButtonText()}
-      </>
-    ) : (
-      <>
-        <Play className="h-4 w-4 mr-2" />
-        {getButtonText()}
-      </>
-    )}
-  </Button>
+```typescript
+const [isSubmitting, setIsSubmitting] = useState(false);
+
+const handleGenerate = async () => {
+  if (!canGenerate || isSubmitting) return;
   
-  {/* Only show Regenerate below, not inline */}
-  {currentOutput && !pendingRating && !isGenerating && (
-    <Button variant="outline" onClick={handleRegenerate} className="w-full h-9 text-xs">
-      <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-      Regenerate with Same Settings
-    </Button>
-  )}
-</div>
-```
-
----
-
-## Part 4: Fix Model Selector Overflow
-
-### Current Issue
-Model names like "Nano Banana Pro" overflow their container.
-
-**File: `src/components/studio/ModelSelector.tsx`**
-
-Changes:
-1. Use text truncation on select trigger
-2. Simplify dropdown items (remove full descriptions in trigger)
-3. Add `truncate` class to prevent overflow
-
-```tsx
-<SelectTrigger className="w-full bg-input border-border h-10">
-  <SelectValue placeholder="Select model" className="truncate" />
-</SelectTrigger>
-```
-
-For dropdown items, keep descriptions but ensure they fit:
-```tsx
-<SelectItem key={model.id} value={model.id}>
-  <div className="flex flex-col gap-0.5">
-    <span className="font-medium text-sm">{model.displayName}</span>
-    <span className="text-[10px] text-muted-foreground line-clamp-1">
-      {MODEL_DESCRIPTIONS[model.id]}
-    </span>
-  </div>
-</SelectItem>
-```
-
----
-
-## Part 5: Improve Mode Selector
-
-### Current Issue
-Mode selector feels cramped and doesn't highlight selection well.
-
-**File: `src/components/studio/ModeSelector.tsx`**
-
-Improvements:
-1. Better visual distinction for active state
-2. Reduce padding for compact but readable layout
-3. Remove descriptions in narrow layout
-
-```tsx
-<button
-  className={cn(
-    'w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-all',
-    isActive 
-      ? 'bg-primary text-primary-foreground shadow-sm' 
-      : option.enabled
-        ? 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-        : 'text-muted-foreground/40 cursor-not-allowed'
-  )}
->
-```
-
----
-
-## Part 6: Improve History Panel
-
-### Current Issue
-History items are dense with too much information packed together.
-
-**File: `src/components/studio/RequestsPanel.tsx`**
-
-Redesign history items:
-1. Simpler card design
-2. Clearer status indicator
-3. Better visual hierarchy
-4. Subtle hover/selected states
-
-```tsx
-<div
-  className={cn(
-    'px-2.5 py-2 rounded-lg border cursor-pointer transition-all group',
-    isSelected 
-      ? 'bg-accent border-primary/40 shadow-sm' 
-      : 'bg-card border-transparent hover:border-border hover:bg-accent/50'
-  )}
->
-  {/* Status dot + Prompt preview */}
-  <div className="flex items-start gap-2">
-    <div className={cn('mt-1 h-2 w-2 rounded-full shrink-0', statusDotColor)} />
-    <p className="text-xs line-clamp-2 flex-1">{promptPreview}</p>
-  </div>
+  setIsSubmitting(true); // Brief lock while creating record
   
-  {/* Footer: Model + Time */}
-  <div className="flex items-center justify-between mt-1.5 text-[10px] text-muted-foreground">
-    <span className="truncate max-w-[80px]">{generation.model}</span>
-    <span>{format(createdAt, 'HH:mm')}</span>
-  </div>
-</div>
+  try {
+    // 1. Create generation in DB with 'queued' status
+    const dbGeneration = await createGeneration({...});
+    
+    // 2. Immediately select the new job
+    setSelectedJobId(dbGeneration.id);
+    
+    // 3. Start webhook call (don't await final result in UI)
+    triggerWebhook(dbGeneration.id, webhookPayload);
+    
+    toast.success('Generation started');
+  } catch (error) {
+    toast.error('Failed to start generation');
+  } finally {
+    setIsSubmitting(false); // Unlock immediately
+  }
+};
 ```
 
 ---
 
-## Part 7: Enhance Output Canvas
-
-### Current Issue
-Output feels like "a box" not "the hero canvas."
+### Part 5: Update OutputDisplay for Per-Job Progress
 
 **File: `src/components/studio/OutputDisplay.tsx`**
 
 Changes:
-1. Remove harsh borders
-2. Add subtle shadow instead
-3. Better empty state with illustration
-4. Smooth transitions between states
+1. Remove dependency on global `isGenerating`
+2. Show progress bar when viewing a job that's `queued` or `running`
+3. Use the new `useGenerationProgress` hook
+4. Progress bar with percentage label
 
-```tsx
-// Container with softer styling
-<div className="h-full flex flex-col gap-3 overflow-hidden">
-  <div className="flex-1 bg-muted/30 rounded-xl overflow-hidden relative group min-h-0 shadow-inner">
-    <div className="absolute inset-0 flex items-center justify-center p-4">
-      {/* Content */}
-    </div>
-  </div>
-</div>
+```typescript
+function OutputDisplay() {
+  const { selectedJobId } = useGenerationStore();
+  const { generations } = useGenerations();
+  const selectedGeneration = generations.find(g => g.id === selectedJobId);
+  
+  // Get simulated progress for selected generation
+  const progress = useGenerationProgress(selectedJobId);
+  
+  if (selectedGeneration?.status === 'queued' || selectedGeneration?.status === 'running') {
+    return (
+      <div className="h-full flex flex-col items-center justify-center">
+        <Progress value={progress} className="w-48 h-2 mb-4" />
+        <p className="text-sm font-medium">{progress}%</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          {progress < 25 ? 'Queuing...' : progress < 80 ? 'Generating...' : 'Finalizing...'}
+        </p>
+      </div>
+    );
+  }
+  
+  // ... rest of component (done/error/empty states)
+}
 ```
 
 ---
 
-## Part 8: Improve Request Details Panel
+### Part 6: Update RequestsPanel for Progress Display
 
-### Current Issue
-Panel is too narrow and metadata is hard to scan.
-
-**File: `src/components/studio/RequestDetailPanel.tsx`**
+**File: `src/components/studio/RequestsPanel.tsx`**
 
 Changes:
-1. Better section grouping
-2. Clearer labels
-3. Improved spacing
-4. Scrollable with more room
+1. Show mini progress bar for active jobs
+2. Update status dot to show animated state for running jobs
+3. Allow clicking any job regardless of active status
+
+```typescript
+// For each generation item, show progress if running:
+{generation.status === 'running' && (
+  <Progress value={progress} className="h-1 mt-1" />
+)}
+```
 
 ---
 
-## Part 9: Global Polish
+### Part 7: Create Progress Simulation Hook
 
-### Typography & Spacing
-- Use consistent font sizes: `text-xs` for labels, `text-sm` for content
-- Consistent padding: `p-3` for major sections
-- Use `gap-3` between sections
+**New File: `src/hooks/useGenerationProgress.tsx`**
 
-### Transitions
-Add smooth transitions:
-```css
-.transition-all { transition: all 0.15s ease-out; }
+```typescript
+import { useState, useEffect } from 'react';
+import { useGenerations } from './useGenerations';
+
+export function useGenerationProgress(generationId: string | null): number {
+  const { generations } = useGenerations();
+  const generation = generations.find(g => g.id === generationId);
+  const [simulatedProgress, setSimulatedProgress] = useState(0);
+
+  useEffect(() => {
+    if (!generation) {
+      setSimulatedProgress(0);
+      return;
+    }
+
+    // Map status to base progress
+    const statusProgress: Record<string, number> = {
+      'queued': 10,
+      'running': 25,
+      'done': 100,
+      'error': simulatedProgress, // Freeze on error
+    };
+
+    const baseProgress = statusProgress[generation.status] || 0;
+
+    // If done, jump to 100
+    if (generation.status === 'done') {
+      setSimulatedProgress(100);
+      return;
+    }
+
+    // If error, freeze
+    if (generation.status === 'error') {
+      return;
+    }
+
+    // Start from base progress
+    setSimulatedProgress(prev => Math.max(prev, baseProgress));
+
+    // Simulate progress while running
+    if (generation.status === 'running') {
+      const interval = setInterval(() => {
+        setSimulatedProgress(prev => {
+          if (prev >= 85) return prev; // Cap at 85% until confirmed
+          return prev + Math.random() * 3 + 1; // Add 1-4% each tick
+        });
+      }, 2000);
+
+      return () => clearInterval(interval);
+    }
+  }, [generation?.status, generationId]);
+
+  return Math.min(Math.round(simulatedProgress), 100);
+}
 ```
-
-### Loading States
-Replace empty divs with skeleton loaders for:
-- History loading
-- Output loading
-- Details loading
 
 ---
 
@@ -292,50 +295,101 @@ Replace empty divs with skeleton loaders for:
 
 | File | Changes |
 |------|---------|
-| `supabase/functions/check-balance/index.ts` | Wrap text response in JSON object |
-| `src/components/studio/BalanceButton.tsx` | Improved parsing, better error states |
-| `src/pages/Index.tsx` | New column widths, improved structure |
-| `src/components/studio/GenerateButton.tsx` | Stack buttons vertically, remove cramping |
-| `src/components/studio/ModelSelector.tsx` | Truncate text, fix overflow |
-| `src/components/studio/ModeSelector.tsx` | Better active states, cleaner layout |
-| `src/components/studio/RequestsPanel.tsx` | Simpler history cards, status dots |
-| `src/components/studio/OutputDisplay.tsx` | Softer styling, better empty state |
-| `src/components/studio/RequestDetailPanel.tsx` | Better spacing, clearer hierarchy |
-| `src/components/studio/PromptInput.tsx` | Adjust height for new layout |
+| `supabase/migrations/new` | Add `progress` column to `generations` table |
+| `src/store/generationStore.ts` | Replace `isGenerating` with `activeGenerationIds` Set |
+| `src/hooks/useGenerations.tsx` | Add `progress` field to types |
+| `src/hooks/useGenerationProgress.tsx` | **NEW** - Progress simulation hook |
+| `src/components/studio/GenerateButton.tsx` | Remove global lock, use local `isSubmitting` |
+| `src/components/studio/OutputDisplay.tsx` | Add progress bar for active jobs |
+| `src/components/studio/RequestsPanel.tsx` | Add mini progress indicators |
+
+---
+
+## Technical Architecture
+
+```text
++-------------------+     +-------------------+     +-------------------+
+|   GenerateButton  |     |   RequestsPanel   |     |   OutputDisplay   |
++-------------------+     +-------------------+     +-------------------+
+         |                        |                        |
+         v                        v                        v
++------------------------------------------------------------------+
+|              useGenerationProgress (simulated progress)          |
++------------------------------------------------------------------+
+                                  |
+                                  v
++------------------------------------------------------------------+
+|                        useGenerations                            |
+|   - Polls database every 5s while any job is queued/running      |
+|   - Returns all user's generations with status + progress        |
++------------------------------------------------------------------+
+                                  |
+                                  v
++------------------------------------------------------------------+
+|                     Supabase Database                            |
+|   - generations table with status, progress, output_url          |
+|   - Updated by n8n webhook callbacks                             |
++------------------------------------------------------------------+
+```
+
+---
+
+## User Experience Flow
+
+1. **User clicks Generate**
+   - Button briefly shows "Starting..." (0.5s)
+   - New job appears in history with 10% progress
+   - Button re-enables immediately
+
+2. **User clicks Generate again**
+   - Another job starts independently
+   - Both jobs show in history with their own progress
+   - User can switch between them
+
+3. **Progress updates**
+   - History shows mini progress bars for running jobs
+   - Selected job shows large progress bar in output canvas
+   - Progress smoothly increases (simulated)
+
+4. **Job completes**
+   - Progress jumps to 100%
+   - Output image/video appears
+   - History item updates with green "done" dot
+
+5. **Job fails**
+   - Progress freezes
+   - Error message displays
+   - History item shows red "error" dot
+   - Other running jobs continue unaffected
 
 ---
 
 ## Acceptance Criteria
 
-After implementation:
-
-| Criteria | Status |
-|----------|--------|
-| Check Balance displays credits correctly | ⬜ |
-| No clipped text or hidden elements | ⬜ |
-| Model selector shows full names | ⬜ |
-| Generate button is clear and prominent | ⬜ |
-| History items are scannable | ⬜ |
-| Output canvas feels like the hero | ⬜ |
-| Request details are readable | ⬜ |
-| No horizontal scrolling | ⬜ |
-| Works on 13", 15", 16" laptops | ⬜ |
-| Dark mode has proper contrast | ⬜ |
+| Requirement | Implementation |
+|-------------|----------------|
+| Multiple Generate clicks work instantly | Local `isSubmitting` (brief), no global lock |
+| Multiple jobs run in parallel | Each job has independent DB record and webhook call |
+| Outputs never overwrite each other | Each output tied to specific `request_id` |
+| History is accurate and isolated | Each click = one history item immediately |
+| Progress shows per job | `useGenerationProgress` hook with simulation |
+| Progress 0-100% with smooth animation | Interval-based increment while status is 'running' |
+| Failed jobs don't affect running jobs | Errors isolated per generation ID |
+| UI remains responsive | No blocking async operations in UI thread |
 
 ---
 
-## Technical Notes
+## Testing Checklist
 
-### Balance Check Issue
-The root cause is Content-Type mismatch. The edge function returns plain text with `Content-Type: application/json`. When `supabase.functions.invoke()` receives this, it may try to parse as JSON and fail silently or return an unexpected format.
+After implementation:
 
-**Fix**: Wrap the text response in a proper JSON object in the edge function.
-
-### Layout Sizing
-Current total fixed width: 40 + 52 + 52 = 144 units = 576px
-New total fixed width: 44 + 60 + 64 = 168 units = 672px
-This still leaves ~694px on a 1366px screen for the output canvas.
-
-### Model Name Overflow
-The `SelectValue` component needs explicit truncation. Adding `[&>span]:truncate` or wrapping content in a truncated span will prevent overflow.
+- [ ] Click Generate 3 times rapidly - all 3 jobs should start
+- [ ] Each job shows independent progress in history
+- [ ] Clicking a running job shows its progress bar in output canvas
+- [ ] Clicking a completed job shows its output
+- [ ] Failed job shows error without affecting other jobs
+- [ ] Page refresh preserves job states and progress
+- [ ] Switching models between clicks works correctly
+- [ ] Progress never exceeds 90% until output confirmed
+- [ ] Progress jumps to 100% when output URL arrives
 
