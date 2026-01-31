@@ -28,11 +28,19 @@ export function BalanceButton() {
         return;
       }
 
-      // Parse the response - webhook returns plain text like "Credits Remaining : 8825.4"
+      // Parse the response - edge function now wraps text in { balance: "..." }
       let balanceValue: string;
       
-      if (typeof data === 'string') {
-        // Extract number from text like "Credits Remaining : 8825.4"
+      if (data?.balance) {
+        // New format: { balance: "Credits Remaining : 8825.4" }
+        const match = data.balance.match(/[\d,]+\.?\d*/);
+        if (match) {
+          balanceValue = match[0];
+        } else {
+          balanceValue = data.balance.trim();
+        }
+      } else if (typeof data === 'string') {
+        // Fallback for direct string response
         const match = data.match(/[\d,]+\.?\d*/);
         if (match) {
           balanceValue = match[0];
@@ -41,8 +49,6 @@ export function BalanceButton() {
         }
       } else if (typeof data === 'number') {
         balanceValue = String(data);
-      } else if (data?.balance !== undefined) {
-        balanceValue = String(data.balance);
       } else if (data?.remaining !== undefined) {
         balanceValue = String(data.remaining);
       } else if (data?.credits !== undefined) {
@@ -58,7 +64,7 @@ export function BalanceButton() {
       toast.success(`Credits: ${balanceValue}`, { duration: 3000 });
     } catch (error) {
       console.error('Failed to check balance:', error);
-      toast.error('Unable to check balance. Please try again.');
+      toast.error('Unable to fetch balance. Try again.');
     } finally {
       setIsChecking(false);
     }

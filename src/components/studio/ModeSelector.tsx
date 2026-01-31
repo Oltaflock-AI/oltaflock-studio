@@ -8,7 +8,6 @@ interface ModeOption {
   label: string;
   icon: React.ElementType;
   enabled: boolean;
-  description: string;
 }
 
 const modes: ModeOption[] = [
@@ -17,28 +16,24 @@ const modes: ModeOption[] = [
     label: 'Text → Image', 
     icon: ImageIcon, 
     enabled: true,
-    description: 'Generate images from text prompts',
   },
   { 
     value: 'image-to-image', 
     label: 'Image → Image', 
     icon: ImagePlus, 
     enabled: true,
-    description: 'Transform existing images',
   },
   { 
     value: 'image-to-video', 
     label: 'Image → Video', 
     icon: Film, 
     enabled: false,
-    description: 'Animate images into videos',
   },
   { 
     value: 'text-to-video', 
     label: 'Text → Video', 
     icon: Video, 
     enabled: true,
-    description: 'Generate videos from text prompts',
   },
 ];
 
@@ -76,7 +71,7 @@ export function ModeSelector() {
   const activeMode = getActiveMode();
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       {modes.map((option) => {
         const Icon = option.icon;
         const isActive = activeMode === option.value;
@@ -88,31 +83,30 @@ export function ModeSelector() {
             onClick={() => handleModeClick(option)}
             disabled={isDisabled}
             className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors text-left group',
+              'w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm transition-all',
               isActive 
-                ? 'bg-accent text-accent-foreground' 
+                ? 'bg-primary text-primary-foreground shadow-sm' 
                 : option.enabled
-                  ? 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                  : 'text-muted-foreground/50 cursor-not-allowed',
+                  ? 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  : 'text-muted-foreground/40 cursor-not-allowed',
               isDisabled && option.enabled && 'opacity-50 cursor-not-allowed'
             )}
           >
             <Icon className={cn(
               'h-4 w-4 shrink-0',
-              isActive && 'text-primary',
               !option.enabled && 'text-muted-foreground/40'
             )} />
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <span className={cn(
-                  'font-medium',
+                  'font-medium text-xs',
                   !option.enabled && 'text-muted-foreground/50'
                 )}>
                   {option.label}
                 </span>
                 {!option.enabled && (
-                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 text-muted-foreground/50 border-muted-foreground/30">
-                    <Lock className="h-2.5 w-2.5 mr-0.5" />
+                  <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 text-muted-foreground/50 border-muted-foreground/30">
+                    <Lock className="h-2 w-2 mr-0.5" />
                     Soon
                   </Badge>
                 )}

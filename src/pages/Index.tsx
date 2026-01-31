@@ -21,7 +21,7 @@ const Index = () => {
   return (
     <div className="h-screen w-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between px-2 py-1 border-b border-border bg-card shrink-0 h-9">
+      <header className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-card shrink-0 h-10">
         <div className="flex items-center gap-2">
           <img src={oltaflockLogo} alt="OltaFlock" className="h-5 w-5 rounded-md object-cover" />
           <h1 className="text-sm font-semibold tracking-tight hidden md:block">
@@ -31,7 +31,7 @@ const Index = () => {
             Studio
           </h1>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <BalanceButton />
           <ThemeToggle />
           <UserMenu />
@@ -41,15 +41,15 @@ const Index = () => {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Left Sidebar - Mode + Requests */}
-        <aside className="w-40 border-r border-border bg-card flex flex-col overflow-hidden shrink-0">
-          <div className="p-1.5 border-b border-border">
-            <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+        <aside className="w-44 border-r border-border bg-card flex flex-col overflow-hidden shrink-0">
+          <div className="p-2 border-b border-border">
+            <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
               Mode
             </h2>
             <ModeSelector />
           </div>
           
-          <div className="px-1.5 py-1 border-b border-border">
+          <div className="px-2 py-1.5 border-b border-border">
             <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
               History
             </h2>
@@ -61,8 +61,8 @@ const Index = () => {
         </aside>
 
         {/* Center - Controls */}
-        <div className="w-52 border-r border-border bg-background flex flex-col overflow-hidden shrink-0">
-          <div className="flex-1 overflow-y-auto p-2 space-y-3 min-h-0">
+        <div className="w-60 border-r border-border bg-background flex flex-col overflow-hidden shrink-0">
+          <div className="flex-1 overflow-y-auto p-3 space-y-4 min-h-0">
             <PromptInput />
             <Separator />
             <ModelSelector />
@@ -74,13 +74,13 @@ const Index = () => {
               </>
             )}
           </div>
-          <div className="p-2 border-t border-border bg-card shrink-0">
+          <div className="p-3 border-t border-border bg-card shrink-0">
             <GenerateButton />
           </div>
         </div>
 
         {/* Center - Output Preview (FLEXIBLE) */}
-        <main className="flex-1 flex flex-col p-3 gap-2 overflow-hidden min-w-0">
+        <main className="flex-1 flex flex-col p-4 gap-3 overflow-hidden min-w-0">
           <div className="flex-1 min-h-0 overflow-hidden">
             <OutputDisplay />
           </div>
@@ -88,9 +88,9 @@ const Index = () => {
         </main>
 
         {/* Right Sidebar - Request Details */}
-        <aside className="w-52 border-l border-border bg-card flex flex-col overflow-hidden shrink-0">
-          <div className="px-1.5 py-1 border-b border-border">
-            <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+        <aside className="w-64 border-l border-border bg-card flex flex-col overflow-hidden shrink-0">
+          <div className="px-3 py-2 border-b border-border">
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Request Details
             </h2>
           </div>

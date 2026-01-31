@@ -82,7 +82,7 @@ export function ModelSelector() {
         onValueChange={handleModelChange}
         disabled={pendingRating}
       >
-        <SelectTrigger className="w-full bg-input border-border">
+        <SelectTrigger className="w-full bg-input border-border h-10 [&>span]:truncate">
           <SelectValue placeholder="Select model" />
         </SelectTrigger>
         <SelectContent>
@@ -97,9 +97,9 @@ export function ModelSelector() {
                 value={model.id}
                 className="py-2"
               >
-                <div className="flex flex-col">
-                  <span className="font-medium">{model.displayName}</span>
-                  <span className="text-xs text-muted-foreground">
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-medium text-sm">{model.displayName}</span>
+                  <span className="text-[10px] text-muted-foreground line-clamp-1">
                     {MODEL_DESCRIPTIONS[model.id]}
                   </span>
                 </div>
