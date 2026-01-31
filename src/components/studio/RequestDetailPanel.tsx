@@ -43,81 +43,71 @@ export function RequestDetailPanel() {
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-4 space-y-4">
+      <div className="p-2 space-y-2">
         {/* Header */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ModeIcon className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium capitalize">{selectedGeneration.type}</span>
-            </div>
-            <Badge className={cn('text-xs', statusStyles[status])}>
-              {statusLabels[status]}
-            </Badge>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <ModeIcon className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium capitalize">{selectedGeneration.type}</span>
           </div>
+          <Badge className={cn('text-[10px] px-1.5 py-0', statusStyles[status])}>
+            {statusLabels[status]}
+          </Badge>
         </div>
 
         <Separator />
 
         {/* Request ID */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-            <Hash className="h-3 w-3" />
+        <div className="space-y-0.5">
+          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <Hash className="h-2.5 w-2.5" />
             Request ID
           </label>
-          <p className="text-xs font-mono bg-muted/50 px-2 py-1.5 rounded break-all">
+          <p className="text-[10px] font-mono bg-muted/50 px-1.5 py-1 rounded break-all">
             {selectedGeneration.request_id}
           </p>
         </div>
 
         {/* Timestamp */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-            <Clock className="h-3 w-3" />
+        <div className="space-y-0.5">
+          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <Clock className="h-2.5 w-2.5" />
             Created
           </label>
-          <p className="text-xs">
-            {format(createdAt, 'PPpp')}
+          <p className="text-[10px]">
+            {format(createdAt, 'PPp')}
           </p>
         </div>
 
         <Separator />
 
         {/* Model */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <div className="space-y-0.5">
+          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
             Model
           </label>
-          <p className="text-sm font-medium">{selectedGeneration.model}</p>
-        </div>
-
-        {/* Type */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Type
-          </label>
-          <p className="text-sm capitalize">{selectedGeneration.type}</p>
+          <p className="text-xs font-medium">{selectedGeneration.model}</p>
         </div>
 
         <Separator />
 
         {/* User Prompt */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <div className="space-y-0.5">
+          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
             User Prompt
           </label>
-          <p className="text-sm bg-muted/50 px-2 py-1.5 rounded whitespace-pre-wrap max-h-32 overflow-y-auto">
+          <p className="text-[10px] bg-muted/50 px-1.5 py-1 rounded whitespace-pre-wrap max-h-20 overflow-y-auto">
             {selectedGeneration.user_prompt}
           </p>
         </div>
 
         {/* Final Prompt */}
         {selectedGeneration.final_prompt && (
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          <div className="space-y-0.5">
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
               Final Prompt
             </label>
-            <p className="text-sm bg-muted/50 px-2 py-1.5 rounded whitespace-pre-wrap text-muted-foreground max-h-32 overflow-y-auto">
+            <p className="text-[10px] bg-muted/50 px-1.5 py-1 rounded whitespace-pre-wrap text-muted-foreground max-h-20 overflow-y-auto">
               {selectedGeneration.final_prompt}
             </p>
           </div>
@@ -126,15 +116,15 @@ export function RequestDetailPanel() {
         <Separator />
 
         {/* Model Params */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Model Parameters
+        <div className="space-y-0.5">
+          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+            Parameters
           </label>
-          <div className="bg-muted/50 px-2 py-1.5 rounded">
+          <div className="bg-muted/50 px-1.5 py-1 rounded">
             {modelParams && Object.entries(modelParams).length > 0 ? (
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {Object.entries(modelParams).map(([key, value]) => (
-                  <div key={key} className="flex justify-between text-xs">
+                  <div key={key} className="flex justify-between text-[10px]">
                     <span className="text-muted-foreground">{key}:</span>
                     <span className="font-mono">
                       {typeof value === 'boolean' 
@@ -147,43 +137,44 @@ export function RequestDetailPanel() {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">No parameters set</p>
+              <p className="text-[10px] text-muted-foreground">No parameters</p>
             )}
           </div>
         </div>
 
-        <Separator />
-
-        {/* Output */}
+        {/* Output Thumbnail */}
         {selectedGeneration.output_url && (
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Output
-            </label>
-            {selectedGeneration.type === 'image' ? (
-              <img 
-                src={selectedGeneration.output_url} 
-                alt="Generated output"
-                className="w-full rounded-md border border-border"
-              />
-            ) : (
-              <video 
-                src={selectedGeneration.output_url}
-                controls
-                className="w-full rounded-md border border-border"
-              />
-            )}
-          </div>
+          <>
+            <Separator />
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Output
+              </label>
+              {selectedGeneration.type === 'image' ? (
+                <img 
+                  src={selectedGeneration.output_url} 
+                  alt="Generated output"
+                  className="w-full rounded border border-border"
+                />
+              ) : (
+                <video 
+                  src={selectedGeneration.output_url}
+                  controls
+                  className="w-full rounded border border-border"
+                />
+              )}
+            </div>
+          </>
         )}
 
         {/* Error */}
         {selectedGeneration.error_message && (
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-destructive uppercase tracking-wide flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />
+          <div className="space-y-0.5">
+            <label className="text-[10px] font-medium text-destructive uppercase tracking-wide flex items-center gap-1">
+              <AlertCircle className="h-2.5 w-2.5" />
               Error
             </label>
-            <p className="text-sm text-destructive bg-destructive/10 px-2 py-1.5 rounded">
+            <p className="text-[10px] text-destructive bg-destructive/10 px-1.5 py-1 rounded">
               {selectedGeneration.error_message}
             </p>
           </div>
