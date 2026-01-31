@@ -48,6 +48,7 @@ export type Database = {
           request_id: string
           status: string
           type: string
+          user_id: string | null
           user_prompt: string
         }
         Insert: {
@@ -62,6 +63,7 @@ export type Database = {
           request_id: string
           status?: string
           type: string
+          user_id?: string | null
           user_prompt: string
         }
         Update: {
@@ -76,6 +78,7 @@ export type Database = {
           request_id?: string
           status?: string
           type?: string
+          user_id?: string | null
           user_prompt?: string
         }
         Relationships: []
