@@ -336,10 +336,211 @@ export function GenerateButton() {
     }
   };
 
-  const handleRegenerate = async () => {
-    if (!canGenerate) return;
-    // Regenerate creates a NEW request_id
-    await handleGenerate();
+  // Regenerate using stored data from the selected completed generation
+  const handleRegenerateFromJob = async () => {
+    if (!selectedGeneration || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Extract original settings from the completed generation
+      const originalPrompt = selectedGeneration.user_prompt;
+      const originalModelParams = (selectedGeneration.model_params || {}) as Record<string, unknown>;
+      const originalType = selectedGeneration.type; // 'image' or 'video'
+      const originalModelName = selectedGeneration.model;
+      
+      // Find the model config by display name
+      const originalModelConfig = ALL_MODELS.find(m => m.displayName === originalModelName);
+      if (!originalModelConfig) {
+        toast.error('Could not find model configuration');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Get API model name
+      const apiModelName = MODEL_API_NAMES[originalModelConfig.id];
+      
+      // Generate new request_id
+      const requestId = generateJobId();
+      
+      // Determine if this was an image-to-image generation
+      const isImageToImage = originalModelParams?.image_urls && 
+        Array.isArray(originalModelParams.image_urls) && 
+        (originalModelParams.image_urls as string[]).length > 0;
+      
+      // Create new generation in database
+      const dbGeneration = await createGeneration({
+        request_id: requestId,
+        type: originalType as 'image' | 'video',
+        model: originalModelName,
+        user_prompt: originalPrompt,
+        final_prompt: null,
+        status: 'queued',
+        output_url: null,
+        error_message: null,
+        model_params: originalModelParams,
+      });
+      
+      setSelectedJobId(dbGeneration.id);
+      addActiveGeneration(dbGeneration.id);
+      setCurrentOutput(null);
+      setPendingRating(false);
+      
+      toast.success('Regeneration started');
+      setIsSubmitting(false);
+      
+      // Process generation with original settings
+      processRegenerationFromJob(
+        dbGeneration.id, 
+        requestId, 
+        originalPrompt,
+        originalModelParams,
+        apiModelName,
+        originalModelConfig,
+        isImageToImage
+      );
+      
+    } catch (error) {
+      console.error('Failed to regenerate:', error);
+      toast.error('Regeneration failed');
+      setIsSubmitting(false);
+    }
+  };
+
+  // Separate function for processing regeneration with stored settings
+  const processRegenerationFromJob = async (
+    generationId: string,
+    requestId: string,
+    prompt: string,
+    modelParams: Record<string, unknown>,
+    apiModelName: string,
+    modelConfig: typeof ALL_MODELS[0],
+    isImageToImage: boolean
+  ) => {
+    try {
+      await updateGeneration({
+        id: generationId,
+        updates: { status: 'running', progress: 25 },
+      });
+      
+      const webhookUrl = isImageToImage ? IMAGE_TO_IMAGE_WEBHOOK_URL : WEBHOOK_URL;
+      
+      let webhookPayload: Record<string, unknown>;
+      
+      if (isImageToImage) {
+        const imageUrls = modelParams.image_urls || [];
+        const controls = { ...modelParams };
+        delete controls.image_urls;
+        
+        webhookPayload = {
+          request_id: requestId,
+          timestamp: new Date().toISOString(),
+          generation_type: 'IMAGE_2_IMAGE',
+          model: apiModelName,
+          raw_prompt: prompt,
+          controls,
+          image_urls: imageUrls,
+        };
+      } else {
+        // Determine generation type from model config
+        const genType = modelConfig.generationTypes[0] || 'text-to-image';
+        
+        webhookPayload = {
+          request_id: requestId,
+          timestamp: new Date().toISOString(),
+          model: `${apiModelName}-${genType}`,
+          generation_type: genType === 'text-to-image' ? 'TEXT_2_IMAGE' : 'TEXT_2_VIDEO',
+          raw_prompt: prompt,
+          controls: modelParams,
+        };
+      }
+      
+      console.log('Sending regeneration webhook payload:', webhookPayload);
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookPayload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Parse the response - handle nested resultJson structure
+      let outputUrl = '';
+      let finalPrompt = '';
+      
+      if (data.data?.resultJson) {
+        try {
+          const resultJson = typeof data.data.resultJson === 'string' 
+            ? JSON.parse(data.data.resultJson) 
+            : data.data.resultJson;
+          
+          if (resultJson.resultUrls && resultJson.resultUrls.length > 0) {
+            outputUrl = resultJson.resultUrls[0];
+          }
+        } catch (e) {
+          console.error('Failed to parse resultJson:', e);
+        }
+      }
+      
+      if (!outputUrl && data.output_url) {
+        outputUrl = data.output_url;
+      }
+      
+      finalPrompt = data.refined_prompt || data.data?.refined_prompt || '';
+      
+      const output = {
+        jobId: requestId,
+        outputUrl,
+        refinedPrompt: finalPrompt,
+      };
+
+      const currentSelectedId = useGenerationStore.getState().selectedJobId;
+      if (currentSelectedId === generationId) {
+        setCurrentOutput(output);
+      }
+      
+      await updateGeneration({
+        id: generationId,
+        updates: {
+          status: outputUrl ? 'done' : 'error',
+          final_prompt: finalPrompt || null,
+          output_url: outputUrl || null,
+          error_message: outputUrl ? null : 'No output URL in response',
+          progress: outputUrl ? 100 : 0,
+        },
+      });
+
+      if (outputUrl) {
+        toast.success('Regeneration complete');
+        if (currentSelectedId === generationId) {
+          setPendingRating(true);
+        }
+      } else {
+        toast.error('No output received');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      await updateGeneration({
+        id: generationId,
+        updates: {
+          status: 'error',
+          error_message: errorMessage,
+        },
+      });
+      
+      toast.error('Regeneration failed');
+      console.error(error);
+    } finally {
+      removeActiveGeneration(generationId);
+    }
   };
 
   // Get button text based on submission state
@@ -377,7 +578,7 @@ export function GenerateButton() {
       {hasCompletedOutput && !pendingRating && !isSubmitting && (
         <Button
           variant="outline"
-          onClick={handleRegenerate}
+          onClick={handleRegenerateFromJob}
           disabled={isSubmitting}
           className="w-full h-9 text-xs"
         >
