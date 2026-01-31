@@ -41,13 +41,18 @@ serve(async (req) => {
       );
     }
 
-    return new Response(data, {
-      status: response.status,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json',
-      },
-    });
+    // Wrap the text response in a proper JSON object
+    // This fixes the Content-Type mismatch issue
+    return new Response(
+      JSON.stringify({ balance: data.trim() }),
+      {
+        status: response.status,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error checking balance:', errorMessage);

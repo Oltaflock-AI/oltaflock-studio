@@ -323,11 +323,11 @@ export function GenerateButton() {
   };
 
   return (
-    <div className="flex gap-2">
+    <div className="space-y-2">
       <Button
         onClick={handleGenerate}
         disabled={!canGenerate}
-        className="flex-1"
+        className="w-full h-11"
         size="lg"
       >
         {isGenerating ? (
@@ -343,15 +343,15 @@ export function GenerateButton() {
         )}
       </Button>
       
-      {currentOutput && !pendingRating && (
+      {currentOutput && !pendingRating && !isGenerating && (
         <Button
-          variant="secondary"
+          variant="outline"
           onClick={handleRegenerate}
           disabled={isGenerating}
-          size="lg"
+          className="w-full h-9 text-xs"
         >
-          <RotateCcw className="h-4 w-4 mr-2" />
-          Regenerate
+          <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+          Regenerate with Same Settings
         </Button>
       )}
     </div>

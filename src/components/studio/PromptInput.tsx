@@ -9,19 +9,19 @@ export function PromptInput() {
   return (
     <div className="space-y-2">
       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        Raw Prompt (sent to backend as-is)
+        Prompt
       </Label>
       <Textarea
         value={rawPrompt}
         onChange={(e) => setRawPrompt(e.target.value)}
         placeholder="Describe what you want to generate..."
-        className="min-h-[160px] bg-input border-border resize-none text-sm"
+        className="min-h-[140px] bg-input border-border resize-none text-sm leading-relaxed"
         disabled={pendingRating}
       />
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-1">
           <AlertCircle className="h-3 w-3" />
-          <span>No prompt rewriting happens here</span>
+          <span>Sent as-is to backend</span>
         </div>
         <span className="font-mono">{rawPrompt.length} chars</span>
       </div>
