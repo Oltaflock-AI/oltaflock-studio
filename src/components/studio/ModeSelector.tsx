@@ -71,7 +71,7 @@ export function ModeSelector() {
   const activeMode = getActiveMode();
 
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1">
       {modes.map((option) => {
         const Icon = option.icon;
         const isActive = activeMode === option.value;
@@ -83,23 +83,24 @@ export function ModeSelector() {
             onClick={() => handleModeClick(option)}
             disabled={isDisabled}
             className={cn(
-              'w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm transition-all',
+              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-smooth group',
               isActive 
-                ? 'bg-primary text-primary-foreground shadow-sm' 
+                ? 'bg-primary/10 text-primary border border-primary/20' 
                 : option.enabled
-                  ? 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  : 'text-muted-foreground/40 cursor-not-allowed',
+                  ? 'text-foreground/70 hover:bg-accent/50 hover:text-foreground border border-transparent'
+                  : 'text-muted-foreground/40 cursor-not-allowed border border-transparent',
               isDisabled && option.enabled && 'opacity-50 cursor-not-allowed'
             )}
           >
             <Icon className={cn(
-              'h-4 w-4 shrink-0',
+              'h-4 w-4 shrink-0 transition-smooth',
+              isActive && 'text-primary',
               !option.enabled && 'text-muted-foreground/40'
             )} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className={cn(
-                  'font-medium text-xs',
+                  'font-medium text-xs tracking-wide',
                   !option.enabled && 'text-muted-foreground/50'
                 )}>
                   {option.label}

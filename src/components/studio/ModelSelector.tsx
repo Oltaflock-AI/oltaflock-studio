@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Image as ImageIcon, Video, ImagePlus } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const MODEL_DESCRIPTIONS: Record<Model, string> = {
   // Text-to-Image
@@ -73,8 +74,8 @@ export function ModelSelector() {
   const ModeIcon = modeInfo.icon;
 
   return (
-    <div className="space-y-2">
-      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+    <div className="space-y-2.5">
+      <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
         Model
       </Label>
       <Select
@@ -82,24 +83,30 @@ export function ModelSelector() {
         onValueChange={handleModelChange}
         disabled={pendingRating}
       >
-        <SelectTrigger className="w-full bg-input border-border h-10 [&>span]:truncate">
+        <SelectTrigger className={cn(
+          "w-full bg-background border-border/60 h-11 rounded-lg",
+          "hover:border-border transition-smooth",
+          "[&>span]:truncate [&>span]:block [&>span]:max-w-[200px]"
+        )}>
           <SelectValue placeholder="Select model" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="max-h-[320px]">
           <SelectGroup>
-            <SelectLabel className="flex items-center gap-2 text-xs">
-              <ModeIcon className="h-3 w-3" />
+            <SelectLabel className="flex items-center gap-2 text-xs text-muted-foreground px-2 py-2">
+              <ModeIcon className="h-3.5 w-3.5" />
               {modeInfo.label}
             </SelectLabel>
             {modelsToDisplay.map((model) => (
               <SelectItem 
                 key={model.id} 
                 value={model.id}
-                className="py-2"
+                className="py-3 px-3 cursor-pointer"
               >
-                <div className="flex flex-col gap-0.5">
-                  <span className="font-medium text-sm">{model.displayName}</span>
-                  <span className="text-[10px] text-muted-foreground line-clamp-1">
+                <div className="flex flex-col gap-1">
+                  <span className="font-medium text-sm truncate max-w-[220px]">
+                    {model.displayName}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground line-clamp-1">
                     {MODEL_DESCRIPTIONS[model.id]}
                   </span>
                 </div>

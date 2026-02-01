@@ -20,10 +20,10 @@ const Index = () => {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-background overflow-hidden">
-      {/* Header */}
-      <header className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-card shrink-0 h-10">
-        <div className="flex items-center gap-2">
-          <img src={oltaflockLogo} alt="OltaFlock" className="h-5 w-5 rounded-md object-cover" />
+      {/* Header - Refined with subtle elevation */}
+      <header className="flex items-center justify-between px-4 py-2.5 bg-card shrink-0 h-12 elevation-panel border-b border-border/50">
+        <div className="flex items-center gap-3">
+          <img src={oltaflockLogo} alt="OltaFlock" className="h-6 w-6 rounded-lg object-cover shadow-sm" />
           <h1 className="text-sm font-semibold tracking-tight hidden md:block">
             OltaFlock Creative Studio
           </h1>
@@ -31,26 +31,26 @@ const Index = () => {
             Studio
           </h1>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <BalanceButton />
           <ThemeToggle />
           <UserMenu />
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content - Refined panel widths */}
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Left Sidebar - Mode + Requests */}
-        <aside className="w-44 border-r border-border bg-card flex flex-col overflow-hidden shrink-0">
-          <div className="p-2 border-b border-border">
-            <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
+        {/* Left Sidebar - Mode + Requests (w-48 = 192px) */}
+        <aside className="w-48 border-r border-border/50 bg-card flex flex-col overflow-hidden shrink-0">
+          <div className="p-3 border-b border-border/50">
+            <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
               Mode
             </h2>
             <ModeSelector />
           </div>
           
-          <div className="px-2 py-1.5 border-b border-border">
-            <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+          <div className="px-3 py-2 border-b border-border/50">
+            <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
               History
             </h2>
           </div>
@@ -60,37 +60,37 @@ const Index = () => {
           </div>
         </aside>
 
-        {/* Center - Controls */}
-        <div className="w-60 border-r border-border bg-background flex flex-col overflow-hidden shrink-0">
-          <div className="flex-1 overflow-y-auto p-3 space-y-4 min-h-0">
+        {/* Center - Controls (w-72 = 288px) */}
+        <div className="w-72 border-r border-border/50 bg-background flex flex-col overflow-hidden shrink-0">
+          <div className="flex-1 overflow-y-auto p-4 space-y-5 min-h-0">
             <PromptInput />
-            <Separator />
+            <Separator className="bg-border/50" />
             <ModelSelector />
             <ReferenceUpload />
             {selectedModel && generationType && (
               <>
-                <Separator />
+                <Separator className="bg-border/50" />
                 <ModelControls />
               </>
             )}
           </div>
-          <div className="p-3 border-t border-border bg-card shrink-0">
+          <div className="p-4 border-t border-border/50 bg-card/50 shrink-0">
             <GenerateButton />
           </div>
         </div>
 
-        {/* Center - Output Preview (FLEXIBLE) */}
-        <main className="flex-1 flex flex-col p-4 gap-3 overflow-hidden min-w-0">
+        {/* Center - Output Preview (FLEXIBLE - Hero) */}
+        <main className="flex-1 flex flex-col p-5 gap-4 overflow-hidden min-w-[400px]">
           <div className="flex-1 min-h-0 overflow-hidden">
             <OutputDisplay />
           </div>
           <RatingPanel />
         </main>
 
-        {/* Right Sidebar - Request Details */}
-        <aside className="w-64 border-l border-border bg-card flex flex-col overflow-hidden shrink-0">
-          <div className="px-3 py-2 border-b border-border">
-            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        {/* Right Sidebar - Request Details (w-72 = 288px) */}
+        <aside className="w-72 border-l border-border/50 bg-card flex flex-col overflow-hidden shrink-0">
+          <div className="px-4 py-3 border-b border-border/50">
+            <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
               Request Details
             </h2>
           </div>

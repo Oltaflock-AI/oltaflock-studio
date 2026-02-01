@@ -35,7 +35,7 @@ export function RatingPanel() {
   };
 
   return (
-    <div className="bg-card border border-primary/50 rounded-lg p-4">
+    <div className="bg-card/50 border border-primary/20 rounded-xl p-4 backdrop-blur-sm animate-fade-in">
       <p className="text-sm font-medium text-foreground mb-3">
         Rate this generation
       </p>
@@ -46,9 +46,12 @@ export function RatingPanel() {
             variant="outline"
             size="sm"
             onClick={() => handleRating(rating)}
-            className="flex items-center gap-1 transition-all hover:bg-primary hover:text-primary-foreground"
+            className={cn(
+              "flex items-center gap-1.5 transition-smooth",
+              "hover:bg-primary/10 hover:border-primary/30 hover:text-primary"
+            )}
           >
-            <Star className="h-4 w-4" />
+            <Star className="h-3.5 w-3.5" />
             {rating}
           </Button>
         ))}

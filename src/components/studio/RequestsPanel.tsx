@@ -55,9 +55,9 @@ export function RequestsPanel() {
   if (generations.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-4">
-        <FileText className="h-8 w-8 mb-2 opacity-40" />
-        <p className="text-xs font-medium mb-0.5">No requests yet</p>
-        <p className="text-[10px] text-center text-muted-foreground/70">
+        <FileText className="h-8 w-8 mb-3 opacity-30" />
+        <p className="text-xs font-medium mb-1">No requests yet</p>
+        <p className="text-[10px] text-center text-muted-foreground/60 leading-relaxed">
           Generate to see history
         </p>
       </div>
@@ -66,7 +66,7 @@ export function RequestsPanel() {
 
   return (
     <ScrollArea className="h-full">
-      <div className="space-y-1 p-1.5">
+      <div className="space-y-1.5 p-2">
         {generations.map((generation) => {
           const status = generation.status as GenerationStatus;
           const isSelected = selectedJobId === generation.id;
@@ -83,50 +83,52 @@ export function RequestsPanel() {
               key={generation.id}
               onClick={() => handleSelectGeneration(generation)}
               className={cn(
-                'px-2 py-2 rounded-lg cursor-pointer transition-all group',
+                'px-3 py-2.5 rounded-xl cursor-pointer transition-smooth group',
                 isSelected 
-                  ? 'bg-accent border border-primary/30 shadow-sm' 
-                  : 'hover:bg-accent/50 border border-transparent'
+                  ? 'bg-primary/8 ring-1 ring-primary/20' 
+                  : 'hover:bg-accent/40'
               )}
             >
-              {/* Status dot + Prompt preview */}
-              <div className="flex items-start gap-2">
-                <div className={cn('mt-1.5 h-2 w-2 rounded-full shrink-0', statusDotColors[status])} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] line-clamp-2 leading-relaxed">
-                    {promptPreview}
-                  </p>
-                  
-                  {/* Mini progress bar for active jobs */}
-                  {isActive && (
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <Progress value={progress} className="h-1 flex-1" />
-                      <span className="text-[9px] text-primary font-medium w-7 text-right">
-                        {progress}%
-                      </span>
-                    </div>
-                  )}
+              {/* Header: Status + Time */}
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <div className={cn('h-2 w-2 rounded-full shrink-0', statusDotColors[status])} />
+                  <ModeIcon className="h-3 w-3 text-muted-foreground" />
                 </div>
+                <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
+                  {format(createdAt, 'HH:mm')}
+                </span>
               </div>
               
-              {/* Footer: Model + Time + Delete */}
-              <div className="flex items-center justify-between mt-1.5 text-[10px] text-muted-foreground pl-4">
-                <div className="flex items-center gap-1.5">
-                  <ModeIcon className="h-2.5 w-2.5" />
-                  <span className="truncate max-w-[60px]">{generation.model}</span>
+              {/* Prompt preview */}
+              <p className="text-xs leading-relaxed line-clamp-2 text-foreground/80 mb-2">
+                {promptPreview}
+              </p>
+              
+              {/* Progress bar for active jobs */}
+              {isActive && (
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Progress value={progress} className="h-1 flex-1" />
+                  <span className="text-[9px] text-primary font-semibold tabular-nums w-7 text-right">
+                    {progress}%
+                  </span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span>{format(createdAt, 'HH:mm')}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => handleDelete(e, generation.id)}
-                    disabled={isActive}
-                  >
-                    <Trash2 className="h-2.5 w-2.5 text-muted-foreground hover:text-destructive" />
-                  </Button>
-                </div>
+              )}
+              
+              {/* Footer: Model name + Delete */}
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">
+                  {generation.model}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => handleDelete(e, generation.id)}
+                  disabled={isActive}
+                >
+                  <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive transition-colors" />
+                </Button>
               </div>
             </div>
           );

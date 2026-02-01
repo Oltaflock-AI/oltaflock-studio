@@ -17,9 +17,30 @@ const statusLabels: Record<GenerationStatus, string> = {
 const statusStyles: Record<GenerationStatus, string> = {
   queued: 'bg-muted text-muted-foreground',
   running: 'bg-primary/10 text-primary',
-  done: 'bg-green-500/10 text-green-500',
+  done: 'bg-green-500/10 text-green-600 dark:text-green-400',
   error: 'bg-destructive/10 text-destructive',
 };
+
+// Helper component for consistent sections
+function DetailSection({ 
+  icon: Icon, 
+  label, 
+  children 
+}: { 
+  icon: React.ElementType; 
+  label: string; 
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+        <Icon className="h-3.5 w-3.5" />
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
 
 export function RequestDetailPanel() {
   const { generations } = useGenerations();
@@ -30,113 +51,91 @@ export function RequestDetailPanel() {
   if (!selectedGeneration) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-6">
-        <FileText className="h-8 w-8 mb-3 opacity-40" />
+        <FileText className="h-8 w-8 mb-3 opacity-30" />
         <p className="text-xs font-medium mb-1">No request selected</p>
-        <p className="text-[10px] text-center text-muted-foreground/70">
+        <p className="text-[10px] text-center text-muted-foreground/60 leading-relaxed">
           Select a request from history to view details
         </p>
       </div>
     );
   }
 
-  const status = selectedGeneration.status;
+  const status = selectedGeneration.status as GenerationStatus;
   const ModeIcon = selectedGeneration.type === 'image' ? ImageIcon : Video;
   const modelParams = selectedGeneration.model_params;
   const createdAt = new Date(selectedGeneration.created_at);
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-3 space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      <div className="p-4 space-y-5">
+        {/* Status Badge + Type */}
+        <div className="flex items-center justify-between pb-4 border-b border-border/50">
+          <div className="flex items-center gap-2.5">
             <ModeIcon className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs font-medium capitalize">{selectedGeneration.type}</span>
+            <span className="text-sm font-medium capitalize">{selectedGeneration.type}</span>
           </div>
-          <Badge className={cn('text-[10px] px-2 py-0.5', statusStyles[status])}>
+          <Badge className={cn('text-[10px] px-2.5 py-1 rounded-md font-medium', statusStyles[status])}>
             {statusLabels[status]}
           </Badge>
         </div>
 
-        <Separator />
-
-        {/* Request ID */}
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-            <Hash className="h-3 w-3" />
-            Request ID
-          </label>
-          <p className="text-[10px] font-mono bg-muted px-2 py-1.5 rounded break-all">
-            {selectedGeneration.request_id}
-          </p>
+        {/* Metadata Group */}
+        <div className="space-y-4">
+          <DetailSection icon={Hash} label="Request ID">
+            <code className="text-[10px] font-mono bg-muted/50 px-2.5 py-1.5 rounded-md block break-all">
+              {selectedGeneration.request_id}
+            </code>
+          </DetailSection>
+          
+          <DetailSection icon={Clock} label="Created">
+            <span className="text-sm">{format(createdAt, 'PPp')}</span>
+          </DetailSection>
+          
+          <DetailSection icon={Cpu} label="Model">
+            <span className="text-sm font-medium">{selectedGeneration.model}</span>
+          </DetailSection>
         </div>
 
-        {/* Timestamp */}
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-            <Clock className="h-3 w-3" />
-            Created
-          </label>
-          <p className="text-xs">
-            {format(createdAt, 'PPp')}
-          </p>
-        </div>
+        <Separator className="bg-border/50" />
 
-        <Separator />
-
-        {/* Model */}
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-            <Cpu className="h-3 w-3" />
-            Model
-          </label>
-          <p className="text-sm font-medium">{selectedGeneration.model}</p>
-        </div>
-
-        <Separator />
-
-        {/* User Prompt */}
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-            <MessageSquare className="h-3 w-3" />
-            User Prompt
-          </label>
-          <p className="text-xs bg-muted px-2 py-2 rounded whitespace-pre-wrap max-h-24 overflow-y-auto leading-relaxed">
-            {selectedGeneration.user_prompt}
-          </p>
-        </div>
+        {/* Prompt Section */}
+        <DetailSection icon={MessageSquare} label="Prompt">
+          <div className="bg-muted/30 rounded-lg p-3 max-h-32 overflow-y-auto">
+            <p className="text-xs leading-relaxed whitespace-pre-wrap">
+              {selectedGeneration.user_prompt}
+            </p>
+          </div>
+        </DetailSection>
 
         {/* Final Prompt */}
         {selectedGeneration.final_prompt && (
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+          <div className="space-y-2">
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
               Refined Prompt
             </label>
-            <p className="text-xs bg-muted/60 px-2 py-2 rounded whitespace-pre-wrap text-muted-foreground max-h-24 overflow-y-auto leading-relaxed">
-              {selectedGeneration.final_prompt}
-            </p>
+            <div className="bg-muted/20 rounded-lg p-3 max-h-32 overflow-y-auto">
+              <p className="text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                {selectedGeneration.final_prompt}
+              </p>
+            </div>
           </div>
         )}
 
-        <Separator />
+        <Separator className="bg-border/50" />
 
         {/* Model Params */}
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-            <Settings className="h-3 w-3" />
-            Parameters
-          </label>
-          <div className="bg-muted/50 px-2 py-2 rounded">
+        <DetailSection icon={Settings} label="Parameters">
+          <div className="bg-muted/30 rounded-lg p-3">
             {modelParams && Object.entries(modelParams).length > 0 ? (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {Object.entries(modelParams).map(([key, value]) => (
-                  <div key={key} className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">{key}:</span>
-                    <span className="font-mono text-[10px]">
+                  <div key={key} className="flex justify-between text-xs gap-2">
+                    <span className="text-muted-foreground truncate">{key}:</span>
+                    <span className="font-mono text-[10px] text-foreground text-right truncate max-w-[120px]">
                       {typeof value === 'boolean' 
                         ? (value ? 'Yes' : 'No')
                         : Array.isArray(value)
-                          ? value.join(', ')
+                          ? value.length > 0 ? `${value.length} items` : 'None'
                           : String(value)}
                     </span>
                   </div>
@@ -146,27 +145,27 @@ export function RequestDetailPanel() {
               <p className="text-xs text-muted-foreground">No parameters</p>
             )}
           </div>
-        </div>
+        </DetailSection>
 
         {/* Output Thumbnail */}
         {selectedGeneration.output_url && (
           <>
-            <Separator />
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+            <Separator className="bg-border/50" />
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 Output Preview
               </label>
               {selectedGeneration.type === 'image' ? (
                 <img 
                   src={selectedGeneration.output_url} 
                   alt="Generated output"
-                  className="w-full rounded-lg border border-border"
+                  className="w-full rounded-lg border border-border/50 shadow-sm"
                 />
               ) : (
                 <video 
                   src={selectedGeneration.output_url}
                   controls
-                  className="w-full rounded-lg border border-border"
+                  className="w-full rounded-lg border border-border/50 shadow-sm"
                 />
               )}
             </div>
@@ -175,14 +174,16 @@ export function RequestDetailPanel() {
 
         {/* Error */}
         {selectedGeneration.error_message && (
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-medium text-destructive uppercase tracking-wide flex items-center gap-1.5">
-              <AlertCircle className="h-3 w-3" />
+          <div className="space-y-2">
+            <label className="text-[11px] font-semibold text-destructive uppercase tracking-wider flex items-center gap-2">
+              <AlertCircle className="h-3.5 w-3.5" />
               Error
             </label>
-            <p className="text-xs text-destructive bg-destructive/10 px-2 py-2 rounded">
-              {selectedGeneration.error_message}
-            </p>
+            <div className="bg-destructive/10 rounded-lg p-3">
+              <p className="text-xs text-destructive leading-relaxed">
+                {selectedGeneration.error_message}
+              </p>
+            </div>
           </div>
         )}
       </div>

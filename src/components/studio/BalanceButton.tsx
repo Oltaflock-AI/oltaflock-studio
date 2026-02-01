@@ -71,10 +71,11 @@ export function BalanceButton() {
   };
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
       {balance && (
-        <div className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-md">
-          {balance} credits
+        <div className="text-xs font-medium text-primary bg-primary/8 px-3 py-1.5 rounded-lg border border-primary/10">
+          <span className="tabular-nums">{balance}</span>
+          <span className="text-primary/70 ml-1">credits</span>
         </div>
       )}
       
@@ -83,7 +84,7 @@ export function BalanceButton() {
         size="sm"
         onClick={handleCheckBalance}
         disabled={isChecking}
-        className="h-7 px-2 gap-1.5"
+        className="h-8 px-3 gap-2 hover:bg-accent rounded-lg transition-smooth"
       >
         {isChecking ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
