@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Play, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { calculateCost } from '@/config/pricing';
 const WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT';
 const IMAGE_TO_IMAGE_WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/image-to-video';
 
@@ -134,6 +135,9 @@ export function GenerateButton() {
     // Determine the correct type for database
     const dbType = mode === 'image-to-image' ? 'image' : mode;
 
+    // Calculate cost for this generation
+    const cost = calculateCost(selectedModel, modelParams);
+
     // Create generation in database with 'queued' status
     let dbGeneration;
     try {
@@ -149,6 +153,8 @@ export function GenerateButton() {
         model_params: {
           ...modelParams,
           image_urls: mode === 'image-to-image' ? uploadedImageUrls : undefined,
+          cost_credits: cost.credits,
+          cost_usd: cost.usd,
         },
       });
       
