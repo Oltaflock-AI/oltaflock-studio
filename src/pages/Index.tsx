@@ -12,11 +12,13 @@ import { UserMenu } from '@/components/studio/UserMenu';
 import { BalanceButton } from '@/components/studio/BalanceButton';
 import { ThemeToggle } from '@/components/studio/ThemeToggle';
 import { useGenerationStore } from '@/store/generationStore';
+import { useRetryGeneration } from '@/hooks/useRetryGeneration';
 import { Separator } from '@/components/ui/separator';
 import oltaflockLogo from '@/assets/oltaflock-logo.jpeg';
 
 const Index = () => {
   const { selectedModel, generationType } = useGenerationStore();
+  const { retry, isRetrying } = useRetryGeneration();
 
   return (
     <div className="h-screen w-screen flex flex-col bg-background overflow-hidden">
@@ -82,7 +84,7 @@ const Index = () => {
         {/* Center - Output Preview (FLEXIBLE - Hero) */}
         <main className="flex-1 flex flex-col p-5 gap-4 overflow-hidden min-w-[400px]">
           <div className="flex-1 min-h-0 overflow-hidden">
-            <OutputDisplay />
+            <OutputDisplay onRetry={retry} isRetrying={isRetrying} />
           </div>
           <RatingPanel />
         </main>
