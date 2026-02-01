@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Image as ImageIcon, Video, FileText, AlertCircle, Clock, Hash, Cpu, MessageSquare, Settings } from 'lucide-react';
+import { Image as ImageIcon, Video, FileText, AlertCircle, Clock, Hash, Cpu, MessageSquare, Settings, Coins } from 'lucide-react';
+import { formatCredits, formatUsd } from '@/config/pricing';
 
 const statusLabels: Record<GenerationStatus, string> = {
   queued: 'Queued',
@@ -94,6 +95,23 @@ export function RequestDetailPanel() {
           <DetailSection icon={Cpu} label="Model">
             <span className="text-sm font-medium">{selectedGeneration.model}</span>
           </DetailSection>
+          
+          {/* Cost Section */}
+          {(modelParams as Record<string, unknown> | null)?.cost_credits && (
+            <DetailSection icon={Coins} label="Cost">
+              <div className="flex items-center justify-between bg-muted/30 rounded-lg p-3">
+                <div>
+                  <span className="text-sm font-semibold tabular-nums">
+                    {formatCredits((modelParams as Record<string, unknown>).cost_credits as number)}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-1">credits</span>
+                </div>
+                <div className="text-sm text-muted-foreground tabular-nums">
+                  {formatUsd((modelParams as Record<string, unknown>).cost_usd as number)}
+                </div>
+              </div>
+            </DetailSection>
+          )}
         </div>
 
         <Separator className="bg-border/50" />

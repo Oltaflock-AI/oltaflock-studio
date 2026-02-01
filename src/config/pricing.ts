@@ -1,0 +1,187 @@
+// =============================================================================
+// PRICING CONFIGURATION
+// Centralized pricing engine for OltaFlock Creative Studio
+// =============================================================================
+
+// Global conversion rate: 1000 credits = $5 USD
+export const CREDITS_PER_DOLLAR = 200; // 1000 / 5
+export const USD_PER_CREDIT = 0.005;   // 5 / 1000
+
+export function creditsToUsd(credits: number): number {
+  return credits * USD_PER_CREDIT;
+}
+
+export function formatUsd(amount: number): string {
+  return `$${amount.toFixed(2)}`;
+}
+
+export function formatCredits(credits: number): string {
+  return credits % 1 === 0 ? String(credits) : credits.toFixed(1);
+}
+
+// =============================================================================
+// PRICING RULES BY MODEL
+// =============================================================================
+
+interface PricingRule {
+  baseCredits: number;
+}
+
+type ModelPricing = PricingRule | Record<string, PricingRule>;
+
+export const MODEL_PRICING: Record<string, ModelPricing> = {
+  // ==========================================================================
+  // IMAGE MODELS - Text-to-Image
+  // ==========================================================================
+  
+  // Google Nano Banana Pro: 1K/2K → 18 credits, 4K → 24 credits
+  'nano-banana-pro': {
+    '1K': { baseCredits: 18 },
+    '2K': { baseCredits: 18 },
+    '4K': { baseCredits: 24 },
+  },
+  
+  // Seedream 4.5: Flat 6.5 credits
+  'seedream-4.5': { baseCredits: 6.5 },
+  
+  // Black Forest Labs Flux 2 Flex: 1K → 14, 2K → 24
+  'flux-flex': {
+    '1K': { baseCredits: 14 },
+    '2K': { baseCredits: 24 },
+  },
+  
+  // Black Forest Labs Flux 2 Pro: 1K → 5, 2K → 7
+  'flux-flex-pro': {
+    '1K': { baseCredits: 5 },
+    '2K': { baseCredits: 7 },
+  },
+  
+  // Qwen Z-Image: 0.8 credits
+  'z-image': { baseCredits: 0.8 },
+  
+  // GPT-4o Image: 10 credits (placeholder)
+  'gpt-4o': { baseCredits: 10 },
+  
+  // ==========================================================================
+  // IMAGE MODELS - Image-to-Image
+  // ==========================================================================
+  
+  // Nano Banana Pro I2I: Same as text-to-image
+  'nano-banana-pro-i2i': {
+    '1K': { baseCredits: 18 },
+    '2K': { baseCredits: 18 },
+    '4K': { baseCredits: 24 },
+  },
+  
+  // Seedream 4.5 Edit: 6.5 credits
+  'seedream-4.5-edit': { baseCredits: 6.5 },
+  
+  // Flux Flex I2I: 1K → 14, 2K → 24
+  'flux-flex-i2i': {
+    '1K': { baseCredits: 14 },
+    '2K': { baseCredits: 24 },
+  },
+  
+  // Flux Pro I2I: 1K → 5, 2K → 7
+  'flux-pro-i2i': {
+    '1K': { baseCredits: 5 },
+    '2K': { baseCredits: 7 },
+  },
+  
+  // Qwen Image Edit: 2 credits (placeholder)
+  'qwen-image-edit': { baseCredits: 2 },
+  
+  // ==========================================================================
+  // VIDEO MODELS
+  // ==========================================================================
+  
+  // Google Veo 3.1: Fast → 60, Quality → 250
+  'veo-3.1': {
+    'veo3_fast': { baseCredits: 60 },
+    'veo3_quality': { baseCredits: 250 },
+  },
+  
+  // OpenAI Sora 2 Pro: Standard/High × 10s/15s
+  'sora-2-pro': {
+    'standard-10': { baseCredits: 150 },
+    'standard-15': { baseCredits: 270 },
+    'high-10': { baseCredits: 330 },
+    'high-15': { baseCredits: 630 },
+  },
+  
+  // Kling 2.6: Base 55 credits, ×2 for 10s, ×2 for audio
+  'kling-2.6': {
+    '5': { baseCredits: 55 },
+    '10': { baseCredits: 110 },
+    '5-audio': { baseCredits: 110 },
+    '10-audio': { baseCredits: 220 },
+  },
+  
+  // Seedance 1.0: Lite → 25, Pro → 50
+  'seedance-1.0': {
+    'lite': { baseCredits: 25 },
+    'pro': { baseCredits: 50 },
+  },
+  
+  // Grok Imagine: 30 credits (placeholder)
+  'grok-imagine': { baseCredits: 30 },
+};
+
+// =============================================================================
+// COST CALCULATOR
+// =============================================================================
+
+export function calculateCost(
+  modelId: string,
+  controls: Record<string, unknown>
+): { credits: number; usd: number } {
+  const pricing = MODEL_PRICING[modelId];
+  
+  if (!pricing) {
+    return { credits: 0, usd: 0 };
+  }
+  
+  let credits = 0;
+  
+  // Simple flat pricing (has baseCredits directly)
+  if ('baseCredits' in pricing) {
+    credits = (pricing as PricingRule).baseCredits;
+  }
+  // Resolution-based pricing (Nano Banana, Flux variants)
+  else if (controls.resolution && typeof pricing === 'object') {
+    const resKey = controls.resolution as string;
+    const resPricing = (pricing as Record<string, PricingRule>)[resKey];
+    credits = resPricing?.baseCredits || 0;
+  }
+  // Variant-based pricing (Veo 3.1)
+  else if (controls.variant && typeof pricing === 'object') {
+    const variantPricing = (pricing as Record<string, PricingRule>)[controls.variant as string];
+    credits = variantPricing?.baseCredits || 0;
+  }
+  // Quality + Duration pricing (Sora 2 Pro)
+  else if (modelId === 'sora-2-pro') {
+    const quality = (controls.quality as string) || 'standard';
+    const duration = (controls.duration as number) || 10;
+    const key = `${quality}-${duration}`;
+    const tierPricing = (pricing as Record<string, PricingRule>)[key];
+    credits = tierPricing?.baseCredits || 0;
+  }
+  // Kling 2.6: Duration + Audio multiplier
+  else if (modelId === 'kling-2.6') {
+    const duration = (controls.duration as number) || 5;
+    const hasSound = controls.sound === true;
+    const key = hasSound ? `${duration}-audio` : String(duration);
+    const tierPricing = (pricing as Record<string, PricingRule>)[key];
+    credits = tierPricing?.baseCredits || 0;
+  }
+  // Seedance 1.0: Variant (lite/pro)
+  else if (modelId === 'seedance-1.0' && controls.variant) {
+    const tierPricing = (pricing as Record<string, PricingRule>)[controls.variant as string];
+    credits = tierPricing?.baseCredits || 0;
+  }
+  
+  return {
+    credits,
+    usd: creditsToUsd(credits),
+  };
+}

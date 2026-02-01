@@ -8,6 +8,7 @@ import { Image as ImageIcon, Video, Trash2, FileText, Loader2 } from 'lucide-rea
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useMemo } from 'react';
+import { formatCredits } from '@/config/pricing';
 
 const statusDotColors: Record<GenerationStatus, string> = {
   queued: 'bg-muted-foreground animate-pulse',
@@ -115,15 +116,22 @@ export function RequestsPanel() {
                 </div>
               )}
               
-              {/* Footer: Model name + Delete */}
+              {/* Footer: Model name + Cost + Delete */}
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">
-                  {generation.model}
-                </span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">
+                    {generation.model}
+                  </span>
+                  {(generation.model_params as Record<string, unknown> | null)?.cost_credits && (
+                    <span className="text-[9px] text-primary/70 font-medium tabular-nums shrink-0">
+                      {formatCredits((generation.model_params as Record<string, unknown>).cost_credits as number)} cr
+                    </span>
+                  )}
+                </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                   onClick={(e) => handleDelete(e, generation.id)}
                   disabled={isActive}
                 >

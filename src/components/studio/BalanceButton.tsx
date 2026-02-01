@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Wallet, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { creditsToUsd } from '@/config/pricing';
 
 export function BalanceButton() {
   const [balance, setBalance] = useState<string | null>(null);
@@ -76,6 +77,10 @@ export function BalanceButton() {
         <div className="text-xs font-medium text-primary bg-primary/8 px-3 py-1.5 rounded-lg border border-primary/10">
           <span className="tabular-nums">{balance}</span>
           <span className="text-primary/70 ml-1">credits</span>
+          <span className="text-primary/50 mx-1.5">•</span>
+          <span className="tabular-nums text-primary/70">
+            ${creditsToUsd(parseFloat(balance.replace(/,/g, ''))).toFixed(2)}
+          </span>
         </div>
       )}
       

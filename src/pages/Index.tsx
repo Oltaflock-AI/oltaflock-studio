@@ -8,6 +8,7 @@ import { RatingPanel } from '@/components/studio/RatingPanel';
 import { RequestsPanel } from '@/components/studio/RequestsPanel';
 import { RequestDetailPanel } from '@/components/studio/RequestDetailPanel';
 import { GenerateButton } from '@/components/studio/GenerateButton';
+import { CostPreview } from '@/components/studio/CostPreview';
 import { UserMenu } from '@/components/studio/UserMenu';
 import { BalanceButton } from '@/components/studio/BalanceButton';
 import { ThemeToggle } from '@/components/studio/ThemeToggle';
@@ -76,7 +77,8 @@ const Index = () => {
               </>
             )}
           </div>
-          <div className="p-4 border-t border-border/50 bg-card/50 shrink-0">
+          <div className="p-4 border-t border-border/50 bg-card/50 shrink-0 space-y-3">
+            <CostPreview />
             <GenerateButton />
           </div>
         </div>
