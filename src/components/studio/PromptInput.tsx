@@ -1,29 +1,34 @@
 import { useGenerationStore } from '@/store/generationStore';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function PromptInput() {
   const { rawPrompt, setRawPrompt, pendingRating } = useGenerationStore();
 
   return (
-    <div className="space-y-2">
-      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+    <div className="space-y-2.5">
+      <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
         Prompt
       </Label>
-      <Textarea
-        value={rawPrompt}
-        onChange={(e) => setRawPrompt(e.target.value)}
-        placeholder="Describe what you want to generate..."
-        className="min-h-[140px] bg-input border-border resize-none text-sm leading-relaxed"
-        disabled={pendingRating}
-      />
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <AlertCircle className="h-3 w-3" />
-          <span>Sent as-is to backend</span>
+      <div className="relative group">
+        <Textarea
+          value={rawPrompt}
+          onChange={(e) => setRawPrompt(e.target.value)}
+          placeholder="Describe your creative vision..."
+          className={cn(
+            "min-h-[160px] bg-background border-border/60 resize-none",
+            "text-sm leading-relaxed tracking-normal",
+            "placeholder:text-muted-foreground/40 placeholder:italic",
+            "focus:border-primary/40 focus:ring-2 focus:ring-primary/10",
+            "transition-smooth rounded-xl p-4"
+          )}
+          disabled={pendingRating}
+        />
+        {/* Floating character counter */}
+        <div className="absolute bottom-3 right-3 text-[10px] text-muted-foreground/50 font-mono tabular-nums">
+          {rawPrompt.length}
         </div>
-        <span className="font-mono">{rawPrompt.length} chars</span>
       </div>
     </div>
   );

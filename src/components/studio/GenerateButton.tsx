@@ -6,7 +6,7 @@ import type { Model } from '@/types/generation';
 import { Button } from '@/components/ui/button';
 import { Play, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
+import { cn } from '@/lib/utils';
 const WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT';
 const IMAGE_TO_IMAGE_WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/image-to-video';
 
@@ -543,46 +543,45 @@ export function GenerateButton() {
     }
   };
 
-  // Get button text based on submission state
-  const getButtonText = () => {
-    if (isSubmitting) return 'Starting...';
-    if (mode === 'image-to-image') return 'Transform';
-    return 'Generate';
-  };
-
   // Check if there's a completed output to show regenerate option
   const selectedGeneration = generations.find(g => g.id === selectedJobId);
   const hasCompletedOutput = selectedGeneration?.status === 'done' && selectedGeneration?.output_url;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <Button
         onClick={handleGenerate}
         disabled={!canGenerate}
-        className="w-full h-11"
+        className={cn(
+          "w-full h-12 text-sm font-semibold tracking-wide",
+          "bg-primary hover:bg-primary/90 text-primary-foreground",
+          "shadow-md hover:shadow-lg transition-all duration-200",
+          "disabled:opacity-50 disabled:shadow-none",
+          "rounded-xl"
+        )}
         size="lg"
       >
         {isSubmitting ? (
           <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            {getButtonText()}
+            <Loader2 className="h-4 w-4 mr-2.5 animate-spin" />
+            <span>Starting...</span>
           </>
         ) : (
           <>
-            <Play className="h-4 w-4 mr-2" />
-            {getButtonText()}
+            <Play className="h-4 w-4 mr-2.5 fill-current" />
+            <span>{mode === 'image-to-image' ? 'Transform' : 'Generate'}</span>
           </>
         )}
       </Button>
       
       {hasCompletedOutput && !pendingRating && !isSubmitting && (
         <Button
-          variant="outline"
+          variant="ghost"
           onClick={handleRegenerateFromJob}
           disabled={isSubmitting}
-          className="w-full h-9 text-xs"
+          className="w-full h-9 text-xs text-muted-foreground hover:text-foreground transition-smooth"
         >
-          <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+          <RotateCcw className="h-3.5 w-3.5 mr-2" />
           Regenerate with Same Settings
         </Button>
       )}
