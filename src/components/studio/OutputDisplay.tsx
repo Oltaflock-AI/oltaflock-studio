@@ -2,16 +2,20 @@ import { useGenerationStore } from '@/store/generationStore';
 import { useGenerations } from '@/hooks/useGenerations';
 import { useGenerationProgress } from '@/hooks/useGenerationProgress';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Image as ImageIcon, Video, Download, Copy, ExternalLink, Maximize2, Sparkles, AlertCircle } from 'lucide-react';
+import { Loader2, Image as ImageIcon, Video, Download, Copy, ExternalLink, Maximize2, Sparkles, AlertCircle, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
-export function OutputDisplay() {
+interface OutputDisplayProps {
+  onRetry?: () => void;
+  isRetrying?: boolean;
+}
+
+export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
   const { selectedJobId } = useGenerationStore();
   const { generations, isLoading } = useGenerations();
   const progress = useGenerationProgress(selectedJobId);
@@ -102,9 +106,25 @@ export function OutputDisplay() {
           <AlertCircle className="h-10 w-10 text-destructive" />
         </div>
         <p className="text-sm font-medium text-destructive mb-2">Generation failed</p>
-        <p className="text-xs text-muted-foreground text-center max-w-[280px] leading-relaxed">
+        <p className="text-xs text-muted-foreground text-center max-w-[280px] leading-relaxed mb-4">
           {selectedGeneration.error_message || 'Unknown error occurred'}
         </p>
+        {onRetry && (
+          <Button 
+            onClick={onRetry} 
+            disabled={isRetrying}
+            variant="outline"
+            size="sm"
+            className="h-9 px-4 rounded-lg transition-smooth"
+          >
+            {isRetrying ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RotateCcw className="h-4 w-4 mr-2" />
+            )}
+            Retry
+          </Button>
+        )}
       </div>
     );
   }
