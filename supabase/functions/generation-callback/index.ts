@@ -5,7 +5,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface CallbackPayload {
+// New flat format from n8n
+interface NewCallbackPayload {
+  taskId: string;
+  status: string;
+  outputs?: Array<{
+    type: string;
+    url: string;
+  }>;
+  metadata?: {
+    model?: string;
+    generation_time_ms?: number;
+    completed_at?: string;
+  };
+}
+
+// Legacy nested format (kept for backward compatibility)
+interface LegacyCallbackPayload {
   body: {
     code: number;
     data: {
@@ -23,6 +39,8 @@ interface CallbackPayload {
   };
 }
 
+type CallbackPayload = NewCallbackPayload | LegacyCallbackPayload;
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -37,21 +55,41 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const payload: CallbackPayload = await req.json();
+    const payload = await req.json() as CallbackPayload;
     
     console.log('Received callback payload:', JSON.stringify(payload, null, 2));
 
-    // Validate payload structure
-    if (!payload.body?.data?.taskId) {
-      console.error('Missing taskId in payload');
+    // Parse payload - support both new flat format and legacy nested format
+    let taskId: string;
+    let status: string;
+    let outputUrl: string | null = null;
+    let errorMessage: string | null = null;
+
+    // Check for new flat format first (from n8n)
+    if ('taskId' in payload && payload.taskId) {
+      const newPayload = payload as NewCallbackPayload;
+      taskId = newPayload.taskId;
+      status = newPayload.status;
+      outputUrl = newPayload.outputs?.[0]?.url || null;
+      console.log('Parsed new format - taskId:', taskId, 'status:', status, 'outputUrl:', outputUrl);
+    }
+    // Fall back to legacy nested format
+    else if ('body' in payload && payload.body?.data?.taskId) {
+      const legacyPayload = payload as LegacyCallbackPayload;
+      taskId = legacyPayload.body.data.taskId;
+      status = legacyPayload.body.data.state;
+      outputUrl = legacyPayload.body.data.resultJson?.resultUrls?.[0] || null;
+      errorMessage = legacyPayload.body.msg || null;
+      console.log('Parsed legacy format - taskId:', taskId, 'status:', status);
+    }
+    // Neither format matched
+    else {
+      console.error('Invalid payload format - no taskId found');
       return new Response(
         JSON.stringify({ error: 'Missing taskId in payload' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const { taskId, state, resultJson, model } = payload.body.data;
-    const message = payload.body.msg;
 
     // Initialize Supabase client with service role for admin access
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -101,14 +139,13 @@ Deno.serve(async (req) => {
     console.log('Found generation:', generation.id, 'current status:', generation.status);
 
     // Determine new status and output URL
-    const isSuccess = state === 'success' && payload.body.code === 200;
-    const outputUrl = resultJson?.resultUrls?.[0] || null;
+    const isSuccess = status === 'success';
     
     const updateData: Record<string, unknown> = {
       status: isSuccess && outputUrl ? 'done' : 'error',
       progress: isSuccess && outputUrl ? 100 : 0,
       output_url: outputUrl,
-      error_message: isSuccess ? null : (message || `Generation failed with state: ${state}`),
+      error_message: isSuccess ? null : (errorMessage || `Generation failed with status: ${status}`),
     };
 
     // Update the generation record
