@@ -258,6 +258,10 @@ export function GenerateButton() {
       }
 
       const data = await response.json();
+      console.log('Webhook response:', data);
+      
+      // Check for external taskId (n8n returns this for async processing)
+      const externalTaskId = data.taskId || data.data?.taskId || data.task_id;
       
       // Parse the response - handle nested resultJson structure
       let outputUrl = '';
@@ -285,43 +289,63 @@ export function GenerateButton() {
       
       // Get final prompt from response
       finalPrompt = data.refined_prompt || data.data?.refined_prompt || '';
-      
-      const output = {
-        jobId: requestId,
-        outputUrl,
-        refinedPrompt: finalPrompt,
-      };
 
-      // Only update currentOutput if this is still the selected job
-      const currentSelectedId = useGenerationStore.getState().selectedJobId;
-      if (currentSelectedId === generationId) {
-        setCurrentOutput(output);
-      }
-      
-      // Update generation in database
-      await updateGeneration({
-        id: generationId,
-        updates: {
-          status: outputUrl ? 'done' : 'error',
-          final_prompt: finalPrompt || null,
-          output_url: outputUrl || null,
-          error_message: outputUrl ? null : 'No output URL in response',
-          progress: outputUrl ? 100 : 0,
-        },
-      });
-
+      // Decision logic for how to handle the response
       if (outputUrl) {
+        // Got immediate result - mark as done
+        const output = {
+          jobId: requestId,
+          outputUrl,
+          refinedPrompt: finalPrompt,
+        };
+
+        const currentSelectedId = useGenerationStore.getState().selectedJobId;
+        if (currentSelectedId === generationId) {
+          setCurrentOutput(output);
+        }
+        
+        await updateGeneration({
+          id: generationId,
+          updates: {
+            status: 'done',
+            final_prompt: finalPrompt || null,
+            output_url: outputUrl,
+            progress: 100,
+          },
+        });
+
         toast.success('Generation complete');
-        // Show rating panel after successful generation (only if still selected)
         if (currentSelectedId === generationId) {
           setPendingRating(true);
         }
-        // Clear uploaded images after successful generation
         if (mode === 'image-to-image') {
           clearUploadedImageUrls();
         }
+      } else if (externalTaskId) {
+        // Got taskId - async processing, wait for callback
+        await updateGeneration({
+          id: generationId,
+          updates: {
+            status: 'running',
+            progress: 50,
+            external_task_id: externalTaskId,
+            final_prompt: finalPrompt || null,
+          },
+        });
+        
+        toast.info('Generation submitted, waiting for results...');
+        // Don't remove from active set - will be updated by callback via polling
+        return;
       } else {
-        toast.error('No output received');
+        // No taskId and no output - this is an error
+        await updateGeneration({
+          id: generationId,
+          updates: {
+            status: 'error',
+            error_message: 'No task ID or output URL in response',
+          },
+        });
+        toast.error('Generation failed - no task assigned');
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -501,35 +525,58 @@ export function GenerateButton() {
       
       finalPrompt = data.refined_prompt || data.data?.refined_prompt || '';
       
-      const output = {
-        jobId: requestId,
-        outputUrl,
-        refinedPrompt: finalPrompt,
-      };
+      // Check for external taskId
+      const externalTaskId = data.taskId || data.data?.taskId || data.task_id;
 
-      const currentSelectedId = useGenerationStore.getState().selectedJobId;
-      if (currentSelectedId === generationId) {
-        setCurrentOutput(output);
-      }
-      
-      await updateGeneration({
-        id: generationId,
-        updates: {
-          status: outputUrl ? 'done' : 'error',
-          final_prompt: finalPrompt || null,
-          output_url: outputUrl || null,
-          error_message: outputUrl ? null : 'No output URL in response',
-          progress: outputUrl ? 100 : 0,
-        },
-      });
-
+      // Decision logic for how to handle the response
       if (outputUrl) {
+        const output = {
+          jobId: requestId,
+          outputUrl,
+          refinedPrompt: finalPrompt,
+        };
+
+        const currentSelectedId = useGenerationStore.getState().selectedJobId;
+        if (currentSelectedId === generationId) {
+          setCurrentOutput(output);
+        }
+        
+        await updateGeneration({
+          id: generationId,
+          updates: {
+            status: 'done',
+            final_prompt: finalPrompt || null,
+            output_url: outputUrl,
+            progress: 100,
+          },
+        });
+
         toast.success('Regeneration complete');
         if (currentSelectedId === generationId) {
           setPendingRating(true);
         }
+      } else if (externalTaskId) {
+        await updateGeneration({
+          id: generationId,
+          updates: {
+            status: 'running',
+            progress: 50,
+            external_task_id: externalTaskId,
+            final_prompt: finalPrompt || null,
+          },
+        });
+        
+        toast.info('Regeneration submitted, waiting for results...');
+        return;
       } else {
-        toast.error('No output received');
+        await updateGeneration({
+          id: generationId,
+          updates: {
+            status: 'error',
+            error_message: 'No task ID or output URL in response',
+          },
+        });
+        toast.error('Regeneration failed - no task assigned');
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

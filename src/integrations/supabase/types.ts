@@ -39,6 +39,7 @@ export type Database = {
         Row: {
           created_at: string | null
           error_message: string | null
+          external_task_id: string | null
           final_prompt: string | null
           id: string
           model: string
@@ -55,6 +56,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           error_message?: string | null
+          external_task_id?: string | null
           final_prompt?: string | null
           id?: string
           model: string
@@ -71,6 +73,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           error_message?: string | null
+          external_task_id?: string | null
           final_prompt?: string | null
           id?: string
           model?: string

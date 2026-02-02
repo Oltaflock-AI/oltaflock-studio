@@ -59,20 +59,40 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find the generation by request_id (which matches taskId)
-    const { data: generation, error: findError } = await supabase
-      .from('generations')
-      .select('id, status, request_id')
-      .eq('request_id', taskId)
-      .single();
+    // Find the generation by external_task_id first, then fallback to request_id
+    let generation = null;
 
-    if (findError || !generation) {
-      console.error('Generation not found for taskId:', taskId, findError);
+    // Try external_task_id first (taskId from n8n)
+    const { data: byExternal } = await supabase
+      .from('generations')
+      .select('id, status, request_id, external_task_id')
+      .eq('external_task_id', taskId)
+      .maybeSingle();
+
+    if (byExternal) {
+      generation = byExternal;
+      console.log('Found generation by external_task_id:', generation.id);
+    } else {
+      // Fallback to request_id for backward compatibility
+      const { data: byRequest } = await supabase
+        .from('generations')
+        .select('id, status, request_id, external_task_id')
+        .eq('request_id', taskId)
+        .maybeSingle();
+      
+      if (byRequest) {
+        generation = byRequest;
+        console.log('Found generation by request_id (fallback):', generation.id);
+      }
+    }
+
+    if (!generation) {
+      console.error('Generation not found for taskId:', taskId);
       return new Response(
         JSON.stringify({ 
           error: 'Generation not found', 
           taskId,
-          details: findError?.message 
+          searchedBy: ['external_task_id', 'request_id']
         }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

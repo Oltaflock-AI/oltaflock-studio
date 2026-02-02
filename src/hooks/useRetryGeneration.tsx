@@ -171,35 +171,58 @@ export function useRetryGeneration() {
       
       finalPrompt = data.refined_prompt || data.data?.refined_prompt || '';
       
-      const output = {
-        jobId: requestId,
-        outputUrl,
-        refinedPrompt: finalPrompt,
-      };
+      // Check for external taskId
+      const externalTaskId = data.taskId || data.data?.taskId || data.task_id;
 
-      const currentSelectedId = useGenerationStore.getState().selectedJobId;
-      if (currentSelectedId === generationId) {
-        setCurrentOutput(output);
-      }
-      
-      await updateGeneration({
-        id: generationId,
-        updates: {
-          status: outputUrl ? 'done' : 'error',
-          final_prompt: finalPrompt || null,
-          output_url: outputUrl || null,
-          error_message: outputUrl ? null : 'No output URL in response',
-          progress: outputUrl ? 100 : 0,
-        },
-      });
-
+      // Decision logic for how to handle the response
       if (outputUrl) {
+        const output = {
+          jobId: requestId,
+          outputUrl,
+          refinedPrompt: finalPrompt,
+        };
+
+        const currentSelectedId = useGenerationStore.getState().selectedJobId;
+        if (currentSelectedId === generationId) {
+          setCurrentOutput(output);
+        }
+        
+        await updateGeneration({
+          id: generationId,
+          updates: {
+            status: 'done',
+            final_prompt: finalPrompt || null,
+            output_url: outputUrl,
+            progress: 100,
+          },
+        });
+
         toast.success('Generation complete');
         if (currentSelectedId === generationId) {
           setPendingRating(true);
         }
+      } else if (externalTaskId) {
+        await updateGeneration({
+          id: generationId,
+          updates: {
+            status: 'running',
+            progress: 50,
+            external_task_id: externalTaskId,
+            final_prompt: finalPrompt || null,
+          },
+        });
+        
+        toast.info('Retry submitted, waiting for results...');
+        return;
       } else {
-        toast.error('No output received');
+        await updateGeneration({
+          id: generationId,
+          updates: {
+            status: 'error',
+            error_message: 'No task ID or output URL in response',
+          },
+        });
+        toast.error('Retry failed - no task assigned');
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
