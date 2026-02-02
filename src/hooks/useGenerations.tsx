@@ -22,6 +22,7 @@ export interface DbGeneration {
   rating: number | null;
   user_id: string | null;
   progress: number;
+  external_task_id: string | null;
 }
 
 // Insert type (omitting auto-generated fields)
@@ -45,6 +46,7 @@ export interface GenerationUpdate {
   error_message?: string | null;
   rating?: number | null;
   progress?: number;
+  external_task_id?: string | null;
 }
 
 export function useGenerations() {
