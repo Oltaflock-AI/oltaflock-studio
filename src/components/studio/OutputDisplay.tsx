@@ -1,13 +1,14 @@
 import { useGenerationStore } from '@/store/generationStore';
 import { useGenerations } from '@/hooks/useGenerations';
 import { useGenerationProgress } from '@/hooks/useGenerationProgress';
+import { useNotificationSound } from '@/hooks/useNotificationSound';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Loader2, Image as ImageIcon, Video, Download, Copy, ExternalLink, Maximize2, Sparkles, AlertCircle, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 interface OutputDisplayProps {
@@ -20,9 +21,26 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
   const { generations, isLoading } = useGenerations();
   const progress = useGenerationProgress(selectedJobId);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const { playNotification } = useNotificationSound();
+  const previousStatusRef = useRef<Record<string, string>>({});
 
   const selectedGeneration = generations.find(g => g.id === selectedJobId);
   const mediaType = selectedGeneration?.type || 'image';
+
+  // Play notification sound when a generation completes
+  useEffect(() => {
+    generations.forEach(gen => {
+      const prevStatus = previousStatusRef.current[gen.id];
+      
+      // If status changed to 'done' and we have an output, play notification
+      if (gen.status === 'done' && gen.output_url && prevStatus && prevStatus !== 'done') {
+        playNotification(gen.id);
+      }
+      
+      // Update the previous status
+      previousStatusRef.current[gen.id] = gen.status;
+    });
+  }, [generations, playNotification]);
 
   const handleDownload = () => {
     if (!selectedGeneration?.output_url) return;
