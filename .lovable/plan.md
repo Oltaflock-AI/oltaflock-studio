@@ -1,445 +1,365 @@
 
-# Pricing & Cost-Visibility System
+# Two-Webhook Flow Implementation
 
-## Overview
+## Problem Analysis
 
-Build a centralized pricing engine that calculates and displays generation costs in credits and USD throughout the OltaFlock Creative Studio. The system will provide real-time cost estimates before generation and persist cost data with each generation for historical tracking.
+Currently, when clicking Generate:
+1. Frontend sends request to n8n webhook
+2. n8n returns a `taskId` immediately (no results yet)
+3. Frontend incorrectly marks generation as "error" because there's no `output_url`
+4. Second webhook with actual results comes later to `/functions/v1/generation-callback`
+
+The frontend is treating the first webhook as the final response, when it should only be acknowledging that the job was accepted.
 
 ---
 
-## Architecture
+## Solution Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│                    PRICING CONFIGURATION                        │
-│  src/config/pricing.ts                                          │
-│  - Credit conversion rate (1000 credits = $5)                   │
-│  - Model pricing map keyed by model + controls                  │
-│  - Helper functions for cost calculation                        │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│   usePricing    │  │  BalanceButton  │  │  Database       │
-│   Hook          │  │  USD Display    │  │  Storage        │
-│                 │  │                 │  │                 │
-│ - Calculate     │  │ - Show credits  │  │ - credits_used  │
-│   costs from    │  │   + USD value   │  │ - usd_cost      │
-│   current       │  │ - Live update   │  │   (in model_    │
-│   controls      │  │                 │  │    params)      │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      UI INTEGRATION                             │
-│  - CostPreview component (before Generate button)               │
-│  - RequestsPanel (cost in history items)                        │
-│  - RequestDetailPanel (cost in metadata section)                │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  FLOW DIAGRAM                                                               │
+│                                                                             │
+│  1. User clicks Generate                                                    │
+│     └─> Frontend creates record with request_id: "job_xxx"                  │
+│     └─> Status: "queued"                                                    │
+│                                                                             │
+│  2. Frontend calls n8n webhook                                              │
+│     └─> n8n returns: { taskId: "abc123" }                                   │
+│     └─> Frontend stores taskId, updates status to "running"                 │
+│     └─> NO ERROR - just wait for callback                                   │
+│                                                                             │
+│  3. n8n later sends POST to /generation-callback                            │
+│     └─> Payload contains taskId: "abc123" + resultUrls                      │
+│     └─> Callback matches taskId to stored external_task_id                  │
+│     └─> Updates status to "done" + sets output_url                          │
+│                                                                             │
+│  4. Frontend polling detects update                                         │
+│     └─> Dashboard shows completed generation                                │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Pricing Configuration
+## Database Schema Change
 
-**New File: `src/config/pricing.ts`**
+Add a new column to store the external `taskId` from n8n:
 
-### Global Constants
+**Migration SQL:**
+```sql
+ALTER TABLE generations
+ADD COLUMN external_task_id TEXT;
 
-```typescript
-// Conversion rate: 1000 credits = $5 USD
-export const CREDITS_PER_DOLLAR = 200; // 1000 / 5
-export const USD_PER_CREDIT = 0.005;   // 5 / 1000
-
-export function creditsToUsd(credits: number): number {
-  return credits * USD_PER_CREDIT;
-}
-
-export function formatUsd(amount: number): string {
-  return `$${amount.toFixed(2)}`;
-}
-
-export function formatCredits(credits: number): string {
-  return credits % 1 === 0 ? String(credits) : credits.toFixed(1);
-}
+CREATE INDEX idx_generations_external_task_id 
+ON generations(external_task_id);
 ```
 
-### Pricing Map Structure
+This allows:
+- `request_id` = our internal job ID (job_xxx_xxx)
+- `external_task_id` = taskId from n8n/external system
 
+---
+
+## Changes Required
+
+### 1. Database: Add `external_task_id` Column
+
+Add a new column to store the external taskId that n8n provides, so we can match it when the callback arrives.
+
+### 2. Frontend: `src/components/studio/GenerateButton.tsx`
+
+**Current behavior (problematic):**
 ```typescript
-interface PricingRule {
-  baseCredits: number;
-  // Optional modifiers for variants
-  resolutionMultipliers?: Record<string, number>;
-  durationMultipliers?: Record<number, number>;
-  qualityMultipliers?: Record<string, number>;
-  audioMultiplier?: number;
-}
+// Lines 302-311
+await updateGeneration({
+  id: generationId,
+  updates: {
+    status: outputUrl ? 'done' : 'error',  // ❌ Marks as error if no outputUrl
+    output_url: outputUrl || null,
+    error_message: outputUrl ? null : 'No output URL in response',
+  },
+});
+```
 
-export const MODEL_PRICING: Record<string, PricingRule | Record<string, PricingRule>> = {
-  // Image Models
-  'nano-banana-pro': {
-    '1K': { baseCredits: 18 },
-    '2K': { baseCredits: 18 },
-    '4K': { baseCredits: 24 },
-  },
-  'seedream-4.5': { baseCredits: 6.5 },
-  'flux-flex': {
-    '1K': { baseCredits: 14 },
-    '2K': { baseCredits: 24 },
-  },
-  'flux-flex-pro': {
-    '1K': { baseCredits: 5 },
-    '2K': { baseCredits: 7 },
-  },
-  'z-image': { baseCredits: 0.8 },
-  'gpt-4o': { baseCredits: 10 }, // Placeholder - need actual pricing
-  
-  // Image-to-Image
-  'nano-banana-pro-i2i': {
-    '1K': { baseCredits: 18 },
-    '2K': { baseCredits: 18 },
-    '4K': { baseCredits: 24 },
-  },
-  'seedream-4.5-edit': { baseCredits: 6.5 },
-  'flux-flex-i2i': {
-    '1K': { baseCredits: 14 },
-    '2K': { baseCredits: 24 },
-  },
-  'flux-pro-i2i': {
-    '1K': { baseCredits: 5 },
-    '2K': { baseCredits: 7 },
-  },
-  'qwen-image-edit': { baseCredits: 2 }, // Placeholder
-  
-  // Video Models
-  'veo-3.1': {
-    'veo3_fast': { baseCredits: 60 },
-    'veo3_quality': { baseCredits: 250 },
-  },
-  'sora-2-pro': {
-    'standard-10': { baseCredits: 150 },
-    'standard-15': { baseCredits: 270 },
-    'high-10': { baseCredits: 330 },
-    'high-15': { baseCredits: 630 },
-  },
-  'kling-2.6': {
-    base: { 
-      baseCredits: 55,
-      durationMultipliers: { 5: 1, 10: 2 },
-      audioMultiplier: 2,
+**New behavior:**
+```typescript
+// Parse response for taskId from n8n
+const externalTaskId = data.taskId || data.data?.taskId || data.task_id;
+
+if (externalTaskId) {
+  // Store the external taskId and keep status as 'running'
+  await updateGeneration({
+    id: generationId,
+    updates: {
+      status: 'running',
+      progress: 50,  // Show progress is happening
+      external_task_id: externalTaskId,  // Store for callback matching
     },
-  },
-  'seedance-1.0': {
-    'lite': { baseCredits: 25 },
-    'pro': { baseCredits: 50 },
-  },
-  'grok-imagine': { baseCredits: 30 }, // Placeholder
-};
-```
-
-### Cost Calculator Function
-
-```typescript
-export function calculateCost(
-  modelId: string,
-  controls: Record<string, unknown>
-): { credits: number; usd: number } {
-  const pricing = MODEL_PRICING[modelId];
+  });
   
-  if (!pricing) {
-    return { credits: 0, usd: 0 };
-  }
-  
-  let credits = 0;
-  
-  // Handle resolution-based pricing
-  if (typeof pricing === 'object' && controls.resolution) {
-    const resKey = controls.resolution as string;
-    const resPricing = pricing[resKey];
-    credits = resPricing?.baseCredits || 0;
-  }
-  // Handle variant-based pricing (Veo 3.1)
-  else if (typeof pricing === 'object' && controls.variant) {
-    const variantPricing = pricing[controls.variant as string];
-    credits = variantPricing?.baseCredits || 0;
-  }
-  // Handle quality + duration (Sora 2 Pro)
-  else if (modelId === 'sora-2-pro') {
-    const quality = controls.quality || 'standard';
-    const duration = controls.duration || 10;
-    const key = `${quality}-${duration}`;
-    credits = (pricing as any)[key]?.baseCredits || 0;
-  }
-  // Handle Kling with sound multiplier
-  else if (modelId === 'kling-2.6') {
-    const base = (pricing as any).base;
-    const duration = (controls.duration as number) || 5;
-    const hasSound = controls.sound === true;
-    credits = base.baseCredits * (duration === 10 ? 2 : 1) * (hasSound ? 2 : 1);
-  }
-  // Simple flat pricing
-  else if (typeof pricing === 'object' && 'baseCredits' in pricing) {
-    credits = (pricing as PricingRule).baseCredits;
-  }
-  
-  return {
-    credits,
-    usd: creditsToUsd(credits),
-  };
+  // Don't show error - wait for callback
+  toast.info('Generation processing...');
+} else if (outputUrl) {
+  // Immediate result (some providers return results directly)
+  await updateGeneration({
+    id: generationId,
+    updates: {
+      status: 'done',
+      output_url: outputUrl,
+      progress: 100,
+    },
+  });
+  toast.success('Generation complete');
+} else {
+  // Only error if no taskId AND no outputUrl
+  await updateGeneration({
+    id: generationId,
+    updates: {
+      status: 'error',
+      error_message: 'No task ID or output in response',
+    },
+  });
 }
 ```
 
----
+### 3. Update useGenerations Hook
 
-## Custom Hook
-
-**New File: `src/hooks/usePricing.ts`**
+Add `external_task_id` to the TypeScript interfaces:
 
 ```typescript
-import { useMemo } from 'react';
-import { useGenerationStore } from '@/store/generationStore';
-import { calculateCost, creditsToUsd, formatCredits, formatUsd } from '@/config/pricing';
+export interface DbGeneration {
+  // ... existing fields
+  external_task_id: string | null;
+}
 
-export function usePricing() {
-  const { selectedModel, controls } = useGenerationStore();
-  
-  const cost = useMemo(() => {
-    if (!selectedModel) {
-      return { credits: 0, usd: 0 };
-    }
-    return calculateCost(selectedModel, controls);
-  }, [selectedModel, controls]);
-  
-  return {
-    credits: cost.credits,
-    usd: cost.usd,
-    formattedCredits: formatCredits(cost.credits),
-    formattedUsd: formatUsd(cost.usd),
-    hasPrice: cost.credits > 0,
-  };
+export interface GenerationUpdate {
+  // ... existing fields
+  external_task_id?: string | null;
 }
 ```
 
----
+### 4. Edge Function: `generation-callback/index.ts`
 
-## UI Components
-
-### 1. Cost Preview Component
-
-**New File: `src/components/studio/CostPreview.tsx`**
-
-Display estimated cost above the Generate button:
+Update to match by `external_task_id` (taskId from n8n) instead of `request_id`:
 
 ```typescript
-import { usePricing } from '@/hooks/usePricing';
-import { Coins } from 'lucide-react';
-import { cn } from '@/lib/utils';
+// First try to find by external_task_id (n8n taskId)
+let { data: generation, error: findError } = await supabase
+  .from('generations')
+  .select('id, status, request_id, external_task_id')
+  .eq('external_task_id', taskId)
+  .single();
 
-export function CostPreview() {
-  const { hasPrice, formattedCredits, formattedUsd } = usePricing();
+// Fallback: try by request_id for backward compatibility
+if (!generation) {
+  const fallback = await supabase
+    .from('generations')
+    .select('id, status, request_id, external_task_id')
+    .eq('request_id', taskId)
+    .single();
   
-  if (!hasPrice) return null;
-  
-  return (
-    <div className={cn(
-      "flex items-center justify-between py-2 px-3 rounded-lg",
-      "bg-muted/30 border border-border/50"
-    )}>
-      <div className="flex items-center gap-2">
-        <Coins className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-          Estimated Cost
-        </span>
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold tabular-nums">
-          {formattedCredits}
-        </span>
-        <span className="text-xs text-muted-foreground">credits</span>
-        <span className="text-xs text-muted-foreground/60">•</span>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {formattedUsd}
-        </span>
-      </div>
-    </div>
-  );
+  if (fallback.data) {
+    generation = fallback.data;
+  }
 }
 ```
 
-### 2. Enhanced Balance Display
+### 5. Retry Hook: `src/hooks/useRetryGeneration.tsx`
 
-**File: `src/components/studio/BalanceButton.tsx`**
-
-Update to show USD equivalent:
-
-```typescript
-// After parsing balance value, also calculate USD
-const numericBalance = parseFloat(balanceValue.replace(/,/g, ''));
-const usdValue = creditsToUsd(numericBalance);
-
-// Display:
-<div className="text-xs font-medium text-primary bg-primary/8 px-3 py-1.5 rounded-lg border border-primary/10">
-  <span className="tabular-nums">{balanceValue}</span>
-  <span className="text-primary/70 ml-1">credits</span>
-  <span className="text-primary/50 mx-1.5">•</span>
-  <span className="tabular-nums text-primary/70">${usdValue.toFixed(2)}</span>
-</div>
-```
-
-### 3. History Item Cost
-
-**File: `src/components/studio/RequestsPanel.tsx`**
-
-Add cost display to each history item:
-
-```typescript
-// In the footer section, after model name:
-{generation.model_params?.cost_credits && (
-  <span className="text-[9px] text-muted-foreground tabular-nums">
-    {formatCredits(generation.model_params.cost_credits as number)} cr
-  </span>
-)}
-```
-
-### 4. Request Detail Panel Cost Section
-
-**File: `src/components/studio/RequestDetailPanel.tsx`**
-
-Add a dedicated cost section:
-
-```typescript
-{/* Cost Section - after Model */}
-{modelParams?.cost_credits && (
-  <DetailSection icon={Coins} label="Cost">
-    <div className="flex items-center justify-between bg-muted/30 rounded-lg p-3">
-      <div>
-        <span className="text-sm font-semibold tabular-nums">
-          {formatCredits(modelParams.cost_credits as number)}
-        </span>
-        <span className="text-xs text-muted-foreground ml-1">credits</span>
-      </div>
-      <div className="text-sm text-muted-foreground tabular-nums">
-        {formatUsd(modelParams.cost_usd as number)}
-      </div>
-    </div>
-  </DetailSection>
-)}
-```
+Apply the same two-webhook logic to regeneration/retry flows.
 
 ---
-
-## Data Persistence
-
-### Store Cost with Generation
-
-**File: `src/components/studio/GenerateButton.tsx`**
-
-When creating a generation, include cost in model_params:
-
-```typescript
-import { calculateCost } from '@/config/pricing';
-
-// Before createGeneration:
-const cost = calculateCost(selectedModel, modelParams);
-
-// Add to model_params:
-model_params: {
-  ...modelParams,
-  image_urls: mode === 'image-to-image' ? uploadedImageUrls : undefined,
-  cost_credits: cost.credits,
-  cost_usd: cost.usd,
-},
-```
-
----
-
-## Complete Pricing Table
-
-| Model | Configuration | Credits | USD |
-|-------|---------------|---------|-----|
-| **Nano Banana Pro** | 1K / 2K | 18 | $0.09 |
-| | 4K | 24 | $0.12 |
-| **Seedream 4.5** | All | 6.5 | $0.032 |
-| **Flux Flex** | 1K | 14 | $0.07 |
-| | 2K | 24 | $0.12 |
-| **Flux Pro** | 1K | 5 | $0.025 |
-| | 2K | 7 | $0.035 |
-| **Z-Image** | All | 0.8 | $0.004 |
-| **Veo 3.1** | Fast | 60 | $0.30 |
-| | Quality | 250 | $1.25 |
-| **Sora 2 Pro** | Standard 10s | 150 | $0.75 |
-| | Standard 15s | 270 | $1.35 |
-| | High 10s | 330 | $1.65 |
-| | High 15s | 630 | $3.15 |
-| **Kling 2.6** | 5s | 55 | $0.275 |
-| | 10s | 110 | $0.55 |
-| | + Audio | ×2 | ×2 |
-| **Seedance 1.0** | Lite | 25 | $0.125 |
-| | Pro | 50 | $0.25 |
-
----
-
-## Files to Create
-
-| File | Purpose |
-|------|---------|
-| `src/config/pricing.ts` | Centralized pricing configuration and calculator |
-| `src/hooks/usePricing.ts` | React hook for reactive cost calculation |
-| `src/components/studio/CostPreview.tsx` | Cost estimate display component |
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/pages/Index.tsx` | Add CostPreview above GenerateButton |
-| `src/components/studio/GenerateButton.tsx` | Store cost with generation |
-| `src/components/studio/BalanceButton.tsx` | Show USD alongside credits |
-| `src/components/studio/RequestsPanel.tsx` | Show cost on history items |
-| `src/components/studio/RequestDetailPanel.tsx` | Add cost section to details |
+| **Database** | Add `external_task_id` column via migration |
+| `src/hooks/useGenerations.tsx` | Add `external_task_id` to interfaces |
+| `src/components/studio/GenerateButton.tsx` | Handle taskId response, keep status as running |
+| `src/hooks/useRetryGeneration.tsx` | Same logic for retry flow |
+| `supabase/functions/generation-callback/index.ts` | Match by `external_task_id` |
 
 ---
 
-## Visual Mockups
+## Detailed Code Changes
 
-### Cost Preview (before Generate)
+### GenerateButton.tsx - processGeneration function
 
-```text
-┌──────────────────────────────────────────┐
-│ 💰 ESTIMATED COST                        │
-│                    18 credits  •  $0.09  │
-└──────────────────────────────────────────┘
-┌──────────────────────────────────────────┐
-│           [ Generate ]                   │
-└──────────────────────────────────────────┘
+Lines 260-340 need to be updated:
+
+```typescript
+const data = await response.json();
+console.log('Webhook response:', data);
+
+// Check for external taskId (n8n returns this for async processing)
+const externalTaskId = data.taskId || data.data?.taskId || data.task_id;
+
+// Check for immediate results (some models return directly)
+let outputUrl = '';
+let finalPrompt = '';
+
+if (data.data?.resultJson) {
+  try {
+    const resultJson = typeof data.data.resultJson === 'string' 
+      ? JSON.parse(data.data.resultJson) 
+      : data.data.resultJson;
+    
+    if (resultJson.resultUrls && resultJson.resultUrls.length > 0) {
+      outputUrl = resultJson.resultUrls[0];
+    }
+  } catch (e) {
+    console.error('Failed to parse resultJson:', e);
+  }
+}
+
+if (!outputUrl && data.output_url) {
+  outputUrl = data.output_url;
+}
+
+finalPrompt = data.refined_prompt || data.data?.refined_prompt || '';
+
+// Decision logic for how to handle the response
+if (outputUrl) {
+  // Got immediate result - mark as done
+  await updateGeneration({
+    id: generationId,
+    updates: {
+      status: 'done',
+      final_prompt: finalPrompt || null,
+      output_url: outputUrl,
+      progress: 100,
+    },
+  });
+  toast.success('Generation complete');
+  setPendingRating(true);
+} else if (externalTaskId) {
+  // Got taskId - async processing, wait for callback
+  await updateGeneration({
+    id: generationId,
+    updates: {
+      status: 'running',
+      progress: 50,
+      external_task_id: externalTaskId,
+      final_prompt: finalPrompt || null,
+    },
+  });
+  // Don't show error, just info that it's processing
+  toast.info('Generation submitted, waiting for results...');
+  // Keep generation active - will be updated by callback
+  return; // Don't remove from active set yet
+} else {
+  // No taskId and no output - this is an error
+  await updateGeneration({
+    id: generationId,
+    updates: {
+      status: 'error',
+      error_message: 'No task ID or output URL in response',
+    },
+  });
+  toast.error('Generation failed - no task assigned');
+}
 ```
 
-### Enhanced Balance Display
+### generation-callback Edge Function
 
-```text
-┌────────────────────────────────────┐
-│  2,340 credits  •  $11.70   [↻]   │
-└────────────────────────────────────┘
+Update matching logic:
+
+```typescript
+// Find the generation by external_task_id first, then fallback to request_id
+let generation = null;
+
+// Try external_task_id first (taskId from n8n)
+const { data: byExternal } = await supabase
+  .from('generations')
+  .select('id, status, request_id, external_task_id')
+  .eq('external_task_id', taskId)
+  .maybeSingle();
+
+if (byExternal) {
+  generation = byExternal;
+} else {
+  // Fallback to request_id for backward compatibility
+  const { data: byRequest } = await supabase
+    .from('generations')
+    .select('id, status, request_id, external_task_id')
+    .eq('request_id', taskId)
+    .maybeSingle();
+  
+  generation = byRequest;
+}
+
+if (!generation) {
+  console.error('Generation not found for taskId:', taskId);
+  return new Response(
+    JSON.stringify({ error: 'Generation not found', taskId }),
+    { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
 ```
 
-### History Item with Cost
+---
+
+## Status Flow Diagram
 
 ```text
-┌─────────────────────────────────┐
-│ ● 🖼️                     14:32 │
-│ A futuristic cityscape...       │
-│ Nano Banana Pro        18 cr    │
-└─────────────────────────────────┘
+User clicks Generate
+       │
+       ▼
+┌─────────────────┐
+│ status: queued  │ ← Database record created
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ status: running │ ← Webhook request sent
+│ progress: 25    │
+└────────┬────────┘
+         │
+    Webhook returns
+         │
+    ┌────┴────┐
+    │         │
+    ▼         ▼
+┌─────────┐ ┌──────────────────┐
+│ Has     │ │ Has taskId but   │
+│ output? │ │ no output?       │
+└────┬────┘ └────────┬─────────┘
+     │               │
+     ▼               ▼
+┌─────────┐ ┌──────────────────┐
+│ done    │ │ running          │
+│ 100%    │ │ progress: 50     │
+└─────────┘ │ external_task_id │
+            └────────┬─────────┘
+                     │
+            Callback webhook arrives
+                     │
+                     ▼
+            ┌─────────────────┐
+            │ done            │
+            │ progress: 100   │
+            │ output_url set  │
+            └─────────────────┘
 ```
 
 ---
 
 ## Benefits
 
-1. **Transparency**: Users see exact costs before generating
-2. **Trust**: No hidden fees or surprises
-3. **Budgeting**: USD conversion helps track spend
-4. **Historical data**: All costs stored with generations
-5. **Maintainability**: Single config file for all pricing
-6. **Extensibility**: Easy to add new models or tiers
+1. **No false errors**: Generations won't show as failed while processing
+2. **Proper tracking**: external_task_id links our record to n8n's task
+3. **Backward compatible**: Still checks request_id as fallback
+4. **Clear status flow**: Users see "running" with 50% until callback arrives
+5. **Polling picks up**: useGenerations polls every 5s for running jobs
+
+---
+
+## Testing Checklist
+
+After implementation:
+- [ ] Click Generate → should show "running" status, not error
+- [ ] Generation should stay at ~50% progress while waiting
+- [ ] When callback arrives → status changes to "done"
+- [ ] Output appears in dashboard
+- [ ] History shows correct status throughout
+- [ ] Retry functionality works with same flow
