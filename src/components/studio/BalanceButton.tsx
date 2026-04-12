@@ -79,7 +79,10 @@ export function BalanceButton() {
           <span className="text-primary/70 ml-1">credits</span>
           <span className="text-primary/50 mx-1.5">•</span>
           <span className="tabular-nums text-primary/70">
-            ${creditsToUsd(parseFloat(balance.replace(/,/g, ''))).toFixed(2)}
+            ${(() => {
+              const parsed = parseFloat(balance.replace(/,/g, ''));
+              return isNaN(parsed) ? '—' : creditsToUsd(parsed).toFixed(2);
+            })()}
           </span>
         </div>
       )}

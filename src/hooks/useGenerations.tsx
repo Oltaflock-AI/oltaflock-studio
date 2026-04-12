@@ -107,10 +107,12 @@ export function useGenerations() {
 
   const updateGenerationMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: GenerationUpdate }) => {
+      if (!user?.id) throw new Error('User not authenticated');
       const { data, error } = await supabase
         .from('generations')
         .update(updates)
         .eq('id', id)
+        .eq('user_id', user.id)
         .select()
         .single();
 

@@ -173,5 +173,3 @@ npm run lint    # Run ESLint
 ```
 
 ## Deployment
-
-Built with [Lovable](https://lovable.dev) and deployed on Vercel.

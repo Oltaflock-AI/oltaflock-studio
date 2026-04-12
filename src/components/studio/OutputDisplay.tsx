@@ -216,11 +216,9 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Open
               </Button>
-              {mediaType === 'image' && (
-                <Button size="sm" variant="secondary" onClick={() => setIsFullscreen(true)} className="h-9 w-9 p-0 rounded-lg shadow-sm ml-auto">
-                  <Maximize2 className="h-4 w-4" />
-                </Button>
-              )}
+              <Button size="sm" variant="secondary" onClick={() => setIsFullscreen(true)} className="h-9 w-9 p-0 rounded-lg shadow-sm ml-auto">
+                <Maximize2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
@@ -243,11 +241,20 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
       {/* Fullscreen Modal */}
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-2 bg-background/95 backdrop-blur-sm">
-          <img
-            src={selectedGeneration.output_url}
-            alt="Generated output"
-            className="w-full h-full object-contain rounded-lg"
-          />
+          {mediaType === 'image' ? (
+            <img
+              src={selectedGeneration.output_url}
+              alt="Generated output"
+              className="w-full h-full object-contain rounded-lg"
+            />
+          ) : (
+            <video
+              src={selectedGeneration.output_url}
+              controls
+              autoPlay
+              className="w-full h-full object-contain rounded-lg"
+            />
+          )}
         </DialogContent>
       </Dialog>
     </>

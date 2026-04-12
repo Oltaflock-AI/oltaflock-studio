@@ -114,14 +114,14 @@ export default function Auth() {
         <div className="w-full max-w-md">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="flex items-center justify-center gap-3 mb-2">
-              <img src={oltaflockLogo} alt="OltaFlock" className="h-10 w-10 rounded-lg object-cover" />
-              <h1 className="text-2xl font-semibold tracking-tight">
-                OltaFlock Creative Studio
-              </h1>
+            <div className="flex flex-col items-center gap-2 mb-2">
+              <img src={oltaflockLogo} alt="Oltaflock" className="h-20 object-contain" />
+              <h2 className="text-lg font-semibold tracking-tight">
+                Creative Studio
+              </h2>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Internal Production Dashboard
+            <p className="text-xs text-muted-foreground">
+              For internal use only
             </p>
           </div>
 
@@ -206,14 +206,14 @@ export default function Auth() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-2">
-            <img src={oltaflockLogo} alt="OltaFlock" className="h-10 w-10 rounded-lg object-cover" />
-            <h1 className="text-2xl font-semibold tracking-tight">
-              OltaFlock Creative Studio
-            </h1>
+          <div className="flex flex-col items-center gap-2 mb-2">
+            <img src={oltaflockLogo} alt="Oltaflock" className="h-20 object-contain" />
+            <h2 className="text-lg font-semibold tracking-tight">
+              Creative Studio
+            </h2>
           </div>
           <p className="text-sm text-muted-foreground">
-            Internal Production Dashboard
+            For internal use only
           </p>
         </div>
 

@@ -105,67 +105,69 @@ export function useMultipleGenerationProgress(generationIds: string[]): Map<stri
   const intervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
-    const newProgressMap = new Map(progressMap);
-    
-    generationIds.forEach(id => {
-      const generation = generations.find(g => g.id === id);
-      if (!generation) return;
+    const intervals = intervalsRef.current;
 
-      const currentProgress = progressMap.get(id) || 0;
-      const status = generation.status as GenerationStatus;
+    setProgressMap(prev => {
+      const newProgressMap = new Map(prev);
 
-      // Handle completed states
-      if (status === 'done' && generation.output_url) {
-        newProgressMap.set(id, 100);
-        // Clear any running interval
-        const existingInterval = intervalsRef.current.get(id);
-        if (existingInterval) {
-          clearInterval(existingInterval);
-          intervalsRef.current.delete(id);
+      generationIds.forEach(id => {
+        const generation = generations.find(g => g.id === id);
+        if (!generation) return;
+
+        const currentProgress = prev.get(id) || 0;
+        const status = generation.status as GenerationStatus;
+
+        // Handle completed states
+        if (status === 'done' && generation.output_url) {
+          newProgressMap.set(id, 100);
+          const existingInterval = intervals.get(id);
+          if (existingInterval) {
+            clearInterval(existingInterval);
+            intervals.delete(id);
+          }
+          return;
         }
-        return;
-      }
 
-      if (status === 'error') {
-        // Freeze progress on error
-        const existingInterval = intervalsRef.current.get(id);
-        if (existingInterval) {
-          clearInterval(existingInterval);
-          intervalsRef.current.delete(id);
+        if (status === 'error') {
+          const existingInterval = intervals.get(id);
+          if (existingInterval) {
+            clearInterval(existingInterval);
+            intervals.delete(id);
+          }
+          return;
         }
-        return;
-      }
 
-      // Set base progress
-      if (status === 'queued' && currentProgress < 10) {
-        newProgressMap.set(id, 10);
-      } else if (status === 'running' && currentProgress < 25) {
-        newProgressMap.set(id, 25);
-      }
+        // Set base progress
+        if (status === 'queued' && currentProgress < 10) {
+          newProgressMap.set(id, 10);
+        } else if (status === 'running' && currentProgress < 25) {
+          newProgressMap.set(id, 25);
+        }
 
-      // Start simulation interval if running and no interval exists
-      if (status === 'running' && !intervalsRef.current.has(id)) {
-        const interval = setInterval(() => {
-          setProgressMap(prev => {
-            const current = prev.get(id) || 25;
-            if (current >= 85) return prev;
-            const newMap = new Map(prev);
-            newMap.set(id, Math.min(current + Math.random() * 3 + 2, 85));
-            return newMap;
-          });
-        }, 1500);
-        intervalsRef.current.set(id, interval);
-      }
+        // Start simulation interval if running and no interval exists
+        if (status === 'running' && !intervals.has(id)) {
+          const interval = setInterval(() => {
+            setProgressMap(p => {
+              const current = p.get(id) || 25;
+              if (current >= 85) return p;
+              const newMap = new Map(p);
+              newMap.set(id, Math.min(current + Math.random() * 3 + 2, 85));
+              return newMap;
+            });
+          }, 1500);
+          intervals.set(id, interval);
+        }
+      });
+
+      return newProgressMap;
     });
-
-    setProgressMap(newProgressMap);
 
     // Cleanup intervals for IDs no longer in the list
     return () => {
-      intervalsRef.current.forEach((interval, id) => {
+      intervals.forEach((interval, id) => {
         if (!generationIds.includes(id)) {
           clearInterval(interval);
-          intervalsRef.current.delete(id);
+          intervals.delete(id);
         }
       });
     };
@@ -173,9 +175,10 @@ export function useMultipleGenerationProgress(generationIds: string[]): Map<stri
 
   // Cleanup all intervals on unmount
   useEffect(() => {
+    const intervals = intervalsRef.current;
     return () => {
-      intervalsRef.current.forEach(interval => clearInterval(interval));
-      intervalsRef.current.clear();
+      intervals.forEach(interval => clearInterval(interval));
+      intervals.clear();
     };
   }, []);
 

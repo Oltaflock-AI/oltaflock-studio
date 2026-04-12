@@ -24,34 +24,37 @@ export function UserMenu() {
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      fetchDisplayName();
-    } else {
+    if (!user) {
       setDisplayName(null);
+      return;
     }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('user_id', user.id)
+          .single();
+
+        if (cancelled) return;
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching display name:', error);
+        }
+
+        if (data?.display_name) {
+          setDisplayName(data.display_name);
+        }
+      } catch (error) {
+        if (!cancelled) console.error('Error fetching display name:', error);
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, [user]);
-
-  const fetchDisplayName = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('display_name')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching display name:', error);
-      }
-      
-      if (data?.display_name) {
-        setDisplayName(data.display_name);
-      }
-    } catch (error) {
-      console.error('Error fetching display name:', error);
-    }
-  };
 
   if (!user) return null;
 

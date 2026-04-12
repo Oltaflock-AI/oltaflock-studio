@@ -15,7 +15,7 @@ import { ThemeToggle } from '@/components/studio/ThemeToggle';
 import { useGenerationStore } from '@/store/generationStore';
 import { useRetryGeneration } from '@/hooks/useRetryGeneration';
 import { Separator } from '@/components/ui/separator';
-import oltaflockLogo from '@/assets/oltaflock-logo.jpeg';
+import oltaflockLogo from '@/assets/oltaflock-icon.png';
 
 const Index = () => {
   const { selectedModel, generationType } = useGenerationStore();
@@ -26,10 +26,15 @@ const Index = () => {
       {/* Header - Refined with subtle elevation */}
       <header className="flex items-center justify-between px-4 py-2.5 bg-card shrink-0 h-12 elevation-panel border-b border-border/50">
         <div className="flex items-center gap-3">
-          <img src={oltaflockLogo} alt="OltaFlock" className="h-6 w-6 rounded-lg object-cover shadow-sm" />
-          <h1 className="text-sm font-semibold tracking-tight hidden md:block">
-            OltaFlock Creative Studio
-          </h1>
+          <img src={oltaflockLogo} alt="Oltaflock" className="h-6 w-6 rounded-lg object-cover shadow-sm" />
+          <div className="hidden md:block">
+            <h1 className="text-sm font-semibold tracking-tight leading-tight">
+              Oltaflock Creative Studio
+            </h1>
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              For internal use only
+            </p>
+          </div>
           <h1 className="text-sm font-semibold tracking-tight md:hidden">
             Studio
           </h1>

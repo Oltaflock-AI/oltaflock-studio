@@ -8,8 +8,8 @@ import { Play, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { calculateCost } from '@/config/pricing';
-const WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT';
-const IMAGE_TO_IMAGE_WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/image-to-video';
+const WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_URL || 'https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT';
+const IMAGE_TO_IMAGE_WEBHOOK_URL = import.meta.env.VITE_IMAGE_TO_IMAGE_WEBHOOK_URL || 'https://directive-ai.app.n8n.cloud/webhook/image-to-video';
 
 export function GenerateButton() {
   const { createGeneration, updateGeneration, generations } = useGenerations();

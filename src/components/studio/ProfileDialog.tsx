@@ -29,37 +29,38 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch existing profile on open
   useEffect(() => {
-    if (open && user) {
-      fetchProfile();
-    }
-  }, [open, user]);
+    if (!open || !user) return;
 
-  const fetchProfile = async () => {
-    if (!user) return;
-    
+    let cancelled = false;
     setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('display_name')
-        .eq('user_id', user.id)
-        .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile:', error);
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('user_id', user.id)
+          .single();
+
+        if (cancelled) return;
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching profile:', error);
+        }
+
+        if (data?.display_name) {
+          setDisplayName(data.display_name);
+        }
+      } catch (error) {
+        if (!cancelled) console.error('Error fetching profile:', error);
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-      
-      if (data?.display_name) {
-        setDisplayName(data.display_name);
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    })();
+
+    return () => { cancelled = true; };
+  }, [open, user]);
 
   const handleSaveName = async () => {
     if (!user) return;
