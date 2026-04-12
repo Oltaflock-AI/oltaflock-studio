@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useGenerationStore } from '@/store/generationStore';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -8,11 +9,12 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 export function ReferenceUpload() {
-  const { 
-    mode, 
+  const { user } = useAuth();
+  const {
+    mode,
     selectedModel,
-    referenceFiles, 
-    addReferenceFiles, 
+    referenceFiles,
+    addReferenceFiles,
     removeReferenceFile,
     uploadedImageUrls,
     addUploadedImageUrl,
@@ -20,7 +22,7 @@ export function ReferenceUpload() {
     pendingRating,
     isGenerating,
   } = useGenerationStore();
-  
+
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -73,12 +75,12 @@ export function ReferenceUpload() {
         const timestamp = Date.now();
         const random = Math.random().toString(36).substring(2, 8);
         const ext = file.name.split('.').pop() || 'png';
-        const filename = `${timestamp}_${random}.${ext}`;
-        
-        // Upload to Supabase Storage
+        const filePath = user ? `${user.id}/${timestamp}_${random}.${ext}` : `${timestamp}_${random}.${ext}`;
+
+        // Upload to Supabase Storage (scoped to user folder)
         const { data, error } = await supabase.storage
           .from('generation-uploads')
-          .upload(filename, file, {
+          .upload(filePath, file, {
             cacheControl: '3600',
             upsert: false,
           });

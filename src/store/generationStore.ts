@@ -181,23 +181,18 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   addActiveGeneration: (id) => set((state) => {
     const newSet = new Set(state.activeGenerationIds);
     newSet.add(id);
-    return { activeGenerationIds: newSet };
+    return { activeGenerationIds: newSet, isGenerating: newSet.size > 0 };
   }),
   removeActiveGeneration: (id) => set((state) => {
     const newSet = new Set(state.activeGenerationIds);
     newSet.delete(id);
-    return { activeGenerationIds: newSet };
+    return { activeGenerationIds: newSet, isGenerating: newSet.size > 0 };
   }),
   isAnyGenerating: () => get().activeGenerationIds.size > 0,
   
-  // Legacy compatibility - computed property
-  get isGenerating() {
-    return get().activeGenerationIds.size > 0;
-  },
-  setIsGenerating: (generating) => {
-    // Legacy: this is now a no-op, use addActiveGeneration/removeActiveGeneration instead
-    console.warn('setIsGenerating is deprecated. Use addActiveGeneration/removeActiveGeneration instead.');
-  },
+  // Legacy compatibility - derived from activeGenerationIds
+  isGenerating: false,
+  setIsGenerating: () => {},
   
   // Current Output
   currentOutput: null,
@@ -289,6 +284,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     uploadedImageUrls: [],
     characterIds: [],
     activeGenerationIds: new Set<string>(),
+    isGenerating: false,
     currentOutput: null,
     pendingRating: false,
     jobs: [],

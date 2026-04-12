@@ -1,9 +1,17 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOWED_ORIGINS = [
+  'https://directive-ai.app.n8n.cloud',
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || '';
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
+  };
+}
 
 // New flat format from n8n
 interface NewCallbackPayload {
@@ -42,6 +50,8 @@ interface LegacyCallbackPayload {
 type CallbackPayload = NewCallbackPayload | LegacyCallbackPayload;
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -52,6 +62,19 @@ Deno.serve(async (req) => {
       JSON.stringify({ error: 'Method not allowed' }),
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+  }
+
+  // Validate webhook secret
+  const webhookSecret = Deno.env.get('WEBHOOK_SECRET');
+  if (webhookSecret) {
+    const providedSecret = req.headers.get('x-webhook-secret');
+    if (providedSecret !== webhookSecret) {
+      console.error('Invalid webhook secret');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
   }
 
   try {
@@ -89,6 +112,29 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Missing taskId in payload' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Validate status value
+    const validStatuses = ['success', 'error', 'fail', 'failed', 'completed', 'running', 'queued'];
+    if (!validStatuses.includes(status)) {
+      console.error('Invalid status value:', status);
+      return new Response(
+        JSON.stringify({ error: `Invalid status: ${status}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate and clean outputUrl - treat empty strings as null
+    if (outputUrl && outputUrl.trim() === '') {
+      outputUrl = null;
+    }
+    if (outputUrl) {
+      try {
+        new URL(outputUrl);
+      } catch {
+        console.error('Invalid output URL, ignoring:', outputUrl);
+        outputUrl = null;
+      }
     }
 
     // Initialize Supabase client with service role for admin access
@@ -139,7 +185,7 @@ Deno.serve(async (req) => {
     console.log('Found generation:', generation.id, 'current status:', generation.status);
 
     // Determine new status and output URL
-    const isSuccess = status === 'success';
+    const isSuccess = status === 'success' || status === 'completed';
     
     const updateData: Record<string, unknown> = {
       status: isSuccess && outputUrl ? 'done' : 'error',

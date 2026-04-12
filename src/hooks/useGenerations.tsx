@@ -53,11 +53,14 @@ export function useGenerations() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
+  // Auto-timeout generations stuck for more than 10 minutes
+  const GENERATION_TIMEOUT_MS = 10 * 60 * 1000;
+
   const generationsQuery = useQuery({
     queryKey: ['generations', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      
+
       const { data, error } = await supabase
         .from('generations')
         .select('*')
@@ -65,7 +68,30 @@ export function useGenerations() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as DbGeneration[];
+      const generations = data as DbGeneration[];
+
+      // Check for timed-out generations and mark them as errored
+      const now = Date.now();
+      for (const gen of generations) {
+        if (
+          (gen.status === 'running' || gen.status === 'queued') &&
+          now - new Date(gen.created_at).getTime() > GENERATION_TIMEOUT_MS
+        ) {
+          await supabase
+            .from('generations')
+            .update({
+              status: 'error',
+              error_message: 'Generation timed out after 10 minutes',
+            })
+            .eq('id', gen.id)
+            .eq('user_id', user.id);
+
+          gen.status = 'error';
+          gen.error_message = 'Generation timed out after 10 minutes';
+        }
+      }
+
+      return generations;
     },
     enabled: !!user?.id,
     // Poll every 5s if any record is still 'running' or 'queued'

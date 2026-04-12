@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGenerationStore } from '@/store/generationStore';
 import { useGenerations } from '@/hooks/useGenerations';
+import { useUserCredits } from '@/hooks/useUserCredits';
 import { ALL_MODELS, generateJobId, MODEL_API_NAMES } from '@/types/generation';
 import type { Model } from '@/types/generation';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ const IMAGE_TO_IMAGE_WEBHOOK_URL = import.meta.env.VITE_IMAGE_TO_IMAGE_WEBHOOK_U
 
 export function GenerateButton() {
   const { createGeneration, updateGeneration, generations } = useGenerations();
+  const { balance, deductCredits } = useUserCredits();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const {
@@ -138,6 +140,13 @@ export function GenerateButton() {
     // Calculate cost for this generation
     const cost = calculateCost(selectedModel, modelParams);
 
+    // Check if user has enough credits
+    if (balance !== null && cost.credits > 0 && balance < cost.credits) {
+      toast.error(`Insufficient credits. You have ${balance} but need ${cost.credits}.`);
+      setIsSubmitting(false);
+      return;
+    }
+
     // Create generation in database with 'queued' status
     let dbGeneration;
     try {
@@ -161,11 +170,26 @@ export function GenerateButton() {
       // Immediately select the new job and add to active set
       setSelectedJobId(dbGeneration.id);
       addActiveGeneration(dbGeneration.id);
-      
+
+      // Deduct credits
+      if (cost.credits > 0) {
+        try {
+          await deductCredits({
+            credits: cost.credits,
+            generationId: dbGeneration.id,
+            model: modelConfig.displayName,
+            description: `${mode} generation: ${modelConfig.displayName}`,
+          });
+        } catch (creditError) {
+          console.error('Failed to deduct credits:', creditError);
+          // Don't block generation if credit deduction fails
+        }
+      }
+
       // Clear previous output state for fresh view
       setCurrentOutput(null);
       setPendingRating(false);
-      
+
       toast.success('Generation started');
     } catch (error) {
       console.error('Failed to create generation:', error);

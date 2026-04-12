@@ -1,11 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const BALANCE_WEBHOOK_URL = 'https://directive-ai.app.n8n.cloud/webhook/remainder-credits';
+const BALANCE_WEBHOOK_URL = Deno.env.get('BALANCE_WEBHOOK_URL') || 'https://directive-ai.app.n8n.cloud/webhook/remainder-credits';
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -15,42 +15,43 @@ serve(async (req) => {
 
   try {
     console.log('Proxying balance check to:', BALANCE_WEBHOOK_URL);
-    
-    // Try GET request first
+
     const response = await fetch(BALANCE_WEBHOOK_URL, {
       method: 'GET',
     });
 
     console.log('Balance webhook response status:', response.status);
-    console.log('Balance webhook response headers:', Object.fromEntries(response.headers.entries()));
-    
+
     const data = await response.text();
     console.log('Balance webhook response body:', data);
 
-    // If response is empty, return a fallback
+    if (!response.ok) {
+      return new Response(
+        JSON.stringify({ error: `Balance webhook returned ${response.status}` }),
+        {
+          status: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // If response is empty, return proper error
     if (!data || data.trim() === '') {
       return new Response(
-        JSON.stringify({ error: 'Empty response from balance webhook', status: response.status }),
+        JSON.stringify({ error: 'Empty response from balance webhook' }),
         {
-          status: 200,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
+          status: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
 
     // Wrap the text response in a proper JSON object
-    // This fixes the Content-Type mismatch issue
     return new Response(
       JSON.stringify({ balance: data.trim() }),
       {
-        status: response.status,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   } catch (error) {
@@ -60,10 +61,7 @@ serve(async (req) => {
       JSON.stringify({ error: 'Failed to check balance', details: errorMessage }),
       {
         status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   }

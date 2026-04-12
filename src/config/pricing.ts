@@ -59,7 +59,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   // Qwen Z-Image: 0.8 credits
   'z-image': { baseCredits: 0.8 },
   
-  // GPT-4o Image: 10 credits (placeholder)
+  // GPT-4o Image: 10 credits per generation
   'gpt-4o': { baseCredits: 10 },
   
   // ==========================================================================
@@ -88,7 +88,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     '2K': { baseCredits: 7 },
   },
   
-  // Qwen Image Edit: 2 credits (placeholder)
+  // Qwen Image Edit: 2 credits per edit
   'qwen-image-edit': { baseCredits: 2 },
   
   // ==========================================================================
@@ -123,7 +123,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     'pro': { baseCredits: 50 },
   },
   
-  // Grok Imagine: 30 credits (placeholder)
+  // Grok Imagine: 30 credits per generation
   'grok-imagine': { baseCredits: 30 },
 };
 
