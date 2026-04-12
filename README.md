@@ -1,6 +1,6 @@
-# OltaFlock Creative Studio
+# Oltaflock Creative Studio
 
-An internal production dashboard for multi-AI content generation — text-to-image, text-to-video, and image-to-image transformations. Built for authorized personnel to generate, manage, and rate media using multiple AI models.
+An internal production dashboard for multi-AI content generation — text-to-image, text-to-video, and image-to-image transformations. Built for authorized Oltaflock personnel to generate, manage, and rate media using multiple AI models.
 
 ## Tech Stack
 
@@ -163,6 +163,19 @@ Nano Banana Pro I2I, Seedream 4.5 Edit, Flux Flex I2I, Flux Pro I2I, Qwen Image 
 - **Notifications:** Sound plays on generation completion
 - **Themes:** Dark/light mode toggle
 
+## Branding
+
+The app follows the official Oltaflock brand kit:
+
+| Token | Value |
+|-------|-------|
+| Primary Blue | `#229DE7` |
+| Background | `#FAFAFA` |
+| Sky Light Blue | `#A9D3F2` |
+| Soft Cloud Grey | `#BDBDBD` |
+| Primary Font | Roxie Rossa |
+| Secondary Font | Humane |
+
 ## Development
 
 ```bash
@@ -173,3 +186,9 @@ npm run lint    # Run ESLint
 ```
 
 ## Deployment
+
+Hosted on Vercel. Pushes to `main` trigger automatic deployments.
+
+## License
+
+Internal use only. All rights reserved by Oltaflock.
