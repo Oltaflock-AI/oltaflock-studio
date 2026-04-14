@@ -96,9 +96,10 @@ export function useProfile() {
       queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
       toast.success('Avatar updated');
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Avatar upload error:', error);
-      toast.error('Failed to upload avatar');
+      const msg = error?.message || error?.statusCode || 'Unknown error';
+      toast.error(`Failed to upload avatar: ${msg}`);
     },
   });
 
