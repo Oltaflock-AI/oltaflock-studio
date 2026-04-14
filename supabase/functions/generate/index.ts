@@ -60,9 +60,11 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error: `Insufficient credits. Have ${balance}, need ${costCredits}.` }, { status: 402, headers: corsHeaders });
     }
 
-    // 4. Update generation to running
+    // 4. Update generation to running + store final prompt
     await adminClient.from('generations').update({
-      status: 'running', progress: 10,
+      status: 'running',
+      progress: 10,
+      final_prompt: prompt, // Always log what's actually sent to Kie.ai
     }).eq('id', generationId);
 
     // 5. Build payload using the route's buildPayload function
