@@ -47,17 +47,37 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
     });
   }, [generations, playNotification]);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!selectedGeneration?.output_url) return;
-    const link = document.createElement('a');
-    link.href = selectedGeneration.output_url;
-    link.download = `output-${selectedGeneration.request_id}.${mediaType === 'image' ? 'png' : 'mp4'}`;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('Download started');
+
+    // Smart filename from prompt: take first 6 words, sanitize
+    const promptSlug = (selectedGeneration.user_prompt || 'generation')
+      .split(/\s+/)
+      .slice(0, 6)
+      .join('-')
+      .replace(/[^a-zA-Z0-9\-]/g, '')
+      .toLowerCase()
+      .slice(0, 60) || 'output';
+    const ext = mediaType === 'image' ? 'png' : 'mp4';
+    const filename = `oltaflock-${promptSlug}.${ext}`;
+
+    try {
+      toast.info('Downloading...');
+      const response = await fetch(selectedGeneration.output_url);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Download complete');
+    } catch {
+      window.open(selectedGeneration.output_url, '_blank');
+      toast.info('Opened in new tab');
+    }
   };
 
   const handleCopyUrl = () => {
