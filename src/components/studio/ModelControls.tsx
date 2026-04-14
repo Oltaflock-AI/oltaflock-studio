@@ -1,3 +1,5 @@
+import { AnimatePresence, motion } from 'framer-motion';
+import { fadeIn } from '@/lib/motion';
 import { useGenerationStore } from '@/store/generationStore';
 import { NanoBananaProControls } from './controls/NanoBananaProControls';
 import { Seedream45Controls } from './controls/Seedream45Controls';
@@ -53,7 +55,17 @@ export function ModelControls() {
       <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-2">
         Model Controls
       </h3>
-      <ControlsComponent />
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={selectedModel}
+          variants={fadeIn}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+        >
+          <ControlsComponent />
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

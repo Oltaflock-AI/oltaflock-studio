@@ -36,7 +36,7 @@ export function RatingPanel() {
 
   return (
     <div className="bg-card/50 border border-primary/20 rounded-xl p-4 backdrop-blur-sm animate-fade-in">
-      <p className="text-sm font-medium text-foreground mb-3">
+      <p className="text-base font-bold text-foreground mb-3">
         Rate this generation
       </p>
       <div className="flex gap-2">

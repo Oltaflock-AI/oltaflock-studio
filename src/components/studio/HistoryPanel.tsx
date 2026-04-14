@@ -57,13 +57,13 @@ export function HistoryPanel() {
               </div>
 
               {/* Job ID */}
-              <p className="text-[10px] font-mono text-muted-foreground truncate">
+              <p className="text-xs font-mono text-muted-foreground truncate">
                 {entry.jobId}
               </p>
 
               {/* Footer */}
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                <Badge variant="outline" className="text-xs px-1.5 py-0">
                   {entry.status}
                 </Badge>
                 <div className="flex items-center gap-1">

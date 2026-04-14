@@ -196,7 +196,7 @@ export function ReferenceUpload() {
       )}
       
       {/* Model-specific instructions */}
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         {selectedModel === 'qwen-image-edit' && 'Qwen requires exactly 1 image.'}
         {(selectedModel === 'flux-flex-i2i' || selectedModel === 'flux-pro-i2i') && 'Flux supports 1-8 images.'}
         {selectedModel === 'nano-banana-pro-i2i' && 'At least 1 image required for Image → Image.'}

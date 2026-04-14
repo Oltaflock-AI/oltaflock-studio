@@ -24,7 +24,7 @@ export function CostPreview() {
           <Coins className="h-3.5 w-3.5 text-muted-foreground" />
         )}
         <span className={cn(
-          "text-[11px] font-medium uppercase tracking-wide",
+          "text-xs font-medium uppercase tracking-wide",
           insufficientCredits ? "text-destructive" : "text-muted-foreground"
         )}>
           {insufficientCredits ? 'Insufficient Credits' : 'Estimated Cost'}

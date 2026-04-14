@@ -1,3 +1,5 @@
+import { motion, AnimatePresence } from 'framer-motion';
+import { fadeIn, scaleIn } from '@/lib/motion';
 import { useGenerationStore } from '@/store/generationStore';
 import { useGenerations } from '@/hooks/useGenerations';
 import { useGenerationProgress } from '@/hooks/useGenerationProgress';
@@ -10,6 +12,7 @@ import { Loader2, Image as ImageIcon, Video, Download, Copy, ExternalLink, Maxim
 import { toast } from 'sonner';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { GlowOrb } from '@/components/effects/GlowOrb';
 
 interface OutputDisplayProps {
   onRetry?: () => void;
@@ -98,7 +101,7 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
             <Sparkles className="h-10 w-10 text-primary animate-gentle-pulse" />
           </div>
           <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-card border-2 border-primary flex items-center justify-center shadow-lg">
-            <span className="text-[11px] font-bold text-primary tabular-nums">{progress}%</span>
+            <span className="text-xs font-bold text-primary tabular-nums">{progress}%</span>
           </div>
         </div>
         
@@ -109,7 +112,7 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
           {selectedGeneration.model}
         </p>
         
-        <p className="text-[10px] text-muted-foreground/60 mt-6 text-center max-w-[220px]">
+        <p className="text-xs text-muted-foreground/60 mt-6 text-center max-w-[220px]">
           You can start another generation while this one runs
         </p>
       </div>
@@ -150,18 +153,26 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
   // Empty state - no selection or no output
   if (!selectedGeneration || !selectedGeneration.output_url) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-gradient-to-b from-muted/10 to-muted/30 dark:from-muted/5 dark:to-muted/20 rounded-2xl canvas-inset p-8">
-        <div className="w-20 h-20 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-          {mediaType === 'image' ? (
-            <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
-          ) : (
-            <Video className="h-10 w-10 text-muted-foreground/30" />
-          )}
-        </div>
-        <p className="text-sm font-medium text-foreground mb-1">Ready to create</p>
-        <p className="text-xs text-muted-foreground text-center max-w-[240px] leading-relaxed">
-          Select a model and enter a prompt, then click Generate
-        </p>
+      <div className="h-full flex flex-col items-center justify-center bg-gradient-to-b from-muted/10 to-muted/30 dark:from-muted/5 dark:to-muted/20 rounded-2xl canvas-inset p-8 relative overflow-hidden">
+        <GlowOrb />
+        <motion.div
+          variants={scaleIn}
+          initial="hidden"
+          animate="visible"
+          className="relative z-10 flex flex-col items-center"
+        >
+          <div className="w-20 h-20 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+            {mediaType === 'image' ? (
+              <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
+            ) : (
+              <Video className="h-10 w-10 text-muted-foreground/30" />
+            )}
+          </div>
+          <p className="text-xl font-medium text-foreground mb-1">Ready to create</p>
+          <p className="text-sm text-muted-foreground text-center max-w-[240px] leading-relaxed">
+            Select a model and enter a prompt, then click Generate
+          </p>
+        </motion.div>
       </div>
     );
   }
@@ -169,7 +180,12 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
   // Success state - Gallery-grade display
   return (
     <>
-      <div className="h-full flex flex-col gap-4 overflow-hidden">
+      <motion.div
+        variants={fadeIn}
+        initial="hidden"
+        animate="visible"
+        className="h-full flex flex-col gap-4 overflow-hidden"
+      >
         {/* Canvas container with refined styling */}
         <div className={cn(
           "flex-1 rounded-2xl overflow-hidden relative group min-h-0",
@@ -226,7 +242,7 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
         {/* Refined Prompt - Compact display */}
         {selectedGeneration.final_prompt && (
           <div className="shrink-0 space-y-1.5">
-            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Refined Prompt
             </Label>
             <div className="bg-muted/30 rounded-lg p-3 max-h-16 overflow-y-auto">
@@ -236,7 +252,7 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Fullscreen Modal */}
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>

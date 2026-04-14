@@ -34,7 +34,7 @@ function DetailSection({
 }) {
   return (
     <div className="space-y-2">
-      <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
         <Icon className="h-3.5 w-3.5" />
         {label}
       </label>
@@ -54,7 +54,7 @@ export function RequestDetailPanel() {
       <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-6">
         <FileText className="h-8 w-8 mb-3 opacity-30" />
         <p className="text-xs font-medium mb-1">No request selected</p>
-        <p className="text-[10px] text-center text-muted-foreground/60 leading-relaxed">
+        <p className="text-xs text-center text-muted-foreground/60 leading-relaxed">
           Select a request from history to view details
         </p>
       </div>
@@ -75,7 +75,7 @@ export function RequestDetailPanel() {
             <ModeIcon className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium capitalize">{selectedGeneration.type}</span>
           </div>
-          <Badge className={cn('text-[10px] px-2.5 py-1 rounded-md font-medium', statusStyles[status])}>
+          <Badge className={cn('text-xs px-2.5 py-1 rounded-md font-medium', statusStyles[status])}>
             {statusLabels[status]}
           </Badge>
         </div>
@@ -83,7 +83,7 @@ export function RequestDetailPanel() {
         {/* Metadata Group */}
         <div className="space-y-4">
           <DetailSection icon={Hash} label="Request ID">
-            <code className="text-[10px] font-mono bg-muted/50 px-2.5 py-1.5 rounded-md block break-all">
+            <code className="text-xs font-mono bg-muted/50 px-2.5 py-1.5 rounded-md block break-all">
               {selectedGeneration.request_id}
             </code>
           </DetailSection>
@@ -128,7 +128,7 @@ export function RequestDetailPanel() {
         {/* Final Prompt */}
         {selectedGeneration.final_prompt && (
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Refined Prompt
             </label>
             <div className="bg-muted/20 rounded-lg p-3 max-h-32 overflow-y-auto">
@@ -149,7 +149,7 @@ export function RequestDetailPanel() {
                 {Object.entries(modelParams).map(([key, value]) => (
                   <div key={key} className="flex justify-between text-xs gap-2">
                     <span className="text-muted-foreground truncate">{key}:</span>
-                    <span className="font-mono text-[10px] text-foreground text-right truncate max-w-[120px]">
+                    <span className="font-mono text-xs text-foreground text-right truncate max-w-[120px]">
                       {typeof value === 'boolean' 
                         ? (value ? 'Yes' : 'No')
                         : Array.isArray(value)
@@ -170,7 +170,7 @@ export function RequestDetailPanel() {
           <>
             <Separator className="bg-border/50" />
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Output Preview
               </label>
               {selectedGeneration.type === 'image' ? (
@@ -193,7 +193,7 @@ export function RequestDetailPanel() {
         {/* Error */}
         {selectedGeneration.error_message && (
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold text-destructive uppercase tracking-wider flex items-center gap-2">
+            <label className="text-xs font-semibold text-destructive uppercase tracking-wider flex items-center gap-2">
               <AlertCircle className="h-3.5 w-3.5" />
               Error
             </label>

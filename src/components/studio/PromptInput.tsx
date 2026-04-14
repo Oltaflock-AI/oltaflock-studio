@@ -8,10 +8,10 @@ export function PromptInput() {
 
   return (
     <div className="space-y-2.5">
-      <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
         Prompt
       </Label>
-      <div className="relative group">
+      <div className="relative group focus-glow rounded-xl">
         <Textarea
           value={rawPrompt}
           onChange={(e) => setRawPrompt(e.target.value)}
@@ -26,7 +26,7 @@ export function PromptInput() {
           disabled={pendingRating}
         />
         {/* Floating character counter */}
-        <div className="absolute bottom-3 right-3 text-[10px] text-muted-foreground/50 font-mono tabular-nums">
+        <div className="absolute bottom-3 right-3 text-xs text-muted-foreground/50 font-mono tabular-nums">
           {rawPrompt.length}
         </div>
       </div>

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { buttonTap, buttonHover } from '@/lib/motion';
 import { useGenerationStore } from '@/store/generationStore';
 import { useGenerations } from '@/hooks/useGenerations';
 import { useUserCredits } from '@/hooks/useUserCredits';
@@ -626,18 +628,19 @@ export function GenerateButton() {
 
   return (
     <div className="space-y-3">
-      <Button
-        onClick={handleGenerate}
-        disabled={!canGenerate}
-        className={cn(
-          "w-full h-12 text-sm font-semibold tracking-wide",
-          "bg-primary hover:bg-primary/90 text-primary-foreground",
-          "shadow-md hover:shadow-lg transition-all duration-200",
-          "disabled:opacity-50 disabled:shadow-none",
-          "rounded-xl"
-        )}
-        size="lg"
-      >
+      <motion.div whileTap={canGenerate ? buttonTap : undefined} whileHover={canGenerate ? buttonHover : undefined}>
+        <Button
+          onClick={handleGenerate}
+          disabled={!canGenerate}
+          className={cn(
+            "w-full h-12 text-base font-bold tracking-wide",
+            "bg-primary hover:bg-primary/90 text-primary-foreground",
+            "shadow-md hover:shadow-lg transition-all duration-200",
+            "disabled:opacity-50 disabled:shadow-none",
+            "rounded-xl"
+          )}
+          size="lg"
+        >
         {isSubmitting ? (
           <>
             <Loader2 className="h-4 w-4 mr-2.5 animate-spin" />
@@ -649,8 +652,9 @@ export function GenerateButton() {
             <span>{mode === 'image-to-image' ? 'Transform' : 'Generate'}</span>
           </>
         )}
-      </Button>
-      
+        </Button>
+      </motion.div>
+
       {hasCompletedOutput && !pendingRating && !isSubmitting && (
         <Button
           variant="ghost"

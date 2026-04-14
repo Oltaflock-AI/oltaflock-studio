@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { scaleIn, staggerContainer, staggerItem } from '@/lib/motion';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Mail, Lock, ArrowLeft } from 'lucide-react';
 import oltaflockLogo from '@/assets/oltaflock-logo.jpeg';
 import { toast } from 'sonner';
+import { GlowOrb } from '@/components/effects/GlowOrb';
 
 export default function Auth() {
   const { user, loading, signIn, signUp, signInWithMagicLink, resetPassword } = useAuth();
@@ -110,17 +113,23 @@ export default function Auth() {
   // Password Reset View
   if (showResetPassword) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
+        <GlowOrb />
+        <motion.div
+          variants={scaleIn}
+          initial="hidden"
+          animate="visible"
+          className="w-full max-w-md relative z-10"
+        >
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex flex-col items-center gap-2 mb-2">
               <img src={oltaflockLogo} alt="Oltaflock" className="h-20 object-contain" />
-              <h2 className="text-lg font-semibold tracking-tight">
+              <h2 className="text-3xl font-bold tracking-tight">
                 Creative Studio
               </h2>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               For internal use only
             </p>
           </div>
@@ -196,19 +205,25 @@ export default function Auth() {
           <p className="text-center text-xs text-muted-foreground mt-4">
             Authorized personnel only
           </p>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
+      <GlowOrb />
+      <motion.div
+        variants={scaleIn}
+        initial="hidden"
+        animate="visible"
+        className="w-full max-w-md relative z-10"
+      >
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex flex-col items-center gap-2 mb-2">
             <img src={oltaflockLogo} alt="Oltaflock" className="h-20 object-contain" />
-            <h2 className="text-lg font-semibold tracking-tight">
+            <h2 className="text-3xl font-bold tracking-tight">
               Creative Studio
             </h2>
           </div>
@@ -219,7 +234,7 @@ export default function Auth() {
 
         <Card className="border-border">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-xl">Welcome back</CardTitle>
+            <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
             <CardDescription>
               Sign in to access the generation studio
             </CardDescription>
@@ -352,7 +367,7 @@ export default function Auth() {
         <p className="text-center text-xs text-muted-foreground mt-4">
           Authorized personnel only
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 }

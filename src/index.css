@@ -196,3 +196,38 @@
 .animate-gentle-pulse {
   animation: gentle-pulse 2s ease-in-out infinite;
 }
+
+/* Glow orb effect — animated gradient for 3D-feel backgrounds */
+@keyframes glow-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(10px, -15px) scale(1.05); }
+  50% { transform: translate(-5px, 10px) scale(0.98); }
+  75% { transform: translate(-10px, -5px) scale(1.02); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+.glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  animation: glow-float 8s ease-in-out infinite, glow-pulse 4s ease-in-out infinite;
+}
+
+.glow-orb-primary {
+  background: hsl(var(--primary) / 0.3);
+}
+
+.glow-orb-accent {
+  background: hsl(203 80% 70% / 0.2);
+}
+
+/* Focus glow for inputs */
+.focus-glow:focus-within {
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.15), 0 0 12px 2px hsl(var(--primary) / 0.08);
+  transition: box-shadow 0.2s ease;
+}

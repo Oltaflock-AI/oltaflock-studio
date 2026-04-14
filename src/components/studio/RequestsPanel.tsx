@@ -58,7 +58,7 @@ export function RequestsPanel() {
       <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-4">
         <FileText className="h-8 w-8 mb-3 opacity-30" />
         <p className="text-xs font-medium mb-1">No requests yet</p>
-        <p className="text-[10px] text-center text-muted-foreground/60 leading-relaxed">
+        <p className="text-xs text-center text-muted-foreground/60 leading-relaxed">
           Generate to see history
         </p>
       </div>
@@ -96,7 +96,7 @@ export function RequestsPanel() {
                   <div className={cn('h-2 w-2 rounded-full shrink-0', statusDotColors[status])} />
                   <ModeIcon className="h-3 w-3 text-muted-foreground" />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
+                <span className="text-xs text-muted-foreground font-mono tabular-nums">
                   {format(createdAt, 'HH:mm')}
                 </span>
               </div>
@@ -119,7 +119,7 @@ export function RequestsPanel() {
               {/* Footer: Model name + Cost + Delete */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">
+                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">
                     {generation.model}
                   </span>
                   {(generation.model_params as Record<string, unknown> | null)?.cost_credits && (

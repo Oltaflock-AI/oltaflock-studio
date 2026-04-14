@@ -75,7 +75,7 @@ export function ModelSelector() {
 
   return (
     <div className="space-y-2.5">
-      <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
         Model
       </Label>
       <Select
@@ -106,7 +106,7 @@ export function ModelSelector() {
                   <span className="font-medium text-sm truncate max-w-[220px]">
                     {model.displayName}
                   </span>
-                  <span className="text-[11px] text-muted-foreground line-clamp-1">
+                  <span className="text-xs text-muted-foreground line-clamp-1">
                     {MODEL_DESCRIPTIONS[model.id]}
                   </span>
                 </div>

@@ -100,13 +100,13 @@ export function ModeSelector() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className={cn(
-                  'font-medium text-xs tracking-wide',
+                  'font-semibold text-sm tracking-wide',
                   !option.enabled && 'text-muted-foreground/50'
                 )}>
                   {option.label}
                 </span>
                 {!option.enabled && (
-                  <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 text-muted-foreground/50 border-muted-foreground/30">
+                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 text-muted-foreground/50 border-muted-foreground/30">
                     <Lock className="h-2 w-2 mr-0.5" />
                     Soon
                   </Badge>

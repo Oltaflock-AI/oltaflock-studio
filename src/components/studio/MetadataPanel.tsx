@@ -107,7 +107,7 @@ export function MetadataPanel() {
               {selectedEntry.status}
             </Badge>
           </div>
-          <p className="text-[10px] font-mono text-muted-foreground">{selectedEntry.jobId}</p>
+          <p className="text-xs font-mono text-muted-foreground">{selectedEntry.jobId}</p>
         </div>
 
         <Separator />
