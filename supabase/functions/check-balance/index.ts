@@ -1,68 +1,47 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Fetch remaining credits from Kie.ai API
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '*',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const BALANCE_WEBHOOK_URL = Deno.env.get('BALANCE_WEBHOOK_URL') || 'https://directive-ai.app.n8n.cloud/webhook/remainder-credits';
+const KIE_AI_API_KEY = Deno.env.get('KIE_AI_API_KEY') || '';
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    console.log('Proxying balance check to:', BALANCE_WEBHOOK_URL);
+    if (!KIE_AI_API_KEY) {
+      return Response.json(
+        { error: 'KIE_AI_API_KEY not configured' },
+        { status: 500, headers: corsHeaders }
+      );
+    }
 
-    const response = await fetch(BALANCE_WEBHOOK_URL, {
-      method: 'GET',
+    const res = await fetch('https://api.kie.ai/api/v1/chat/credit', {
+      headers: { 'Authorization': `Bearer ${KIE_AI_API_KEY}` },
     });
 
-    console.log('Balance webhook response status:', response.status);
+    const data = await res.json();
 
-    const data = await response.text();
-    console.log('Balance webhook response body:', data);
-
-    if (!response.ok) {
-      return new Response(
-        JSON.stringify({ error: `Balance webhook returned ${response.status}` }),
-        {
-          status: 502,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+    if (data.code !== 200) {
+      return Response.json(
+        { error: data.msg || 'Failed to fetch credits' },
+        { status: 502, headers: corsHeaders }
       );
     }
 
-    // If response is empty, return proper error
-    if (!data || data.trim() === '') {
-      return new Response(
-        JSON.stringify({ error: 'Empty response from balance webhook' }),
-        {
-          status: 502,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    // Wrap the text response in a proper JSON object
-    return new Response(
-      JSON.stringify({ balance: data.trim() }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+    return Response.json(
+      { balance: String(data.data) },
+      { headers: corsHeaders }
     );
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error checking balance:', errorMessage);
-    return new Response(
-      JSON.stringify({ error: 'Failed to check balance', details: errorMessage }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return Response.json(
+      { error: msg },
+      { status: 500, headers: corsHeaders }
     );
   }
 });
