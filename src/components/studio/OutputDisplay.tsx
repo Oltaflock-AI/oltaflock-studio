@@ -51,15 +51,15 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
     if (!selectedGeneration?.output_url) return;
 
     // Smart filename from prompt: take first 6 words, sanitize
-    const promptSlug = (selectedGeneration.user_prompt || 'generation')
+    const words = (selectedGeneration.user_prompt || '')
+      .trim()
       .split(/\s+/)
       .slice(0, 6)
-      .join('-')
-      .replace(/[^a-zA-Z0-9\-]/g, '')
-      .toLowerCase()
-      .slice(0, 60) || 'output';
+      .map(w => w.replace(/[^a-zA-Z0-9]/g, ''))
+      .filter(w => w.length > 0);
+    const promptSlug = words.length > 0 ? words.join('-').toLowerCase().slice(0, 60) : 'output';
     const ext = mediaType === 'image' ? 'png' : 'mp4';
-    const filename = `oltaflock-${promptSlug}.${ext}`;
+    const filename = `oltaflock_${promptSlug}.${ext}`;
 
     try {
       toast.info('Downloading...');
