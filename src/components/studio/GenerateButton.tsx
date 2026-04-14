@@ -6,13 +6,12 @@ import { useGenerations } from '@/hooks/useGenerations';
 import { useUserCredits } from '@/hooks/useUserCredits';
 import { ALL_MODELS, generateJobId, MODEL_API_NAMES } from '@/types/generation';
 import type { Model } from '@/types/generation';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Play, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { calculateCost } from '@/config/pricing';
-const WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_URL || 'https://directive-ai.app.n8n.cloud/webhook/Image-Gen-GPT';
-const IMAGE_TO_IMAGE_WEBHOOK_URL = import.meta.env.VITE_IMAGE_TO_IMAGE_WEBHOOK_URL || 'https://directive-ai.app.n8n.cloud/webhook/image-to-video';
 
 export function GenerateButton() {
   const { createGeneration, updateGeneration, generations } = useGenerations();
@@ -173,21 +172,6 @@ export function GenerateButton() {
       setSelectedJobId(dbGeneration.id);
       addActiveGeneration(dbGeneration.id);
 
-      // Deduct credits
-      if (cost.credits > 0) {
-        try {
-          await deductCredits({
-            credits: cost.credits,
-            generationId: dbGeneration.id,
-            model: modelConfig.displayName,
-            description: `${mode} generation: ${modelConfig.displayName}`,
-          });
-        } catch (creditError) {
-          console.error('Failed to deduct credits:', creditError);
-          // Don't block generation if credit deduction fails
-        }
-      }
-
       // Clear previous output state for fresh view
       setCurrentOutput(null);
       setPendingRating(false);
@@ -195,10 +179,10 @@ export function GenerateButton() {
       toast.success('Generation started');
     } catch (error) {
       console.error('Failed to create generation:', error);
-      const errorDetails = error instanceof Error 
-        ? error.message 
+      const errorDetails = error instanceof Error
+        ? error.message
         : JSON.stringify(error);
-      toast.error(`Generation failed: ${errorDetails}`, { 
+      toast.error(`Generation failed: ${errorDetails}`, {
         duration: 5000,
         description: 'Check console for details'
       });
@@ -209,185 +193,77 @@ export function GenerateButton() {
     // Unlock button immediately after DB record created
     setIsSubmitting(false);
 
-    // Continue with webhook call in background (fire and forget pattern)
-    // This allows user to start new generations immediately
-    processGeneration(dbGeneration.id, requestId, modelParams, apiModelName);
+    // Call edge function in background (fire and forget)
+    processGeneration(dbGeneration.id, modelParams);
   };
 
-  // Separate async function for the actual generation processing
+  // Call the generate edge function (replaces n8n webhook)
   const processGeneration = async (
     generationId: string,
-    requestId: string,
     modelParams: Record<string, unknown>,
-    apiModelName: string
   ) => {
     try {
-      // Update status to 'running' before making the request
-      await updateGeneration({
-        id: generationId,
-        updates: { status: 'running', progress: 25 },
-      });
+      const { enhancePromptEnabled } = useGenerationStore.getState();
 
-      // Determine webhook URL based on mode
-      const webhookUrl = mode === 'image-to-image' ? IMAGE_TO_IMAGE_WEBHOOK_URL : WEBHOOK_URL;
+      console.log('[generate] Invoking edge function:', { model: selectedModel, generationId });
 
-      // Build the webhook payload based on mode
-      let webhookPayload: Record<string, unknown>;
-      
-      if (mode === 'image-to-image') {
-        // Build controls based on the specific model
-        let imageToImageControls: Record<string, unknown> = { ...modelParams };
-        
-        // Add default values for Nano Banana Pro I2I
-        if (selectedModel === 'nano-banana-pro-i2i') {
-          imageToImageControls = {
-            aspect_ratio: modelParams.aspect_ratio || '1:1',
-            resolution: modelParams.resolution || '1K',
-            output_format: modelParams.output_format || 'PNG',
-          };
-        }
-        
-        // Image-to-Image payload format
-        webhookPayload = {
-          request_id: requestId,
-          timestamp: new Date().toISOString(),
-          generation_type: 'IMAGE_2_IMAGE',
-          model: apiModelName,
-          raw_prompt: rawPrompt,
-          controls: imageToImageControls,
-          image_urls: uploadedImageUrls,
-        };
-      } else {
-        // Text-to-Image / Text-to-Video payload format
-        webhookPayload = {
-          request_id: requestId,
-          timestamp: new Date().toISOString(),
-          model: `${apiModelName}-${generationType}`,
-          generation_type: generationType === 'text-to-image' ? 'TEXT_2_IMAGE' : 'TEXT_2_VIDEO',
-          raw_prompt: rawPrompt,
-          controls: modelParams,
-        };
-      }
-
-      console.log('Sending generation webhook payload:', webhookPayload);
-
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const { data, error } = await supabase.functions.invoke('generate', {
+        body: {
+          prompt: rawPrompt,
+          model: selectedModel,
+          type: generationType,
+          controls: {
+            ...modelParams,
+            cost_credits: calculateCost(selectedModel!, modelParams).credits,
+          },
+          generationId,
+          enhancePromptEnabled,
+          imageUrls: mode === 'image-to-image' ? uploadedImageUrls : undefined,
         },
-        body: JSON.stringify(webhookPayload),
       });
 
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+      if (error) {
+        throw new Error(error.message || 'Edge function call failed');
       }
 
-      const data = await response.json();
-      console.log('Webhook response:', data);
-      
-      // Check for external taskId (n8n returns this for async processing)
-      const externalTaskId = data.taskId || data.data?.taskId || data.task_id;
-      
-      // Parse the response - handle nested resultJson structure
-      let outputUrl = '';
-      let finalPrompt = '';
-      
-      // Check for nested resultJson (from n8n webhook)
-      if (data.data?.resultJson) {
-        try {
-          const resultJson = typeof data.data.resultJson === 'string' 
-            ? JSON.parse(data.data.resultJson) 
-            : data.data.resultJson;
-          
-          if (resultJson.resultUrls && resultJson.resultUrls.length > 0) {
-            outputUrl = resultJson.resultUrls[0];
-          }
-        } catch (e) {
-          console.error('Failed to parse resultJson:', e);
-        }
-      }
-      
-      // Fallback to direct output_url if present
-      if (!outputUrl && data.output_url) {
-        outputUrl = data.output_url;
-      }
-      
-      // Get final prompt from response
-      finalPrompt = data.refined_prompt || data.data?.refined_prompt || '';
+      console.log('[generate] Edge function response:', data);
 
-      // Decision logic for how to handle the response
-      if (outputUrl) {
-        // Got immediate result - mark as done
-        const output = {
-          jobId: requestId,
-          outputUrl,
-          refinedPrompt: finalPrompt,
-        };
-
+      // Edge function handles DB updates (status, output_url, credits)
+      // Client just needs to handle UI state
+      if (data?.output_url) {
+        // Sync result - already saved to DB by edge function
         const currentSelectedId = useGenerationStore.getState().selectedJobId;
         if (currentSelectedId === generationId) {
-          setCurrentOutput(output);
-        }
-        
-        await updateGeneration({
-          id: generationId,
-          updates: {
-            status: 'done',
-            final_prompt: finalPrompt || null,
-            output_url: outputUrl,
-            progress: 100,
-          },
-        });
-
-        toast.success('Generation complete');
-        if (currentSelectedId === generationId) {
+          setCurrentOutput({
+            jobId: generationId,
+            outputUrl: data.output_url,
+            refinedPrompt: data.enhanced_prompt || '',
+          });
           setPendingRating(true);
         }
+        toast.success('Generation complete');
         if (mode === 'image-to-image') {
           clearUploadedImageUrls();
         }
-      } else if (externalTaskId) {
-        // Got taskId - async processing, wait for callback
-        await updateGeneration({
-          id: generationId,
-          updates: {
-            status: 'running',
-            progress: 50,
-            external_task_id: externalTaskId,
-            final_prompt: finalPrompt || null,
-          },
-        });
-        
+      } else if (data?.task_id) {
+        // Async result - edge function stored task_id, polling will pick it up
         toast.info('Generation submitted, waiting for results...');
-        // Don't remove from active set - will be updated by callback via polling
-        return;
-      } else {
-        // No taskId and no output - this is an error
-        await updateGeneration({
-          id: generationId,
-          updates: {
-            status: 'error',
-            error_message: 'No task ID or output URL in response',
-          },
-        });
-        toast.error('Generation failed - no task assigned');
+        return; // Don't remove from active set
+      } else if (data?.error) {
+        toast.error(`Generation failed: ${data.error}`);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+      console.error('[generate] Error:', errorMessage);
+
+      // Update DB with error (edge function may not have done it if it crashed)
       await updateGeneration({
         id: generationId,
-        updates: {
-          status: 'error',
-          error_message: errorMessage,
-        },
+        updates: { status: 'error', error_message: errorMessage },
       });
-      
+
       toast.error('Generation failed');
-      console.error(error);
     } finally {
-      // Remove from active set when done (success or error)
       removeActiveGeneration(generationId);
     }
   };

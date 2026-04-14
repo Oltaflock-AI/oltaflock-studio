@@ -29,7 +29,13 @@ export function RatingPanel() {
         updates: { rating },
       });
       setPendingRating(false);
-      toast.success(`Rated ${rating} star${rating > 1 ? 's' : ''}`);
+      if (rating >= 4) {
+        toast.success(`Rated ${rating} stars — the AI will generate more like this`);
+      } else if (rating <= 2) {
+        toast.success(`Rated ${rating} stars — the AI will avoid this style next time`);
+      } else {
+        toast.success(`Rated ${rating} stars`);
+      }
     } catch (error) {
       console.error('Failed to save rating:', error);
       toast.error('Failed to save rating');

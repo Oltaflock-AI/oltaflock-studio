@@ -7,6 +7,7 @@ import { ReferenceUpload } from '@/components/studio/ReferenceUpload';
 import { ModelControls } from '@/components/studio/ModelControls';
 import { GenerateButton } from '@/components/studio/GenerateButton';
 import { CostPreview } from '@/components/studio/CostPreview';
+import { PromptBrainToggle } from '@/components/studio/PromptBrainToggle';
 import { useGenerationStore } from '@/store/generationStore';
 
 export function ControlsPanel() {
@@ -54,6 +55,7 @@ export function ControlsPanel() {
       {/* Generate Tile */}
       <motion.div variants={staggerItem} className="shrink-0">
         <TiltCard intensity={4} className="bg-card rounded-xl border border-border/40 shadow-sm p-4 space-y-3">
+          <PromptBrainToggle />
           <CostPreview />
           <GenerateButton />
         </TiltCard>

@@ -66,6 +66,10 @@ interface GenerationState {
   } | null;
   setCurrentOutput: (output: { jobId: string; outputUrl: string; refinedPrompt: string } | null) => void;
   
+  // Prompt Brain (enhancement toggle)
+  enhancePromptEnabled: boolean;
+  setEnhancePromptEnabled: (enabled: boolean) => void;
+
   // Pending Rating
   pendingRating: boolean;
   setPendingRating: (pending: boolean) => void;
@@ -198,6 +202,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   currentOutput: null,
   setCurrentOutput: (output) => set({ currentOutput: output }),
   
+  // Prompt Brain
+  enhancePromptEnabled: true,
+  setEnhancePromptEnabled: (enabled) => set({ enhancePromptEnabled: enabled }),
+
   // Pending Rating
   pendingRating: false,
   setPendingRating: (pending) => set({ pendingRating: pending }),
