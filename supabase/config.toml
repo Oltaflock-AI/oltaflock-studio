@@ -1,4 +1,10 @@
 project_id = "xynnkyipiwkvbavquypo"
 
+[functions.generate]
+verify_jwt = false
+
+[functions.poll-tasks]
+verify_jwt = false
+
 [functions.generation-callback]
 verify_jwt = false

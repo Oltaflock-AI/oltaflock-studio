@@ -1,153 +1,107 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.91.0";
-import { MODEL_ROUTES, KIE_CREATE_TASK, resolveKieModel } from './model-routes.ts';
-import { enhancePrompt } from './prompt-brain.ts';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { MODEL_ROUTES } from './model-routes.ts';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '*',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 const KIE_AI_API_KEY = Deno.env.get('KIE_AI_API_KEY') || '';
 
-function jsonResponse(body: Record<string, unknown>, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return Response.json({ ok: true }, { headers: corsHeaders });
   }
 
   try {
     // 1. Auth
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return jsonResponse({ error: 'Missing authorization' }, 401);
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const authHeader = req.headers.get('Authorization') || '';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
 
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      return jsonResponse({ error: 'Invalid session' }, 401);
+    const { data: authData, error: authError } = await userClient.auth.getUser();
+    if (authError || !authData?.user) {
+      return Response.json({ error: 'Auth failed' }, { status: 401, headers: corsHeaders });
     }
+    const userId = authData.user.id;
 
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-
-    // 2. Parse request
+    // 2. Parse
     const body = await req.json();
-    const {
-      prompt,
-      model,
-      controls = {},
-      generationId,
-      enhancePromptEnabled = true,
-      imageUrls,
-    } = body;
+    const { prompt, model, controls = {}, generationId, imageUrls } = body;
 
     if (!prompt || !model || !generationId) {
-      return jsonResponse({ error: 'Missing required fields: prompt, model, generationId' }, 400);
+      return Response.json({ error: 'Missing: prompt, model, generationId' }, { status: 400, headers: corsHeaders });
     }
 
     const route = MODEL_ROUTES[model];
     if (!route) {
-      return jsonResponse({ error: `Unknown model: ${model}` }, 400);
+      return Response.json({ error: `Unknown model: ${model}` }, { status: 400, headers: corsHeaders });
     }
 
-    console.log(`[generate] user=${user.id} model=${model} generationId=${generationId}`);
+    console.log(`[gen] user=${userId} model=${model} id=${generationId}`);
 
-    // 3. Check credits server-side
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // 3. Credits
     const { data: creditData } = await adminClient
       .from('user_credits')
       .select('balance')
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', userId)
+      .maybeSingle();
 
     const balance = creditData ? Number(creditData.balance) : 0;
-    const costCredits = (controls as Record<string, unknown>).cost_credits as number ?? 0;
+    const costCredits = Number(controls.cost_credits) || 0;
 
     if (costCredits > 0 && balance < costCredits) {
-      return jsonResponse({
-        error: `Insufficient credits. You have ${balance} but need ${costCredits}.`,
-      }, 402);
+      return Response.json({ error: `Insufficient credits. Have ${balance}, need ${costCredits}.` }, { status: 402, headers: corsHeaders });
     }
 
-    // 4. Enhance prompt with Claude brain
-    let finalPrompt = prompt;
-    let wasEnhanced = false;
+    // 4. Update generation to running
+    await adminClient.from('generations').update({
+      status: 'running', progress: 10,
+    }).eq('id', generationId);
 
-    if (enhancePromptEnabled) {
-      try {
-        const result = await enhancePrompt(prompt, model, user.id, adminClient as any);
-        finalPrompt = result.enhanced;
-        wasEnhanced = result.wasEnhanced;
-        console.log(`[generate] enhanced=${wasEnhanced}`);
-      } catch (brainError) {
-        console.error('[generate] prompt brain failed:', brainError);
-      }
-    }
-
-    // 5. Update generation record
-    await adminClient
-      .from('generations')
-      .update({
-        final_prompt: wasEnhanced ? finalPrompt : null,
-        status: 'running',
-        progress: 10,
-      })
-      .eq('id', generationId);
-
-    // 6. Build Kie.ai payload
-    const kieModel = resolveKieModel(model, controls);
-    const input = route.buildInput(finalPrompt, controls, imageUrls);
-
-    // Build callback URL for async completion notification
+    // 5. Build payload using the route's buildPayload function
     const callbackUrl = `${supabaseUrl}/functions/v1/generation-callback`;
+    let kiePayload: Record<string, unknown>;
+    try {
+      kiePayload = route.buildPayload(prompt, controls, callbackUrl, imageUrls);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[gen] buildPayload error:', msg);
+      await adminClient.from('generations').update({
+        status: 'error', error_message: msg, progress: 0,
+      }).eq('id', generationId);
+      return Response.json({ error: msg }, { status: 400, headers: corsHeaders });
+    }
 
-    const kiePayload = {
-      model: kieModel,
-      callBackUrl: callbackUrl,
-      input,
-    };
+    console.log(`[gen] endpoint=${route.endpoint}`);
+    console.log(`[gen] payload=${JSON.stringify(kiePayload).slice(0, 500)}`);
 
-    console.log(`[generate] Calling Kie.ai: model=${kieModel}`);
-
+    // 6. Mock mode
     if (!KIE_AI_API_KEY) {
-      // Mock mode for testing
-      console.warn('[generate] KIE_AI_API_KEY not set - mock mode');
-      const mockUrl = route.type === 'image'
-        ? `https://placehold.co/1024x1024/229DE7/ffffff?text=${encodeURIComponent(model)}`
-        : null;
-      const mockTaskId = mockUrl ? null : `mock_task_${Date.now()}`;
-
-      if (mockUrl) {
+      console.log('[gen] MOCK MODE');
+      if (route.type === 'image') {
+        const mockUrl = `https://placehold.co/1024x1024/229DE7/fff?text=${encodeURIComponent(model)}`;
         await adminClient.from('generations').update({
           status: 'done', output_url: mockUrl, progress: 100,
         }).eq('id', generationId);
-
-        if (costCredits > 0) await deductCredits(adminClient, user.id, costCredits, generationId, model);
-
-        return jsonResponse({ output_url: mockUrl, enhanced_prompt: wasEnhanced ? finalPrompt : null });
+        return Response.json({ output_url: mockUrl }, { headers: corsHeaders });
       } else {
+        const mockTaskId = `mock_${Date.now()}`;
         await adminClient.from('generations').update({
           status: 'running', external_task_id: mockTaskId, progress: 10,
         }).eq('id', generationId);
-
-        return jsonResponse({ task_id: mockTaskId, enhanced_prompt: wasEnhanced ? finalPrompt : null });
+        return Response.json({ task_id: mockTaskId }, { headers: corsHeaders });
       }
     }
 
-    // 7. Call Kie.ai createTask
-    const kieResponse = await fetch(KIE_CREATE_TASK, {
+    // 7. Call Kie.ai
+    const kieRes = await fetch(route.endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -156,78 +110,78 @@ serve(async (req) => {
       body: JSON.stringify(kiePayload),
     });
 
-    const kieData = await kieResponse.json();
-    console.log(`[generate] Kie.ai response: code=${kieData.code}`);
+    const kieText = await kieRes.text();
+    console.log(`[gen] Kie status=${kieRes.status} body=${kieText.slice(0, 300)}`);
 
-    if (kieData.code !== 200 || !kieData.data?.taskId) {
-      const errorMsg = kieData.msg || `Kie.ai error: ${kieResponse.status}`;
+    let kieData: Record<string, any>;
+    try {
+      kieData = JSON.parse(kieText);
+    } catch {
+      await adminClient.from('generations').update({
+        status: 'error', error_message: `Kie.ai invalid response: ${kieText.slice(0, 100)}`, progress: 0,
+      }).eq('id', generationId);
+      return Response.json({ error: 'Kie.ai invalid JSON', raw: kieText.slice(0, 200) }, { status: 502, headers: corsHeaders });
+    }
+
+    // Extract taskId - different APIs return it differently
+    const taskId = kieData.data?.taskId || kieData.taskId || kieData.task_id;
+
+    if (!taskId && kieData.code !== 200) {
+      const errorMsg = kieData.msg || `Kie.ai error ${kieRes.status}`;
       await adminClient.from('generations').update({
         status: 'error', error_message: errorMsg, progress: 0,
       }).eq('id', generationId);
-
-      return jsonResponse({ error: errorMsg }, 502);
+      return Response.json({ error: errorMsg, kie_response: kieData }, { status: 502, headers: corsHeaders });
     }
 
-    const taskId = kieData.data.taskId;
+    if (taskId) {
+      await adminClient.from('generations').update({
+        status: 'running', external_task_id: taskId, progress: 25,
+      }).eq('id', generationId);
+      console.log(`[gen] Task created: ${taskId}`);
+      return Response.json({ task_id: taskId }, { headers: corsHeaders });
+    }
 
-    // 8. Store task ID - all Kie.ai tasks are async (returns taskId, result comes via callback or polling)
+    // Some APIs might return result directly
+    const outputUrl = kieData.data?.output_url || kieData.output_url;
+    if (outputUrl) {
+      await adminClient.from('generations').update({
+        status: 'done', output_url: outputUrl, progress: 100,
+      }).eq('id', generationId);
+      if (costCredits > 0) await deductCredits(adminClient, userId, costCredits, generationId, model);
+      return Response.json({ output_url: outputUrl }, { headers: corsHeaders });
+    }
+
+    // Unexpected response
     await adminClient.from('generations').update({
-      status: 'running',
-      external_task_id: taskId,
-      progress: 25,
+      status: 'error', error_message: `Unexpected Kie.ai response`, progress: 0,
     }).eq('id', generationId);
+    return Response.json({ error: 'Unexpected response', kie_response: kieData }, { status: 502, headers: corsHeaders });
 
-    console.log(`[generate] Task created: ${taskId}`);
-
-    return jsonResponse({
-      task_id: taskId,
-      enhanced_prompt: wasEnhanced ? finalPrompt : null,
-    });
-
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[generate] Fatal:', msg);
-    return jsonResponse({ error: 'Internal server error', details: msg }, 500);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
+    console.error('[gen] CRASH:', msg);
+    return Response.json({ error: 'Internal error', detail: msg }, { status: 500, headers: corsHeaders });
   }
 });
 
 async function deductCredits(
   supabase: ReturnType<typeof createClient>,
-  userId: string,
-  credits: number,
-  generationId: string,
-  model: string,
+  userId: string, credits: number, generationId: string, model: string,
 ) {
   try {
-    const { data: current } = await supabase
-      .from('user_credits')
-      .select('balance, total_spent, total_generations')
-      .eq('user_id', userId)
-      .single();
-
-    if (!current) return;
-
-    const newBalance = Math.max(0, Number(current.balance) - credits);
-
+    const { data: cur } = await supabase.from('user_credits')
+      .select('balance, total_spent, total_generations').eq('user_id', userId).single();
+    if (!cur) return;
+    const newBal = Math.max(0, Number(cur.balance) - credits);
     await supabase.from('user_credits').update({
-      balance: newBalance,
-      total_spent: Number(current.total_spent) + credits,
-      total_generations: current.total_generations + 1,
-      updated_at: new Date().toISOString(),
+      balance: newBal, total_spent: Number(cur.total_spent) + credits,
+      total_generations: cur.total_generations + 1, updated_at: new Date().toISOString(),
     }).eq('user_id', userId);
-
     await supabase.from('credit_logs').insert({
-      user_id: userId,
-      balance: String(newBalance),
-      credits_used: credits,
-      generation_id: generationId,
-      model,
-      description: `Generation: ${model}`,
+      user_id: userId, balance: String(newBal), credits_used: credits,
+      generation_id: generationId, model, description: `Generation: ${model}`,
       checked_at: new Date().toISOString(),
     });
-
-    console.log(`[credits] Deducted ${credits}, new balance: ${newBalance}`);
-  } catch (error) {
-    console.error('[credits] Failed:', error);
-  }
+  } catch (e) { console.error('[credits]', e); }
 }
