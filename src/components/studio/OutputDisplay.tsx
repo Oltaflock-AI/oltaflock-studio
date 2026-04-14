@@ -64,17 +64,25 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
     try {
       toast.info('Downloading...');
       const response = await fetch(selectedGeneration.output_url);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      toast.success('Download complete');
-    } catch {
+      const originalBlob = await response.blob();
+      // Re-create blob with explicit type to ensure download attribute works
+      const mimeType = ext === 'png' ? 'image/png' : ext === 'mp4' ? 'video/mp4' : 'application/octet-stream';
+      const blob = new Blob([originalBlob], { type: mimeType });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      // Delay cleanup so browser has time to start download
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+        document.body.removeChild(a);
+      }, 1000);
+      toast.success(`Saved as ${filename}`);
+    } catch (e) {
+      console.error('Download failed:', e);
       window.open(selectedGeneration.output_url, '_blank');
       toast.info('Opened in new tab');
     }
