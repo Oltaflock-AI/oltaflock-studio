@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.generation-callback]
 verify_jwt = false
+
+[functions.check-balance]
+verify_jwt = false
+
+[functions.enhance-prompt]
+verify_jwt = false
