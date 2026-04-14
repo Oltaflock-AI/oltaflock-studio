@@ -30,7 +30,11 @@ export function BalanceButton() {
       {balance !== null && (
         <div className="text-xs font-medium text-primary bg-primary/8 px-3 py-1.5 rounded-lg border border-primary/10">
           <span className="tabular-nums">{balance.toLocaleString()}</span>
-          <span className="text-primary/70 ml-1">Kie credits</span>
+          <span className="text-primary/70 ml-1">credits</span>
+          <span className="text-primary/50 mx-1.5">&bull;</span>
+          <span className="tabular-nums text-primary/70">
+            ${(balance * 0.005).toFixed(2)}
+          </span>
         </div>
       )}
 
