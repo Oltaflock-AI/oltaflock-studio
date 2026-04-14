@@ -207,23 +207,36 @@ export function GenerateButton() {
 
       console.log('[generate] Invoking edge function:', { model: selectedModel, generationId });
 
+      // Clean controls - remove undefined values that break JSON serialization
+      const cleanControls: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(modelParams)) {
+        if (v !== undefined) cleanControls[k] = v;
+      }
+      cleanControls.cost_credits = calculateCost(selectedModel!, modelParams).credits;
+
+      const invokeBody = {
+        prompt: rawPrompt,
+        model: selectedModel,
+        type: generationType,
+        controls: cleanControls,
+        generationId,
+        enhancePromptEnabled,
+        ...(mode === 'image-to-image' && uploadedImageUrls.length > 0
+          ? { imageUrls: uploadedImageUrls }
+          : {}),
+      };
+
+      console.log('[generate] Invoke body:', JSON.stringify(invokeBody).slice(0, 500));
+
       const { data, error } = await supabase.functions.invoke('generate', {
-        body: {
-          prompt: rawPrompt,
-          model: selectedModel,
-          type: generationType,
-          controls: {
-            ...modelParams,
-            cost_credits: calculateCost(selectedModel!, modelParams).credits,
-          },
-          generationId,
-          enhancePromptEnabled,
-          imageUrls: mode === 'image-to-image' ? uploadedImageUrls : undefined,
-        },
+        body: invokeBody,
       });
 
+      // supabase-js wraps non-2xx as error but real details may be in data
       if (error) {
-        throw new Error(error.message || 'Edge function call failed');
+        const detail = data?.error || data?.detail || error.message || 'Edge function call failed';
+        console.error('[generate] Edge function error:', { error, data });
+        throw new Error(detail);
       }
 
       console.log('[generate] Edge function response:', data);
