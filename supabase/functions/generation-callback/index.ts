@@ -1,233 +1,171 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const ALLOWED_ORIGINS = [
-  'https://directive-ai.app.n8n.cloud',
-];
+// Kie.ai sends callbacks when tasks complete
+// Format: { taskId, state, resultJson, failMsg, ... }
 
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get('origin') || '';
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
-  };
-}
-
-// New flat format from n8n
-interface NewCallbackPayload {
-  taskId: string;
-  status: string;
-  outputs?: Array<{
-    type: string;
-    url: string;
-  }>;
-  metadata?: {
-    model?: string;
-    generation_time_ms?: number;
-    completed_at?: string;
-  };
-}
-
-// Legacy nested format (kept for backward compatibility)
-interface LegacyCallbackPayload {
-  body: {
-    code: number;
-    data: {
-      taskId: string;
-      state: string;
-      completeTime?: number;
-      createTime?: number;
-      costTime?: number;
-      model?: string;
-      resultJson?: {
-        resultUrls?: string[];
-      };
-    };
-    msg?: string;
-  };
-}
-
-type CallbackPayload = NewCallbackPayload | LegacyCallbackPayload;
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 Deno.serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
-
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
-  if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  // Validate webhook secret
-  const webhookSecret = Deno.env.get('WEBHOOK_SECRET');
-  if (webhookSecret) {
-    const providedSecret = req.headers.get('x-webhook-secret');
-    if (providedSecret !== webhookSecret) {
-      console.error('Invalid webhook secret');
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-  }
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const payload = await req.json() as CallbackPayload;
-    
-    console.log('Received callback payload:', JSON.stringify(payload, null, 2));
+    const body = await req.json();
+    console.log('[callback] Received:', JSON.stringify(body).slice(0, 500));
 
-    // Parse payload - support both new flat format and legacy nested format
-    let taskId: string;
-    let status: string;
-    let outputUrl: string | null = null;
-    let errorMessage: string | null = null;
+    // Kie.ai callback format
+    const taskId = body.taskId || body.task_id || body.data?.taskId;
+    const state = body.state || body.status || body.data?.state;
+    const resultJson = body.resultJson || body.data?.resultJson;
+    const failMsg = body.failMsg || body.failCode || body.data?.failMsg || '';
 
-    // Check for new flat format first (from n8n)
-    if ('taskId' in payload && payload.taskId) {
-      const newPayload = payload as NewCallbackPayload;
-      taskId = newPayload.taskId;
-      status = newPayload.status;
-      outputUrl = newPayload.outputs?.[0]?.url || null;
-      console.log('Parsed new format - taskId:', taskId, 'status:', status, 'outputUrl:', outputUrl);
-    }
-    // Fall back to legacy nested format
-    else if ('body' in payload && payload.body?.data?.taskId) {
-      const legacyPayload = payload as LegacyCallbackPayload;
-      taskId = legacyPayload.body.data.taskId;
-      status = legacyPayload.body.data.state;
-      outputUrl = legacyPayload.body.data.resultJson?.resultUrls?.[0] || null;
-      errorMessage = legacyPayload.body.msg || null;
-      console.log('Parsed legacy format - taskId:', taskId, 'status:', status);
-    }
-    // Neither format matched
-    else {
-      console.error('Invalid payload format - no taskId found');
+    if (!taskId) {
+      console.error('[callback] No taskId in payload');
       return new Response(
-        JSON.stringify({ error: 'Missing taskId in payload' }),
+        JSON.stringify({ error: 'Missing taskId' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Validate status value
-    const validStatuses = ['success', 'error', 'fail', 'failed', 'completed', 'running', 'queued'];
-    if (!validStatuses.includes(status)) {
-      console.error('Invalid status value:', status);
-      return new Response(
-        JSON.stringify({ error: `Invalid status: ${status}` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    console.log(`[callback] taskId=${taskId} state=${state}`);
 
-    // Validate and clean outputUrl - treat empty strings as null
-    if (outputUrl && outputUrl.trim() === '') {
-      outputUrl = null;
-    }
-    if (outputUrl) {
-      try {
-        new URL(outputUrl);
-      } catch {
-        console.error('Invalid output URL, ignoring:', outputUrl);
-        outputUrl = null;
-      }
-    }
-
-    // Initialize Supabase client with service role for admin access
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Find the generation by external_task_id first, then fallback to request_id
-    let generation = null;
-
-    // Try external_task_id first (taskId from n8n)
-    const { data: byExternal } = await supabase
+    // Find generation by external_task_id
+    const { data: generation, error: findError } = await supabase
       .from('generations')
-      .select('id, status, request_id, external_task_id')
+      .select('id, status, user_id, model, model_params')
       .eq('external_task_id', taskId)
       .maybeSingle();
 
-    if (byExternal) {
-      generation = byExternal;
-      console.log('Found generation by external_task_id:', generation.id);
-    } else {
-      // Fallback to request_id for backward compatibility
+    if (findError || !generation) {
+      // Fallback: try request_id
       const { data: byRequest } = await supabase
         .from('generations')
-        .select('id, status, request_id, external_task_id')
+        .select('id, status, user_id, model, model_params')
         .eq('request_id', taskId)
         .maybeSingle();
-      
-      if (byRequest) {
-        generation = byRequest;
-        console.log('Found generation by request_id (fallback):', generation.id);
+
+      if (!byRequest) {
+        console.error(`[callback] No generation found for taskId: ${taskId}`);
+        return new Response(
+          JSON.stringify({ error: 'Generation not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+
+      // Use fallback match
+      return await processCallback(supabase, byRequest, state, resultJson, failMsg);
     }
 
-    if (!generation) {
-      console.error('Generation not found for taskId:', taskId);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Generation not found', 
-          taskId,
-          searchedBy: ['external_task_id', 'request_id']
-        }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Found generation:', generation.id, 'current status:', generation.status);
-
-    // Determine new status and output URL
-    const isSuccess = status === 'success' || status === 'completed';
-    
-    const updateData: Record<string, unknown> = {
-      status: isSuccess && outputUrl ? 'done' : 'error',
-      progress: isSuccess && outputUrl ? 100 : 0,
-      output_url: outputUrl,
-      error_message: isSuccess ? null : (errorMessage || `Generation failed with status: ${status}`),
-    };
-
-    // Update the generation record
-    const { data: updated, error: updateError } = await supabase
-      .from('generations')
-      .update(updateData)
-      .eq('id', generation.id)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error('Failed to update generation:', updateError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to update generation', details: updateError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Successfully updated generation:', updated.id, 'to status:', updated.status);
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        generationId: updated.id,
-        status: updated.status,
-        outputUrl: updated.output_url,
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return await processCallback(supabase, generation, state, resultJson, failMsg);
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Callback processing error:', error);
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[callback] Error:', msg);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: errorMessage }),
+      JSON.stringify({ error: msg }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
+
+async function processCallback(
+  supabase: ReturnType<typeof createClient>,
+  generation: { id: string; status: string; user_id: string; model: string; model_params: Record<string, unknown> | null },
+  state: string,
+  resultJson: string | Record<string, unknown> | null,
+  failMsg: string,
+) {
+  // Skip if already done/error
+  if (generation.status === 'done' || generation.status === 'error') {
+    console.log(`[callback] Skipping - already ${generation.status}`);
+    return new Response(
+      JSON.stringify({ ok: true, skipped: true }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const isSuccess = state === 'success' || state === 'completed';
+
+  // Parse output URL from resultJson
+  let outputUrl = '';
+  if (isSuccess && resultJson) {
+    try {
+      const parsed = typeof resultJson === 'string' ? JSON.parse(resultJson) : resultJson;
+      if (parsed?.resultUrls?.length > 0) {
+        outputUrl = parsed.resultUrls[0];
+      } else if (parsed?.url) {
+        outputUrl = parsed.url;
+      }
+    } catch (e) {
+      console.error('[callback] Failed to parse resultJson:', e);
+    }
+  }
+
+  // Update generation record
+  const updateData: Record<string, unknown> = {
+    status: isSuccess && outputUrl ? 'done' : 'error',
+    progress: isSuccess && outputUrl ? 100 : 0,
+    output_url: outputUrl || null,
+    error_message: isSuccess ? null : (failMsg || `Generation failed with state: ${state}`),
+  };
+
+  const { error: updateError } = await supabase
+    .from('generations')
+    .update(updateData)
+    .eq('id', generation.id);
+
+  if (updateError) {
+    console.error('[callback] Update failed:', updateError);
+  }
+
+  // Deduct credits on success
+  if (isSuccess && outputUrl) {
+    const costCredits = (generation.model_params as Record<string, unknown>)?.cost_credits as number;
+    if (costCredits && costCredits > 0) {
+      try {
+        const { data: current } = await supabase
+          .from('user_credits')
+          .select('balance, total_spent, total_generations')
+          .eq('user_id', generation.user_id)
+          .single();
+
+        if (current) {
+          const newBalance = Math.max(0, Number(current.balance) - costCredits);
+          await supabase.from('user_credits').update({
+            balance: newBalance,
+            total_spent: Number(current.total_spent) + costCredits,
+            total_generations: current.total_generations + 1,
+            updated_at: new Date().toISOString(),
+          }).eq('user_id', generation.user_id);
+
+          await supabase.from('credit_logs').insert({
+            user_id: generation.user_id,
+            balance: String(newBalance),
+            credits_used: costCredits,
+            generation_id: generation.id,
+            model: generation.model,
+            description: `Generation: ${generation.model}`,
+            checked_at: new Date().toISOString(),
+          });
+        }
+      } catch (creditError) {
+        console.error('[callback] Credit deduction failed:', creditError);
+      }
+    }
+  }
+
+  console.log(`[callback] Updated ${generation.id} → ${updateData.status}`);
+
+  return new Response(
+    JSON.stringify({ ok: true, status: updateData.status }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } }
+  );
+}
