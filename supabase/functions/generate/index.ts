@@ -31,7 +31,7 @@ Deno.serve(async (req: Request) => {
 
     // 2. Parse
     const body = await req.json();
-    const { prompt, model, controls = {}, generationId, imageUrls } = body;
+    const { prompt, model, controls = {}, generationId, imageUrls, enhancePromptEnabled = false } = body;
 
     if (!prompt || !model || !generationId) {
       return Response.json({ error: 'Missing: prompt, model, generationId' }, { status: 400, headers: corsHeaders });
@@ -60,18 +60,53 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error: `Insufficient credits. Have ${balance}, need ${costCredits}.` }, { status: 402, headers: corsHeaders });
     }
 
-    // 4. Update generation to running + store final prompt
+    // 4. Prompt Brain — enhance if toggle is ON
+    let finalPrompt = prompt;
+    if (enhancePromptEnabled) {
+      const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
+      if (anthropicKey) {
+        try {
+          console.log('[gen] Brain enhancing prompt...');
+          const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': anthropicKey,
+              'anthropic-version': '2023-06-01',
+            },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 400,
+              system: `You are a prompt engineer for AI image/video generation. Rewrite the user's prompt optimized for the model "${model}" (${route.persona}). Return ONLY the enhanced prompt. No explanation. Max 220 words. Never change the subject. Enhance visual quality, not complexity.`,
+              messages: [{ role: 'user', content: prompt }],
+            }),
+          });
+          if (claudeRes.ok) {
+            const claudeData = await claudeRes.json();
+            const enhanced = claudeData.content?.[0]?.text?.trim();
+            if (enhanced && enhanced.toLowerCase() !== prompt.toLowerCase()) {
+              finalPrompt = enhanced;
+              console.log(`[gen] Brain enhanced: ${enhanced.slice(0, 80)}...`);
+            }
+          }
+        } catch (brainErr) {
+          console.error('[gen] Brain failed, using original:', brainErr);
+        }
+      }
+    }
+
+    // 5. Update generation to running + store final prompt
     await adminClient.from('generations').update({
       status: 'running',
       progress: 10,
-      final_prompt: prompt, // Always log what's actually sent to Kie.ai
+      final_prompt: finalPrompt,
     }).eq('id', generationId);
 
-    // 5. Build payload using the route's buildPayload function
+    // 6. Build payload using the route's buildPayload function
     const callbackUrl = `${supabaseUrl}/functions/v1/generation-callback`;
     let kiePayload: Record<string, unknown>;
     try {
-      kiePayload = route.buildPayload(prompt, controls, callbackUrl, imageUrls);
+      kiePayload = route.buildPayload(finalPrompt, controls, callbackUrl, imageUrls);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error('[gen] buildPayload error:', msg);
