@@ -1,272 +1,281 @@
 # Oltaflock Creative Studio
 
-An internal production dashboard for multi-AI content generation — text-to-image, text-to-video, and image-to-image transformations. Built for authorized Oltaflock personnel to generate, manage, and rate media using multiple AI models.
+An internal AI media production platform for text-to-image, text-to-video, and image-to-image generation. Features a Claude-powered prompt brain that learns from user ratings, 16+ AI models via Kie.ai, and a modular tile-based UI with 3D interactive effects.
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 18 + TypeScript |
-| Build | Vite 5 (code-split via React.lazy) |
-| Routing | React Router v6 |
+| Frontend | React 18 + TypeScript + Vite 5 |
+| UI | Tailwind CSS + shadcn/ui + Framer Motion |
 | State | Zustand (client) + TanStack React Query (server) |
 | Backend | Supabase (Auth, Postgres, Edge Functions, Storage) |
-| AI Processing | n8n workflows (webhook-based) |
-| Email | Resend (transactional + SMTP for auth emails) |
-| Styling | Tailwind CSS + shadcn/ui (Radix primitives) |
-| Forms | React Hook Form + Zod |
+| AI Models | Kie.ai (unified API for 16+ image/video models) |
+| Prompt Intelligence | Claude API (prompt enhancement + learning from ratings) |
+| Email | Resend (transactional + SMTP for auth) |
+| Hosting | Vercel (frontend) + Supabase (backend) |
 
 ## High-Level Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         Frontend (React SPA)                         │
-│                                                                      │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌──────────────┐  │
-│  │   Mode &   │  │  Prompt &  │  │   Output   │  │   Request    │  │
-│  │  History   │  │  Controls  │  │  Display   │  │   Details    │  │
-│  │ (sidebar)  │  │  (center)  │  │   (main)   │  │  (sidebar)   │  │
-│  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └──────┬───────┘  │
-│        │               │               │                │           │
-│        └───────────────┴───────┬───────┴────────────────┘           │
-│                                │                                     │
-│                    Zustand Store + React Query                       │
-│                         (polling every 5s)                           │
-└────────────────────────────────┬─────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    Frontend (React SPA on Vercel)                         │
+│                                                                          │
+│  ┌──────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
+│  │  Mode &  │  │   Prompt &   │  │    Output    │  │   Request    │    │
+│  │ History  │  │  Controls &  │  │   Display    │  │   Details    │    │
+│  │  (tile)  │  │ Brain Toggle │  │   (tile)     │  │   (tile)     │    │
+│  └────┬─────┘  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘    │
+│       └───────────────┴────────┬────────┴──────────────────┘            │
+│                                │                                         │
+│               Zustand Store + React Query (polls every 5s)               │
+└────────────────────────────────┬─────────────────────────────────────────┘
+                                 │
+                    supabase.functions.invoke('generate')
+                                 │
+┌────────────────────────────────▼─────────────────────────────────────────┐
+│                    Supabase Edge Functions                                │
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                    generate/index.ts                             │    │
+│  │                                                                  │    │
+│  │  1. Auth (verify JWT)                                           │    │
+│  │  2. Credit check (server-side, no client manipulation)          │    │
+│  │  3. Claude Prompt Brain (enhance prompt with learned patterns)  │    │
+│  │  4. Route to Kie.ai (model-specific endpoint + payload)         │    │
+│  │  5. Store task_id → poll or await callback                      │    │
+│  └──────────┬──────────────────────────────┬───────────────────────┘    │
+│             │                              │                             │
+│  ┌──────────▼──────────┐    ┌──────────────▼──────────────┐             │
+│  │  prompt-brain.ts    │    │  model-routes.ts             │             │
+│  │                     │    │                              │             │
+│  │  Claude API call    │    │  16 models mapped to:        │             │
+│  │  with few-shot      │    │  - Kie.ai endpoint           │             │
+│  │  examples from      │    │  - Exact payload structure   │             │
+│  │  user's rated       │    │  - Model persona (for brain) │             │
+│  │  generations        │    │                              │             │
+│  └─────────────────────┘    └──────────────────────────────┘             │
+│                                                                          │
+│  ┌─────────────────────┐    ┌──────────────────────────────┐            │
+│  │  poll-tasks/        │    │  generation-callback/         │            │
+│  │                     │    │                              │            │
+│  │  Check pending      │    │  Receives Kie.ai webhook     │            │
+│  │  tasks against      │    │  when async tasks complete   │            │
+│  │  Kie.ai status API  │    │  Updates DB + deducts credits│            │
+│  └─────────────────────┘    └──────────────────────────────┘            │
+└──────────────────────────────────────────────────────────────────────────┘
                                  │
                     ┌────────────┴────────────┐
                     │                         │
              ┌──────▼──────┐          ┌───────▼───────┐
-             │  Supabase   │          │     n8n       │
-             │             │          │  Workflows    │
-             │  - Auth     │          │               │
-             │  - Postgres │ callback │  - Image Gen  │
-             │  - RLS      │◄────────┤  - Video Gen  │
-             │  - Storage  │         │  - I2I Gen    │
-             │  - Edge Fns │         │  - Balance    │
-             └──────┬──────┘          └───────────────┘
-                    │
-             ┌──────▼──────┐
-             │   Resend    │
-             │             │
-             │  - Welcome  │
-             │  - Auth     │
-             │  - Alerts   │
-             └─────────────┘
+             │  Supabase   │          │   Kie.ai      │
+             │  Postgres   │          │   API          │
+             │             │          │               │
+             │  - Auth     │          │  Endpoints:   │
+             │  - RLS      │          │  /jobs/createTask      (most models)
+             │  - Storage  │          │  /veo/generate         (Veo 3.1)
+             │  - Profiles │          │  /gpt4o-image/generate (GPT-4o)
+             │  - Credits  │          │  /jobs/recordInfo      (status poll)
+             └─────────────┘          └───────────────┘
 ```
 
-## Generation Flow (End-to-End)
+## Generation Flow
 
 ```
-User                    Frontend                  Supabase               n8n                  Resend
- │                         │                         │                    │                      │
- ├─ Select model ─────────►│                         │                    │                      │
- ├─ Enter prompt ─────────►│                         │                    │                      │
- ├─ Click Generate ───────►│                         │                    │                      │
- │                         ├─ Check credits ─────────►│                    │                      │
- │                         ├─ Deduct credits ────────►│                    │                      │
- │                         ├─ INSERT generation ─────►│ (status: queued)   │                      │
- │                         ├─ POST webhook ──────────────────────────────►│                      │
- │                         │                         │                    ├─ AI Processing       │
- │                         │◄── Poll every 5s ───────│                    │   (30s - 5min)       │
- │                         │                         │◄── POST callback ──┤                      │
- │                         │                         │  (status: done,    │                      │
- │                         │                         │   output_url set)  │                      │
- │                         │◄── Poll detects done ───│                    │                      │
- │◄── Display result ──────┤                         │                    │                      │
- ├─ Rate (1-5 stars) ─────►├─ UPDATE rating ─────────►│                    │                      │
+User clicks Generate
+  │
+  ├─ Client: INSERT generation (status: queued) into Supabase
+  ├─ Client: supabase.functions.invoke('generate', { prompt, model, controls })
+  │
+  └─ Edge Function (generate/index.ts):
+       ├─ Verify user JWT
+       ├─ Check credits server-side (no client-side deduction)
+       ├─ [Optional] Call Claude API → enhance prompt with learned patterns
+       ├─ Build Kie.ai payload (per-model endpoint + payload structure)
+       ├─ POST to Kie.ai → receive task_id
+       ├─ Store task_id in generations.external_task_id
+       └─ Return { task_id } to client
+
+  Meanwhile:
+  ├─ Client polls Supabase every 5s for status changes
+  ├─ Kie.ai processes generation (30s - 5min)
+  └─ Kie.ai calls back → generation-callback edge function
+       ├─ Parse resultJson.resultUrls[0]
+       ├─ Update generation: status=done, output_url=...
+       └─ Deduct credits server-side
+
+  User sees result → rates 1-5 stars
+  │
+  └─ Next generation: Claude brain fetches top-rated examples
+     and avoids low-rated patterns → prompt quality improves over time
 ```
 
-## Multi-User System
+## Prompt Brain (Self-Learning System)
 
-### Authentication
-- Email/password + magic link login via Supabase Auth
-- Signup restricted to `@oltaflock.ai` domain (enforced in frontend + DB trigger)
-- Emails auto-confirmed for `@oltaflock.ai` accounts (no verification needed)
-- Auth emails (magic links, password resets) sent via Resend SMTP
+The Claude-powered prompt brain enhances user prompts before they hit Kie.ai:
 
-### Per-User Isolation (Row-Level Security)
-Every table enforces RLS — users only see their own data:
-- `generations` — each user's generation history
-- `jobs` — job tracking
-- `profiles` — display name, email
-- `user_credits` — individual credit balance
-- `credit_logs` — transaction history
-- `storage.objects` — uploads scoped to `{userId}/` folder
-
-### Credit System
-- New users receive **1,000 credits** on signup
-- Credits deducted on each generation based on model + settings
-- Balance shown in header with real-time updates
-- Insufficient credit warning in cost preview panel
-- Transaction log tracks every deduction with model, generation ID, timestamp
-
-### Signup Flow
 ```
-User signs up
-  → Supabase creates auth.users record
-  → DB trigger fires (handle_new_user):
-      1. Creates profile with display_name from email
-      2. Creates user_credits with 1000 balance
-      3. Logs initial credit grant
-      4. Auto-confirms @oltaflock.ai email
-      5. Sends welcome email via Resend
+Generation #1: "a dog" → Brain (no history) → "a golden retriever in soft
+  afternoon light, shallow depth of field" → User rates ★★★★★
+
+Generation #2: "a cat" → Brain (sees #1 was 5★) → "a tabby cat in warm
+  afternoon light, bokeh background" → User rates ★★★★★
+
+Generation #3: "a bird" → Brain (sees #1, #2 patterns) → adapts to user's
+  aesthetic preferences automatically
 ```
 
-## Database Schema
+| Generations rated | Brain behavior |
+|---|---|
+| 0 | Uses model persona only. Generic but correct. |
+| 3-5 | Starts seeing user's stylistic preferences. |
+| 10-15 | Clear personal style profile. Strongly personalized. |
+| 20+ | Reliably matches user's taste. Avoids known bad patterns. |
 
-### Tables
-
-| Table | RLS | Purpose |
-|-------|-----|---------|
-| `generations` | Yes | Generation records (prompt, model, status, output, rating) |
-| `profiles` | Yes | User display names and metadata |
-| `user_credits` | Yes | Per-user credit balance, total spent, generation count |
-| `credit_logs` | Yes | Credit transaction history with generation references |
-| `jobs` | Yes | Job tracking (legacy, parallel to generations) |
-
-### Key Columns: `generations`
-```
-id, request_id, type (image/video), model, user_prompt, final_prompt,
-model_params (JSONB), status (queued/running/done/error), output_url,
-error_message, rating (1-5), progress (0-100), external_task_id, user_id
-```
-
-### Key Columns: `user_credits`
-```
-user_id, balance (starts at 1000), total_spent, total_generations
-```
-
-## Edge Functions
-
-| Function | Auth | Purpose |
-|----------|------|---------|
-| `generation-callback` | Webhook secret (`x-webhook-secret` header) | Receives completion callbacks from n8n, updates generation status |
-| `check-balance` | JWT | Proxies credit balance check to n8n webhook |
-| `send-email` | JWT | Sends transactional emails via Resend (welcome, notifications, alerts) |
-
-### Email Templates (via `send-email`)
-- **welcome** — sent on signup with credit info
-- **generation_complete** — sent when a generation finishes (with preview)
-- **low_credits** — alert when balance is low
-- **password_reset** — custom branded reset email
+**Cost:** ~$0.001-0.002 per enhancement call (Claude Sonnet). Toggleable via "Prompt Brain" switch.
 
 ## Supported Models
 
-### Text-to-Image
-| Model | Credits | Controls |
-|-------|---------|----------|
-| Nano Banana Pro | 18–24 | Resolution (1K/2K/4K), aspect ratio, output format |
-| Seedream 4.5 | 6.5 | Aspect ratio, quality |
-| Flux 2 Flex | 14–24 | Resolution, aspect ratio |
-| Flux 2 Pro | 5–7 | Resolution, aspect ratio |
-| GPT-4o Image | 10 | Aspect ratio |
-| Z Image | 0.8 | Aspect ratio |
+### Text-to-Image (via `/jobs/createTask`)
+| Model | Kie.ai Model Name | Credits |
+|-------|--------------------|---------|
+| Nano Banana Pro | `nano-banana-pro` | 18-24 |
+| Seedream 4.5 | `seedream/4.5-text-to-image` | 6.5 |
+| Flux 2 Flex | `flux-2/flex-text-to-image` | 14-24 |
+| Flux 2 Pro | `flux-2/pro-text-to-image` | 5-7 |
+| Z Image | `z-image` | 0.8 |
+
+### Text-to-Image (dedicated endpoints)
+| Model | Endpoint | Credits |
+|-------|----------|---------|
+| GPT-4o Image | `/gpt4o-image/generate` | 10 |
 
 ### Text-to-Video
-| Model | Credits | Controls |
-|-------|---------|----------|
-| Veo 3.1 | 60–250 | Variant (fast/quality), aspect ratio |
-| Sora 2 Pro | 150–630 | Quality, duration (10s/15s), character IDs |
-| Kling 2.6 | 55–220 | Duration (5s/10s), sound toggle |
-| Seedance 1.0 | 25–50 | Variant (lite/pro) |
-| Grok Imagine | 30 | — |
+| Model | Kie.ai Model Name | Endpoint | Credits |
+|-------|--------------------|----------|---------|
+| Veo 3.1 | `veo3_fast` / `veo3_quality` | `/veo/generate` | 60-250 |
+| Sora 2 Pro | `sora-2-pro-text-to-video` | `/jobs/createTask` | 150-630 |
+| Kling 2.6 | `kling-2.6/text-to-video` | `/jobs/createTask` | 55-220 |
+| Seedance 1.0 | `bytedance/v1-{variant}-text-to-video` | `/jobs/createTask` | 25-50 |
+| Grok Imagine | `grok-imagine/text-to-video` | `/jobs/createTask` | 30 |
 
-### Image-to-Image
-| Model | Credits | Controls |
-|-------|---------|----------|
-| Nano Banana Pro I2I | 18–24 | Resolution, aspect ratio |
-| Seedream 4.5 Edit | 6.5 | Aspect ratio, quality |
-| Flux Flex I2I | 14–24 | Resolution, aspect ratio |
-| Flux Pro I2I | 5–7 | Resolution, aspect ratio |
-| Qwen Image Edit | 2 | — |
+### Image-to-Image (via `/jobs/createTask`)
+| Model | Kie.ai Model Name | Image Field |
+|-------|--------------------|-------------|
+| Nano Banana Pro | `nano-banana-pro` | `input_image_input` |
+| Seedream 4.5 Edit | `seedream/4.5-edit` | `image_urls` |
+| Flux Flex I2I | `flux-2/flex-image-to-image` | `input_urls` |
+| Flux Pro I2I | `flux-2/pro-image-to-image` | `input_urls` |
+| Qwen Image Edit | `qwen/image-edit` | `image_url` |
 
 **Pricing:** 1000 credits = $5 USD
+
+## Edge Functions
+
+| Function | JWT | Purpose |
+|----------|-----|---------|
+| `generate` | No (handles auth internally) | Main orchestrator: auth → credits → brain → Kie.ai |
+| `poll-tasks` | No | Checks pending async tasks against Kie.ai status API |
+| `generation-callback` | No (receives Kie.ai webhooks) | Updates generation on async completion + deducts credits |
+| `delete-account` | No (handles auth internally) | Cascade deletes all user data + auth account |
+| `send-email` | Yes | Transactional emails via Resend |
+
+## Database Schema
+
+| Table | RLS | Purpose |
+|-------|-----|---------|
+| `generations` | Yes | Generation records (prompt, model, status, output, rating, external_task_id) |
+| `profiles` | Yes | User display name, avatar_url, email |
+| `user_credits` | Yes | Per-user credit balance, total spent, generation count |
+| `credit_logs` | Yes | Credit transaction history |
+| `jobs` | Yes | Legacy job tracking |
+
+## UI Features
+
+- **Tile-based dashboard** with rounded card layout and gaps between sections
+- **3D interactive effects**: TiltCard (mouse-tracked perspective), MouseParallax (depth layers), GlowOrb (animated gradient background with mouse tracking)
+- **Framer Motion everywhere**: page transitions, stagger animations, crossfade on model switch, icon rotation on theme toggle, AnimatePresence exit animations
+- **Skeleton loading screens** replacing spinner-only states
+- **Settings page** (`/settings`): Profile (avatar upload + crop), Security (password + strength indicator), Preferences (theme, default mode, sounds), Account (delete with type-to-confirm)
+- **Consistent button system**: `active:scale-[0.97]` press, focus glow, `rounded-lg` everywhere
+- **Accessibility**: `MotionConfig reducedMotion="user"`, `prefers-reduced-motion` CSS fallback
 
 ## Directory Structure
 
 ```
 src/
-├── pages/                        # Route pages (lazy-loaded)
-│   ├── Index.tsx                 # Main studio dashboard (protected)
-│   ├── Auth.tsx                  # Login/signup
-│   └── NotFound.tsx              # 404
+├── pages/                         # Route pages (lazy-loaded)
+│   ├── Index.tsx                  # Main studio (modular tile layout)
+│   ├── Auth.tsx                   # Login/signup (GlowOrb + TiltCard)
+│   ├── Settings.tsx               # Full settings page (4 sections)
+│   └── NotFound.tsx
 ├── components/
-│   ├── studio/                   # Studio UI components (18 files)
-│   │   ├── GenerateButton.tsx    # Submit → credit check → DB → n8n webhook
-│   │   ├── ModeSelector.tsx      # image / video / image-to-image toggle
-│   │   ├── ModelSelector.tsx     # Model picker with descriptions
-│   │   ├── PromptInput.tsx       # Prompt textarea
-│   │   ├── ReferenceUpload.tsx   # Image upload for I2I (Supabase Storage)
-│   │   ├── ModelControls.tsx     # Dynamic per-model control panel
-│   │   ├── OutputDisplay.tsx     # Result preview, progress, fullscreen, download
-│   │   ├── RatingPanel.tsx       # 5-star rating after generation
-│   │   ├── RequestsPanel.tsx     # Generation history sidebar
-│   │   ├── RequestDetailPanel.tsx# Metadata for selected job
-│   │   ├── CostPreview.tsx       # Estimated cost + remaining balance
-│   │   ├── BalanceButton.tsx     # Per-user credit balance from DB
-│   │   ├── UserMenu.tsx          # Profile + sign out
-│   │   ├── ProfileDialog.tsx     # Display name + password change
-│   │   └── ThemeToggle.tsx       # Dark/light mode
-│   ├── ErrorBoundary.tsx         # Crash recovery UI
-│   ├── ProtectedRoute.tsx        # Auth guard
-│   └── ui/                       # shadcn/ui components (48 files)
+│   ├── layout/                    # Modular layout shell (5 components)
+│   │   ├── StudioLayout.tsx       # Tile-based 4-column layout
+│   │   ├── StudioHeader.tsx       # Header with motion entrance
+│   │   ├── LeftSidebar.tsx        # Mode + History tiles
+│   │   ├── ControlsPanel.tsx      # Prompt + Model + Generate tiles
+│   │   └── RightSidebar.tsx       # Request details tile
+│   ├── studio/                    # Studio components
+│   │   ├── GenerateButton.tsx     # Edge function invocation (no n8n)
+│   │   ├── PromptBrainToggle.tsx  # On/off switch for Claude enhancement
+│   │   ├── OutputDisplay.tsx      # Result preview + GlowOrb empty state
+│   │   ├── RequestsPanel.tsx      # Staggered history list
+│   │   └── ...                    # 15+ more studio components
+│   ├── settings/                  # Settings page sections
+│   │   ├── ProfileSection.tsx     # Name + avatar upload
+│   │   ├── SecuritySection.tsx    # Password + 2FA placeholder
+│   │   ├── PreferencesSection.tsx # Theme, mode, sounds
+│   │   ├── AccountSection.tsx     # Delete account with confirmation
+│   │   ├── AvatarUpload.tsx       # Upload + crop via react-cropper
+│   │   └── AvatarCropDialog.tsx
+│   ├── effects/                   # Visual effects
+│   │   ├── GlowOrb.tsx           # Animated gradient orbs (mouse-tracked)
+│   │   ├── TiltCard.tsx          # 3D perspective on mouse move
+│   │   └── MouseParallax.tsx     # Depth layers following cursor
+│   └── ui/                        # shadcn/ui components (48 files)
 ├── store/
-│   └── generationStore.ts        # Zustand store (mode, model, prompt, active jobs)
+│   ├── generationStore.ts         # Zustand (mode, model, prompt, brain toggle)
+│   └── preferencesStore.ts        # Persisted preferences (theme, mode, sounds)
 ├── hooks/
-│   ├── useAuth.tsx               # Auth context (signIn, signUp, signOut, magicLink)
-│   ├── useGenerations.tsx        # CRUD + polling + auto-timeout for generations
-│   ├── useUserCredits.tsx        # Per-user credit balance, deduction, logs
-│   ├── usePricing.ts             # Cost calculation per model + controls
-│   ├── useRetryGeneration.tsx    # Retry failed jobs
-│   ├── useGenerationProgress.tsx # Simulated progress bar (0-100%)
-│   ├── useJobs.tsx               # Job management
-│   ├── useCreditLogs.tsx         # Credit transaction history
-│   └── useNotificationSound.tsx  # Audio on completion
-├── types/
-│   └── generation.ts             # All type definitions (models, jobs, modes, API names)
-├── config/
-│   └── pricing.ts                # Credit costs per model/resolution/duration
-├── integrations/supabase/
-│   ├── client.ts                 # Supabase client init (reads from env)
-│   └── types.ts                  # Auto-generated DB types
-└── lib/
-    └── utils.ts                  # cn() classname helper
+│   ├── useAuth.tsx                # Auth context
+│   ├── useGenerations.tsx         # CRUD + polling for generations
+│   ├── useProfile.ts             # Centralized profile + avatar hook
+│   ├── useUserCredits.tsx         # Credit balance + deduction
+│   └── ...                        # 6 more hooks
+├── lib/
+│   ├── motion.ts                  # Framer Motion variants library
+│   └── utils.ts                   # cn() helper
+└── types/
+    └── generation.ts              # All model types, API name mappings
 
 supabase/
-├── config.toml                   # Project config
+├── config.toml
 ├── functions/
-│   ├── generation-callback/      # Webhook: n8n → Supabase (auth via shared secret)
-│   ├── check-balance/            # Proxy: balance check via n8n
-│   └── send-email/               # Resend: transactional emails with templates
-└── migrations/                   # 10 SQL migrations (schema, RLS, indexes, triggers)
+│   ├── generate/                  # Main generation orchestrator
+│   │   ├── index.ts              # Auth → credits → brain → Kie.ai
+│   │   ├── prompt-brain.ts       # Claude-powered prompt enhancement
+│   │   └── model-routes.ts       # 16 models → Kie.ai endpoints + payloads
+│   ├── poll-tasks/               # Async task status checker
+│   ├── generation-callback/      # Kie.ai webhook receiver
+│   ├── delete-account/           # Cascade account deletion
+│   └── send-email/               # Resend transactional emails
+└── migrations/                    # SQL migrations (schema, RLS, triggers)
 ```
-
-## Security
-
-- **RLS on all tables** — users only access their own data
-- **Service role policies** — edge functions can update generations via service key
-- **Webhook secret** — `generation-callback` validates `x-webhook-secret` header
-- **CORS restricted** — callback endpoint only accepts requests from n8n domain
-- **Storage scoping** — uploads restricted to `{userId}/` folder prefix
-- **Domain restriction** — signup limited to `@oltaflock.ai` emails
-- **Auto-timeout** — generations stuck >10 minutes auto-marked as errored
-- **Error boundary** — app-level crash recovery instead of white screen
 
 ## Environment Variables
 
 ### Frontend (`.env`)
 ```
-VITE_SUPABASE_PROJECT_ID=xynnkyipiwkvbavquypo
+VITE_SUPABASE_PROJECT_ID=<project id>
 VITE_SUPABASE_PUBLISHABLE_KEY=<anon key>
-VITE_SUPABASE_URL=https://xynnkyipiwkvbavquypo.supabase.co
-VITE_WEBHOOK_URL=<n8n webhook URL>              # optional, has fallback
-VITE_IMAGE_TO_IMAGE_WEBHOOK_URL=<n8n i2i URL>   # optional, has fallback
+VITE_SUPABASE_URL=https://<project>.supabase.co
 ```
 
-### Edge Function Secrets (Supabase Dashboard)
+### Supabase Edge Function Secrets
 ```
-WEBHOOK_SECRET=<shared secret for n8n callback auth>
+KIE_AI_API_KEY=<Kie.ai API key>
+ANTHROPIC_API_KEY=<Claude API key for prompt brain>
 RESEND_API_KEY=<Resend API key>
 FROM_EMAIL=Oltaflock Studio <studio@oltaflock.ai>
 ```
@@ -274,21 +283,22 @@ FROM_EMAIL=Oltaflock Studio <studio@oltaflock.ai>
 ## Development
 
 ```bash
-npm i           # Install dependencies
-npm run dev     # Start dev server (localhost:8080)
-npm run build   # Production build (code-split)
-npm run lint    # Run ESLint
-npm run preview # Preview production build
+bun install       # Install dependencies
+bun run dev       # Start dev server (localhost:8080)
+bun run build     # Production build
+bun run lint      # ESLint
 ```
 
 ## Deployment
 
-Hosted on Vercel. Pushes to `main` trigger automatic deployments.
+**Frontend:** Vercel (auto-deploys on push to `main`)
 
-Edge functions are deployed to Supabase via MCP or the Supabase CLI:
+**Edge Functions:**
 ```bash
-supabase functions deploy generation-callback
-supabase functions deploy check-balance
+supabase functions deploy generate --no-verify-jwt
+supabase functions deploy poll-tasks --no-verify-jwt
+supabase functions deploy generation-callback --no-verify-jwt
+supabase functions deploy delete-account
 supabase functions deploy send-email
 ```
 
