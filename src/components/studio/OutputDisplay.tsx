@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { GlowOrb } from '@/components/effects/GlowOrb';
+import { OutputDisplaySkeleton } from './skeletons/OutputDisplaySkeleton';
+import { ParallaxLayer } from '@/components/effects/MouseParallax';
 
 interface OutputDisplayProps {
   onRetry?: () => void;
@@ -80,12 +82,7 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
 
   // Loading initial data
   if (isLoading) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center bg-muted/20 rounded-2xl canvas-inset">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mb-3" />
-        <p className="text-xs text-muted-foreground">Loading...</p>
-      </div>
-    );
+    return <OutputDisplaySkeleton />;
   }
 
   // Generating state - Premium progress display
@@ -154,24 +151,28 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
   if (!selectedGeneration || !selectedGeneration.output_url) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-gradient-to-b from-muted/10 to-muted/30 dark:from-muted/5 dark:to-muted/20 rounded-2xl canvas-inset p-8 relative overflow-hidden">
-        <GlowOrb />
+        <GlowOrb interactive />
         <motion.div
           variants={scaleIn}
           initial="hidden"
           animate="visible"
           className="relative z-10 flex flex-col items-center"
         >
-          <div className="w-20 h-20 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-            {mediaType === 'image' ? (
-              <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
-            ) : (
-              <Video className="h-10 w-10 text-muted-foreground/30" />
-            )}
-          </div>
-          <p className="text-xl font-medium text-foreground mb-1">Ready to create</p>
-          <p className="text-sm text-muted-foreground text-center max-w-[240px] leading-relaxed">
-            Select a model and enter a prompt, then click Generate
-          </p>
+          <ParallaxLayer depth={0.5} className="flex flex-col items-center">
+            <div className="w-20 h-20 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+              {mediaType === 'image' ? (
+                <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
+              ) : (
+                <Video className="h-10 w-10 text-muted-foreground/30" />
+              )}
+            </div>
+          </ParallaxLayer>
+          <ParallaxLayer depth={0.7} className="flex flex-col items-center">
+            <p className="text-xl font-medium text-foreground mb-1">Ready to create</p>
+            <p className="text-sm text-muted-foreground text-center max-w-[240px] leading-relaxed">
+              Select a model and enter a prompt, then click Generate
+            </p>
+          </ParallaxLayer>
         </motion.div>
       </div>
     );

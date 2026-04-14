@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { iconSwap } from '@/lib/motion';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -50,20 +52,32 @@ export function ThemeToggle() {
   }, [theme]);
 
   const getIcon = () => {
-    if (theme === 'light') return <Sun className="h-4 w-4" />;
-    if (theme === 'dark') return <Moon className="h-4 w-4" />;
-    return <Monitor className="h-4 w-4" />;
+    if (theme === 'light') return Sun;
+    if (theme === 'dark') return Moon;
+    return Monitor;
   };
+
+  const Icon = getIcon();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="h-8 w-8 p-0 hover:bg-accent rounded-lg transition-smooth"
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 hover:bg-accent rounded-lg transition-smooth overflow-hidden"
         >
-          {getIcon()}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={theme}
+              variants={iconSwap}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <Icon className="h-4 w-4" />
+            </motion.div>
+          </AnimatePresence>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

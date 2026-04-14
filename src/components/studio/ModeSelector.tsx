@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { useGenerationStore } from '@/store/generationStore';
 import { Image as ImageIcon, Video, ImagePlus, Film, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -78,10 +79,12 @@ export function ModeSelector() {
         const isDisabled = !option.enabled || pendingRating || isGenerating;
         
         return (
-          <button
+          <motion.button
             key={option.value}
             onClick={() => handleModeClick(option)}
             disabled={isDisabled}
+            whileTap={!isDisabled ? { scale: 0.97 } : undefined}
+            whileHover={!isDisabled ? { scale: 1.01 } : undefined}
             className={cn(
               'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-smooth group',
               isActive 
@@ -113,7 +116,7 @@ export function ModeSelector() {
                 )}
               </div>
             </div>
-          </button>
+          </motion.button>
         );
       })}
     </div>

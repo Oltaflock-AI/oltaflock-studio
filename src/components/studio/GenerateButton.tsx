@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { buttonTap, buttonHover } from '@/lib/motion';
 import { useGenerationStore } from '@/store/generationStore';
 import { useGenerations } from '@/hooks/useGenerations';
@@ -636,22 +636,37 @@ export function GenerateButton() {
             "w-full h-12 text-base font-bold tracking-wide",
             "bg-primary hover:bg-primary/90 text-primary-foreground",
             "shadow-md hover:shadow-lg transition-all duration-200",
-            "disabled:opacity-50 disabled:shadow-none",
-            "rounded-xl"
+            "disabled:opacity-50 disabled:shadow-none"
           )}
           size="lg"
         >
-        {isSubmitting ? (
-          <>
-            <Loader2 className="h-4 w-4 mr-2.5 animate-spin" />
-            <span>Starting...</span>
-          </>
-        ) : (
-          <>
-            <Play className="h-4 w-4 mr-2.5 fill-current" />
-            <span>{mode === 'image-to-image' ? 'Transform' : 'Generate'}</span>
-          </>
-        )}
+        <AnimatePresence mode="wait" initial={false}>
+          {isSubmitting ? (
+            <motion.span
+              key="submitting"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}
+              className="flex items-center"
+            >
+              <Loader2 className="h-4 w-4 mr-2.5 animate-spin" />
+              Starting...
+            </motion.span>
+          ) : (
+            <motion.span
+              key="generate"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}
+              className="flex items-center"
+            >
+              <Play className="h-4 w-4 mr-2.5 fill-current" />
+              {mode === 'image-to-image' ? 'Transform' : 'Generate'}
+            </motion.span>
+          )}
+        </AnimatePresence>
         </Button>
       </motion.div>
 

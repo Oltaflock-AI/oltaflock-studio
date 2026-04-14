@@ -1,3 +1,5 @@
+import { motion } from 'framer-motion';
+import { scaleIn } from '@/lib/motion';
 import { useGenerationStore } from '@/store/generationStore';
 import { useGenerations } from '@/hooks/useGenerations';
 import { Button } from '@/components/ui/button';
@@ -35,7 +37,13 @@ export function RatingPanel() {
   };
 
   return (
-    <div className="bg-card/50 border border-primary/20 rounded-xl p-4 backdrop-blur-sm animate-fade-in">
+    <motion.div
+      variants={scaleIn}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      className="bg-card/50 border border-primary/20 rounded-xl p-4 backdrop-blur-sm"
+    >
       <p className="text-base font-bold text-foreground mb-3">
         Rate this generation
       </p>
@@ -56,6 +64,6 @@ export function RatingPanel() {
           </Button>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }

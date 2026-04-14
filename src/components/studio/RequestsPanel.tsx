@@ -1,3 +1,5 @@
+import { motion, AnimatePresence } from 'framer-motion';
+import { staggerContainer, listItem } from '@/lib/motion';
 import { useGenerations, type DbGeneration, type GenerationStatus } from '@/hooks/useGenerations';
 import { useGenerationStore } from '@/store/generationStore';
 import { useMultipleGenerationProgress } from '@/hooks/useGenerationProgress';
@@ -67,7 +69,13 @@ export function RequestsPanel() {
 
   return (
     <ScrollArea className="h-full">
-      <div className="space-y-1.5 p-2">
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+        className="space-y-1.5 p-2"
+      >
+        <AnimatePresence>
         {generations.map((generation) => {
           const status = generation.status as GenerationStatus;
           const isSelected = selectedJobId === generation.id;
@@ -80,8 +88,10 @@ export function RequestsPanel() {
           const createdAt = new Date(generation.created_at);
 
           return (
-            <div
+            <motion.div
               key={generation.id}
+              variants={listItem}
+              layout
               onClick={() => handleSelectGeneration(generation)}
               className={cn(
                 'px-3 py-2.5 rounded-xl cursor-pointer transition-smooth group',
@@ -138,10 +148,11 @@ export function RequestsPanel() {
                   <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive transition-colors" />
                 </Button>
               </div>
-            </div>
+            </motion.div>
           );
         })}
-      </div>
+        </AnimatePresence>
+      </motion.div>
     </ScrollArea>
   );
 }

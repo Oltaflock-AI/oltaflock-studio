@@ -1,3 +1,4 @@
+import { motion, AnimatePresence } from 'framer-motion';
 import { usePricing } from '@/hooks/usePricing';
 import { useUserCredits } from '@/hooks/useUserCredits';
 import { Coins, AlertTriangle } from 'lucide-react';
@@ -31,12 +32,21 @@ export function CostPreview() {
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <span className={cn(
-          "text-sm font-semibold tabular-nums",
-          insufficientCredits && "text-destructive"
-        )}>
-          {formattedCredits}
-        </span>
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={formattedCredits}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.2 }}
+            className={cn(
+              "text-sm font-semibold tabular-nums",
+              insufficientCredits && "text-destructive"
+            )}
+          >
+            {formattedCredits}
+          </motion.span>
+        </AnimatePresence>
         <span className="text-xs text-muted-foreground">credits</span>
         {balance !== null && (
           <>

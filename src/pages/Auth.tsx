@@ -12,6 +12,7 @@ import { Loader2, Mail, Lock, ArrowLeft } from 'lucide-react';
 import oltaflockLogo from '@/assets/oltaflock-logo.jpeg';
 import { toast } from 'sonner';
 import { GlowOrb } from '@/components/effects/GlowOrb';
+import { TiltCard } from '@/components/effects/TiltCard';
 
 export default function Auth() {
   const { user, loading, signIn, signUp, signInWithMagicLink, resetPassword } = useAuth();
@@ -114,7 +115,7 @@ export default function Auth() {
   if (showResetPassword) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
-        <GlowOrb />
+        <GlowOrb interactive />
         <motion.div
           variants={scaleIn}
           initial="hidden"
@@ -212,7 +213,7 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
-      <GlowOrb />
+      <GlowOrb interactive />
       <motion.div
         variants={scaleIn}
         initial="hidden"
@@ -232,6 +233,7 @@ export default function Auth() {
           </p>
         </div>
 
+        <TiltCard intensity={3}>
         <Card className="border-border">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
@@ -363,6 +365,7 @@ export default function Auth() {
             </Tabs>
           </CardContent>
         </Card>
+        </TiltCard>
 
         <p className="text-center text-xs text-muted-foreground mt-4">
           Authorized personnel only

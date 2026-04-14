@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { staggerItem } from '@/lib/motion';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { StudioLayout } from '@/components/layout/StudioLayout';
@@ -30,7 +30,9 @@ const Index = () => {
             <div className="flex-1 min-h-0 overflow-hidden bg-card rounded-xl border border-border/40 shadow-sm p-4">
               <OutputDisplay onRetry={retry} isRetrying={isRetrying} />
             </div>
-            <RatingPanel />
+            <AnimatePresence>
+              <RatingPanel />
+            </AnimatePresence>
           </motion.main>
         }
         rightSidebar={<RightSidebar />}

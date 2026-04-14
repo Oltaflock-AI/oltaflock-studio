@@ -1,3 +1,5 @@
+import { motion } from 'framer-motion';
+import { slideInRight } from '@/lib/motion';
 import { useGenerations, type GenerationStatus } from '@/hooks/useGenerations';
 import { useGenerationStore } from '@/store/generationStore';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -68,7 +70,13 @@ export function RequestDetailPanel() {
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-4 space-y-5">
+      <motion.div
+        key={selectedJobId}
+        variants={slideInRight}
+        initial="hidden"
+        animate="visible"
+        className="p-4 space-y-5"
+      >
         {/* Status Badge + Type */}
         <div className="flex items-center justify-between pb-4 border-b border-border/50">
           <div className="flex items-center gap-2.5">
@@ -204,7 +212,7 @@ export function RequestDetailPanel() {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
     </ScrollArea>
   );
 }
