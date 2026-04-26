@@ -217,7 +217,7 @@ src/
 │   │   ├── ControlsPanel.tsx      # Prompt + Model + Generate tiles
 │   │   └── RightSidebar.tsx       # Request details tile
 │   ├── studio/                    # Studio components
-│   │   ├── GenerateButton.tsx     # Edge function invocation (no n8n)
+│   │   ├── GenerateButton.tsx     # Edge function invocation
 │   │   ├── PromptBrainToggle.tsx  # On/off switch for Claude enhancement
 │   │   ├── OutputDisplay.tsx      # Result preview + GlowOrb empty state
 │   │   ├── RequestsPanel.tsx      # Staggered history list

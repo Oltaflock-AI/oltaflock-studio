@@ -197,7 +197,7 @@ export function GenerateButton() {
     processGeneration(dbGeneration.id, modelParams);
   };
 
-  // Call the generate edge function (replaces n8n webhook)
+  // Call the generate edge function
   const processGeneration = async (
     generationId: string,
     modelParams: Record<string, unknown>,
@@ -352,160 +352,77 @@ export function GenerateButton() {
     }
   };
 
-  // Separate function for processing regeneration with stored settings
+  // Process regeneration via edge function (mirrors processGeneration flow)
   const processRegenerationFromJob = async (
     generationId: string,
-    requestId: string,
+    _requestId: string,
     prompt: string,
     modelParams: Record<string, unknown>,
-    apiModelName: string,
+    _apiModelName: string,
     modelConfig: typeof ALL_MODELS[0],
     isImageToImage: boolean
   ) => {
     try {
-      await updateGeneration({
-        id: generationId,
-        updates: { status: 'running', progress: 25 },
-      });
-      
-      const webhookUrl = isImageToImage ? IMAGE_TO_IMAGE_WEBHOOK_URL : WEBHOOK_URL;
-      
-      let webhookPayload: Record<string, unknown>;
-      
-      if (isImageToImage) {
-        const imageUrls = modelParams.image_urls || [];
-        const controls = { ...modelParams };
-        delete controls.image_urls;
-        
-        webhookPayload = {
-          request_id: requestId,
-          timestamp: new Date().toISOString(),
-          generation_type: 'IMAGE_2_IMAGE',
-          model: apiModelName,
-          raw_prompt: prompt,
-          controls,
-          image_urls: imageUrls,
-        };
-      } else {
-        // Determine generation type from model config
-        const genType = modelConfig.generationTypes[0] || 'text-to-image';
-        
-        webhookPayload = {
-          request_id: requestId,
-          timestamp: new Date().toISOString(),
-          model: `${apiModelName}-${genType}`,
-          generation_type: genType === 'text-to-image' ? 'TEXT_2_IMAGE' : 'TEXT_2_VIDEO',
-          raw_prompt: prompt,
-          controls: modelParams,
-        };
-      }
-      
-      console.log('Sending regeneration webhook payload:', webhookPayload);
+      const { enhancePromptEnabled } = useGenerationStore.getState();
+      const cost = calculateCost(modelConfig.id, modelParams);
 
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // Clean undefined values + extract image_urls separately
+      const cleanControls: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(modelParams)) {
+        if (v !== undefined && k !== 'image_urls') cleanControls[k] = v;
+      }
+      cleanControls.cost_credits = cost.credits;
+
+      const imageUrls = isImageToImage ? (modelParams.image_urls as string[]) : undefined;
+
+      console.log('[regenerate] Invoking edge function:', { model: modelConfig.id, generationId });
+
+      const { data, error } = await supabase.functions.invoke('generate', {
+        body: {
+          prompt,
+          model: modelConfig.id,
+          type: modelConfig.generationTypes[0] || 'text-to-image',
+          controls: cleanControls,
+          generationId,
+          enhancePromptEnabled,
+          ...(imageUrls && imageUrls.length > 0 ? { imageUrls } : {}),
         },
-        body: JSON.stringify(webhookPayload),
       });
 
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+      if (error) {
+        const detail = (data as { error?: string; detail?: string } | null)?.error
+          ?? (data as { error?: string; detail?: string } | null)?.detail
+          ?? error.message
+          ?? 'Edge function call failed';
+        console.error('[regenerate] Edge function error:', { error, data });
+        throw new Error(detail);
       }
 
-      const data = await response.json();
-      
-      // Parse the response - handle nested resultJson structure
-      let outputUrl = '';
-      let finalPrompt = '';
-      
-      if (data.data?.resultJson) {
-        try {
-          const resultJson = typeof data.data.resultJson === 'string' 
-            ? JSON.parse(data.data.resultJson) 
-            : data.data.resultJson;
-          
-          if (resultJson.resultUrls && resultJson.resultUrls.length > 0) {
-            outputUrl = resultJson.resultUrls[0];
-          }
-        } catch (e) {
-          console.error('Failed to parse resultJson:', e);
-        }
-      }
-      
-      if (!outputUrl && data.output_url) {
-        outputUrl = data.output_url;
-      }
-      
-      finalPrompt = data.refined_prompt || data.data?.refined_prompt || '';
-      
-      // Check for external taskId
-      const externalTaskId = data.taskId || data.data?.taskId || data.task_id;
-
-      // Decision logic for how to handle the response
-      if (outputUrl) {
-        const output = {
-          jobId: requestId,
-          outputUrl,
-          refinedPrompt: finalPrompt,
-        };
-
+      if (data?.output_url) {
         const currentSelectedId = useGenerationStore.getState().selectedJobId;
         if (currentSelectedId === generationId) {
-          setCurrentOutput(output);
-        }
-        
-        await updateGeneration({
-          id: generationId,
-          updates: {
-            status: 'done',
-            final_prompt: finalPrompt || null,
-            output_url: outputUrl,
-            progress: 100,
-          },
-        });
-
-        toast.success('Regeneration complete');
-        if (currentSelectedId === generationId) {
+          setCurrentOutput({
+            jobId: generationId,
+            outputUrl: data.output_url,
+            refinedPrompt: data.enhanced_prompt || '',
+          });
           setPendingRating(true);
         }
-      } else if (externalTaskId) {
-        await updateGeneration({
-          id: generationId,
-          updates: {
-            status: 'running',
-            progress: 50,
-            external_task_id: externalTaskId,
-            final_prompt: finalPrompt || null,
-          },
-        });
-        
+        toast.success('Regeneration complete');
+      } else if (data?.task_id) {
         toast.info('Regeneration submitted, waiting for results...');
         return;
-      } else {
-        await updateGeneration({
-          id: generationId,
-          updates: {
-            status: 'error',
-            error_message: 'No task ID or output URL in response',
-          },
-        });
-        toast.error('Regeneration failed - no task assigned');
+      } else if (data?.error) {
+        toast.error(`Regeneration failed: ${data.error}`);
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('[regenerate] Error:', errorMessage);
       await updateGeneration({
         id: generationId,
-        updates: {
-          status: 'error',
-          error_message: errorMessage,
-        },
+        updates: { status: 'error', error_message: errorMessage },
       });
-      
       toast.error('Regeneration failed');
-      console.error(error);
     } finally {
       removeActiveGeneration(generationId);
     }

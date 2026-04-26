@@ -1,4 +1,4 @@
-// Kie.ai model routing - from actual n8n production payloads
+// Kie.ai model routing
 
 export const KIE_BASE_URL = 'https://api.kie.ai/api/v1';
 export const KIE_CREATE_TASK = `${KIE_BASE_URL}/jobs/createTask`;
