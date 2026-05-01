@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-export function Kling26Controls() {
+export function Kling30Controls() {
   const { controls, setControl, pendingRating } = useGenerationStore();
 
   return (
@@ -35,13 +35,34 @@ export function Kling26Controls() {
         </Select>
       </div>
 
+      {/* Mode (std / pro / 4K) */}
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Quality Mode <span className="text-destructive">*</span>
+        </Label>
+        <Select
+          value={(controls.variant as string) || 'std'}
+          onValueChange={(value) => setControl('variant', value)}
+          disabled={pendingRating}
+        >
+          <SelectTrigger className="w-full bg-input border-border">
+            <SelectValue placeholder="Select mode" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="std">Standard (720p)</SelectItem>
+            <SelectItem value="pro">Pro (1080p)</SelectItem>
+            <SelectItem value="4K">4K (2160p)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Duration */}
       <div className="space-y-2">
         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Duration <span className="text-destructive">*</span>
         </Label>
         <Select
-          value={String(controls.duration || '')}
+          value={String(controls.duration || '5')}
           onValueChange={(value) => setControl('duration', parseInt(value))}
           disabled={pendingRating}
         >
@@ -49,8 +70,10 @@ export function Kling26Controls() {
             <SelectValue placeholder="Select duration" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="3">3 seconds</SelectItem>
             <SelectItem value="5">5 seconds</SelectItem>
             <SelectItem value="10">10 seconds</SelectItem>
+            <SelectItem value="15">15 seconds</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -58,7 +81,7 @@ export function Kling26Controls() {
       {/* Sound */}
       <div className="flex items-center justify-between">
         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Sound <span className="text-destructive">*</span>
+          Sound
         </Label>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">

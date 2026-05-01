@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Image as ImageIcon, Video, Download, Copy, ExternalLink, Maximize2, Sparkles, AlertCircle, RotateCcw } from 'lucide-react';
+import { Loader2, Image as ImageIcon, Video, Download, Copy, ExternalLink, Maximize2, Sparkles, AlertCircle, RotateCcw, Bookmark } from 'lucide-react';
+import { SaveToLibraryDialog } from '@/components/library/SaveToLibraryDialog';
 import { toast } from 'sonner';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,7 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
   const { generations, isLoading } = useGenerations();
   const progress = useGenerationProgress(selectedJobId);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
   const { playNotification } = useNotificationSound();
   const previousStatusRef = useRef<Record<string, string>>({});
 
@@ -261,6 +263,10 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Open
               </Button>
+              <Button size="sm" variant="secondary" onClick={() => setShowSaveDialog(true)} className="h-9 px-4 rounded-lg shadow-sm">
+                <Bookmark className="h-4 w-4 mr-2" />
+                Save to Library
+              </Button>
               <Button size="sm" variant="secondary" onClick={() => setIsFullscreen(true)} className="h-9 w-9 p-0 rounded-lg shadow-sm ml-auto">
                 <Maximize2 className="h-4 w-4" />
               </Button>
@@ -282,6 +288,12 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
           </div>
         )}
       </motion.div>
+
+      <SaveToLibraryDialog
+        generation={selectedGeneration ?? null}
+        open={showSaveDialog}
+        onOpenChange={setShowSaveDialog}
+      />
 
       {/* Fullscreen Modal */}
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>

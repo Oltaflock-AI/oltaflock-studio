@@ -109,19 +109,21 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     'high-15': { baseCredits: 630 },
   },
   
-  // Kling 2.6: Base 55 credits, ×2 for 10s, ×2 for audio
-  'kling-2.6': {
-    '5': { baseCredits: 55 },
-    '10': { baseCredits: 110 },
-    '5-audio': { baseCredits: 110 },
-    '10-audio': { baseCredits: 220 },
+  // Kling 3.0: mode (std/pro/4K) per second pricing approximation
+  'kling-3.0': {
+    'std': { baseCredits: 60 },
+    'pro': { baseCredits: 120 },
+    '4K': { baseCredits: 280 },
   },
-  
+
   // Seedance 1.0: Lite → 25, Pro → 50
   'seedance-1.0': {
     'lite': { baseCredits: 25 },
     'pro': { baseCredits: 50 },
   },
+
+  // Seedance 2.0: flat per-generation
+  'seedance-2.0': { baseCredits: 80 },
   
   // Grok Imagine: 30 credits per generation
   'grok-imagine': { baseCredits: 30 },
@@ -129,12 +131,12 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   // ==========================================================================
   // IMAGE-TO-VIDEO MODELS (mirror text-to-video pricing)
   // ==========================================================================
-  'kling-2.6-i2v': {
-    '5': { baseCredits: 55 },
-    '10': { baseCredits: 110 },
-    '5-audio': { baseCredits: 110 },
-    '10-audio': { baseCredits: 220 },
+  'kling-3.0-i2v': {
+    'std': { baseCredits: 60 },
+    'pro': { baseCredits: 120 },
+    '4K': { baseCredits: 280 },
   },
+  'seedance-2.0-i2v': { baseCredits: 80 },
   'sora-2-pro-i2v': {
     'standard-10': { baseCredits: 150 },
     'standard-15': { baseCredits: 270 },
@@ -187,12 +189,10 @@ export function calculateCost(
     const tierPricing = (pricing as Record<string, PricingRule>)[key];
     credits = tierPricing?.baseCredits || 0;
   }
-  // Kling 2.6: Duration + Audio multiplier (t2v + i2v)
-  else if (modelId === 'kling-2.6' || modelId === 'kling-2.6-i2v') {
-    const duration = (controls.duration as number) || 5;
-    const hasSound = controls.sound === true;
-    const key = hasSound ? `${duration}-audio` : String(duration);
-    const tierPricing = (pricing as Record<string, PricingRule>)[key];
+  // Kling 3.0: variant-based mode pricing (t2v + i2v)
+  else if (modelId === 'kling-3.0' || modelId === 'kling-3.0-i2v') {
+    const variant = (controls.variant as string) || 'std';
+    const tierPricing = (pricing as Record<string, PricingRule>)[variant];
     credits = tierPricing?.baseCredits || 0;
   }
   // Seedance 1.0: Variant (lite/pro)

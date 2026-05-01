@@ -9,8 +9,9 @@ import { GPT4oControls } from './controls/GPT4oControls';
 import { ZImageControls } from './controls/ZImageControls';
 import { Veo31Controls } from './controls/Veo31Controls';
 import { Sora2ProControls } from './controls/Sora2ProControls';
-import { Kling26Controls } from './controls/Kling26Controls';
+import { Kling30Controls } from './controls/Kling30Controls';
 import { Seedance10Controls } from './controls/Seedance10Controls';
+import { Seedance20Controls } from './controls/Seedance20Controls';
 import { GrokImagineControls } from './controls/GrokImagineControls';
 // Image-to-Image Controls
 import { NanoBananaProI2IControls } from './controls/NanoBananaProI2IControls';
@@ -35,8 +36,9 @@ export function ModelControls() {
     // Text-to-Video
     'veo-3.1': Veo31Controls,
     'sora-2-pro': Sora2ProControls,
-    'kling-2.6': Kling26Controls,
+    'kling-3.0': Kling30Controls,
     'seedance-1.0': Seedance10Controls,
+    'seedance-2.0': Seedance20Controls,
     'grok-imagine': GrokImagineControls,
     // Image-to-Image
     'nano-banana-pro-i2i': NanoBananaProI2IControls,
@@ -45,10 +47,11 @@ export function ModelControls() {
     'flux-pro-i2i': FluxProI2IControls,
     'qwen-image-edit': QwenImageEditControls,
     // Image-to-Video (reuse text-to-video controls — same params)
-    'kling-2.6-i2v': Kling26Controls,
+    'kling-3.0-i2v': Kling30Controls,
     'sora-2-pro-i2v': Sora2ProControls,
     'veo-3.1-i2v': Veo31Controls,
     'seedance-1.0-i2v': Seedance10Controls,
+    'seedance-2.0-i2v': Seedance20Controls,
   };
 
   const ControlsComponent = controlsMap[selectedModel];

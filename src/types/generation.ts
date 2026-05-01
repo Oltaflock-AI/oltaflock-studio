@@ -4,14 +4,14 @@ export type GenerationMode = 'image' | 'video' | 'image-to-image' | 'image-to-vi
 // Image Models - Split Flux into Flex and Flex Pro
 export type ImageModel = 'nano-banana-pro' | 'seedream-4.5' | 'flux-flex' | 'flux-flex-pro' | 'gpt-4o' | 'z-image';
 
-// Video Models (Veo 3 removed, only Veo 3.1)
-export type VideoModel = 'veo-3.1' | 'sora-2-pro' | 'kling-2.6' | 'seedance-1.0' | 'grok-imagine';
+// Video Models
+export type VideoModel = 'veo-3.1' | 'sora-2-pro' | 'kling-3.0' | 'seedance-1.0' | 'seedance-2.0' | 'grok-imagine';
 
 // Image to Image Models
 export type ImageToImageModel = 'nano-banana-pro-i2i' | 'seedream-4.5-edit' | 'flux-flex-i2i' | 'flux-pro-i2i' | 'qwen-image-edit';
 
 // Image to Video Models
-export type ImageToVideoModel = 'kling-2.6-i2v' | 'sora-2-pro-i2v' | 'veo-3.1-i2v' | 'seedance-1.0-i2v';
+export type ImageToVideoModel = 'kling-3.0-i2v' | 'sora-2-pro-i2v' | 'veo-3.1-i2v' | 'seedance-1.0-i2v' | 'seedance-2.0-i2v';
 
 // All Models
 export type Model = ImageModel | VideoModel | ImageToImageModel | ImageToVideoModel;
@@ -31,8 +31,9 @@ export const MODEL_API_NAMES: Record<Model, string> = {
   // Text-to-Video models
   'veo-3.1': 'veo-3.1',
   'sora-2-pro': 'sora/2-pro',
-  'kling-2.6': 'kling/2.6',
+  'kling-3.0': 'kling-3.0/video',
   'seedance-1.0': 'seedance/1.0',
+  'seedance-2.0': 'bytedance/seedance-2',
   'grok-imagine': 'grok-imagine/text-to-video',
   // Image-to-Image models
   'nano-banana-pro-i2i': 'nano-banana-pro',
@@ -41,10 +42,11 @@ export const MODEL_API_NAMES: Record<Model, string> = {
   'flux-pro-i2i': 'flux-2/pro-image-to-image',
   'qwen-image-edit': 'qwen/image-edit',
   // Image-to-Video models
-  'kling-2.6-i2v': 'kling-2.6/image-to-video',
+  'kling-3.0-i2v': 'kling-3.0/video',
   'sora-2-pro-i2v': 'sora-2-pro-image-to-video',
   'veo-3.1-i2v': 'veo-3.1-i2v',
   'seedance-1.0-i2v': 'bytedance/v1-pro-image-to-video',
+  'seedance-2.0-i2v': 'bytedance/seedance-2',
 };
 
 // Model Configurations
@@ -319,10 +321,11 @@ export const VIDEO_MODELS: ModelConfig[] = [
     generationTypes: ['text-to-video'],
   },
   {
-    id: 'kling-2.6',
-    displayName: 'Kling 2.6',
+    id: 'kling-3.0',
+    displayName: 'Kling 3.0',
     mode: 'video',
     generationTypes: ['text-to-video'],
+    variants: ['std', 'pro', '4K'],
   },
   {
     id: 'seedance-1.0',
@@ -330,6 +333,12 @@ export const VIDEO_MODELS: ModelConfig[] = [
     mode: 'video',
     generationTypes: ['text-to-video'],
     variants: ['V1 Lite Text-to-Video', 'V1 Pro Text-to-Video'],
+  },
+  {
+    id: 'seedance-2.0',
+    displayName: 'Seedance 2.0',
+    mode: 'video',
+    generationTypes: ['text-to-video'],
   },
   {
     id: 'grok-imagine',
@@ -376,10 +385,11 @@ export const IMAGE_TO_IMAGE_MODELS: ModelConfig[] = [
 // Image-to-Video Models
 export const IMAGE_TO_VIDEO_MODELS: ModelConfig[] = [
   {
-    id: 'kling-2.6-i2v',
-    displayName: 'Kling 2.6',
+    id: 'kling-3.0-i2v',
+    displayName: 'Kling 3.0',
     mode: 'image-to-video',
     generationTypes: ['image-to-video'],
+    variants: ['std', 'pro', '4K'],
   },
   {
     id: 'sora-2-pro-i2v',
@@ -397,6 +407,12 @@ export const IMAGE_TO_VIDEO_MODELS: ModelConfig[] = [
   {
     id: 'seedance-1.0-i2v',
     displayName: 'Seedance 1.0',
+    mode: 'image-to-video',
+    generationTypes: ['image-to-video'],
+  },
+  {
+    id: 'seedance-2.0-i2v',
+    displayName: 'Seedance 2.0',
     mode: 'image-to-video',
     generationTypes: ['image-to-video'],
   },

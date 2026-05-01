@@ -139,19 +139,20 @@ export const MODEL_ROUTES: Record<string, ModelRoute> = {
       },
     }),
   },
-  'kling-2.6': {
+  'kling-3.0': {
     endpoint: KIE_CREATE_TASK,
-    kieModel: 'kling-2.6/text-to-video',
+    kieModel: 'kling-3.0/video',
     type: 'video',
-    persona: 'an efficient video model with sound support, good for dynamic scenes and character motion',
+    persona: 'Kling 3.0 with multi-shot capabilities, element references, and 4K output support',
     buildPayload: (prompt, controls, callbackUrl) => ({
-      model: 'kling-2.6/text-to-video',
+      model: 'kling-3.0/video',
       callBackUrl: callbackUrl,
       input: {
         prompt,
         sound: controls.sound ?? false,
-        aspect_ratio: controls.aspectRatio || '1:1',
+        aspect_ratio: controls.aspectRatio || '16:9',
         duration: String(controls.duration || 5),
+        mode: (controls.variant as string) || 'std',
       },
     }),
   },
@@ -169,6 +170,23 @@ export const MODEL_ROUTES: Record<string, ModelRoute> = {
         resolution: controls.resolution || '720p',
         duration: String(controls.duration || 5),
         camera_fixed: controls.cameraFixed ?? false,
+      },
+    }),
+  },
+  'seedance-2.0': {
+    endpoint: KIE_CREATE_TASK,
+    kieModel: 'bytedance/seedance-2',
+    type: 'video',
+    persona: 'Seedance 2.0 latest gen with audio support, 1080p output, and adaptive aspect ratios',
+    buildPayload: (prompt, controls, callbackUrl) => ({
+      model: 'bytedance/seedance-2',
+      callBackUrl: callbackUrl,
+      input: {
+        prompt,
+        aspect_ratio: controls.aspectRatio || '16:9',
+        resolution: controls.resolution || '720p',
+        duration: Number(controls.duration) || 5,
+        generate_audio: controls.generateAudio !== false,
       },
     }),
   },
@@ -278,20 +296,21 @@ export const MODEL_ROUTES: Record<string, ModelRoute> = {
   },
 
   // ─── Image-to-Video ──────────────────────────────────
-  'kling-2.6-i2v': {
+  'kling-3.0-i2v': {
     endpoint: KIE_CREATE_TASK,
-    kieModel: 'kling-2.6/image-to-video',
+    kieModel: 'kling-3.0/video',
     type: 'video',
-    persona: 'Kling 2.6 image-to-video, animates static images with dynamic motion and sound support',
+    persona: 'Kling 3.0 image-to-video, animates images with multi-shot capabilities and 4K output',
     buildPayload: (prompt, controls, callbackUrl, imageUrls) => ({
-      model: 'kling-2.6/image-to-video',
+      model: 'kling-3.0/video',
       callBackUrl: callbackUrl,
       input: {
         prompt,
         image_urls: imageUrls || [],
         sound: controls.sound ?? false,
-        aspect_ratio: controls.aspectRatio || '1:1',
+        aspect_ratio: controls.aspectRatio || '16:9',
         duration: String(controls.duration || 5),
+        mode: (controls.variant as string) || 'std',
       },
     }),
   },
@@ -344,6 +363,24 @@ export const MODEL_ROUTES: Record<string, ModelRoute> = {
         resolution: controls.resolution || '720p',
         duration: String(controls.duration || 5),
         camera_fixed: controls.cameraFixed ?? false,
+      },
+    }),
+  },
+  'seedance-2.0-i2v': {
+    endpoint: KIE_CREATE_TASK,
+    kieModel: 'bytedance/seedance-2',
+    type: 'video',
+    persona: 'Seedance 2.0 image-to-video, latest gen with audio + 1080p output',
+    buildPayload: (prompt, controls, callbackUrl, imageUrls) => ({
+      model: 'bytedance/seedance-2',
+      callBackUrl: callbackUrl,
+      input: {
+        prompt,
+        first_frame_url: imageUrls?.[0] || '',
+        aspect_ratio: controls.aspectRatio || '16:9',
+        resolution: controls.resolution || '720p',
+        duration: Number(controls.duration) || 5,
+        generate_audio: controls.generateAudio !== false,
       },
     }),
   },
