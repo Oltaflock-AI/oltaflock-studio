@@ -22,10 +22,7 @@ const MODEL_DESCRIPTIONS: Record<Model, string> = {
   'gpt-4o': 'GPT-4o powered image generation',
   'z-image': 'Z Image text-to-image generation',
   // Text-to-Video
-  'veo-3.1': 'Enhanced video with better motion',
-  'sora-2-pro': 'Cinematic video generation',
   'kling-3.0': 'Multi-shot video with element refs (std/pro/4K)',
-  'seedance-1.0': 'Motion-focused video generation',
   'seedance-2.0': 'Latest Seedance with audio + 1080p output',
   'grok-imagine': 'Grok-powered video generation',
   // Image-to-Image
@@ -35,11 +32,9 @@ const MODEL_DESCRIPTIONS: Record<Model, string> = {
   'flux-pro-i2i': 'High-quality image transformation',
   'qwen-image-edit': 'Advanced image editing with Qwen',
   // Image-to-Video
-  'kling-3.0-i2v': 'Animate images with Kling 3.0',
-  'sora-2-pro-i2v': 'Cinematic image-to-video with Sora 2 Pro',
-  'veo-3.1-i2v': 'Animate images with Veo 3.1',
-  'seedance-1.0-i2v': 'Motion-focused image-to-video',
+  'kling-3.0-i2v': 'Animate images with Kling 3.0 (multi-shot, 4K)',
   'seedance-2.0-i2v': 'Latest Seedance image-to-video with audio',
+  'grok-imagine-i2v': 'Grok image-to-video with motion control',
 };
 
 export function ModelSelector() {

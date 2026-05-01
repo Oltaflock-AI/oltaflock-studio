@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useMemo } from 'react';
 import { formatCredits } from '@/config/pricing';
+import { StarButton } from '@/components/library/StarButton';
 
 const statusDotColors: Record<GenerationStatus, string> = {
   queued: 'bg-muted-foreground animate-pulse',
@@ -138,15 +139,20 @@ export function RequestsPanel() {
                     </span>
                   )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                  onClick={(e) => handleDelete(e, generation.id)}
-                  disabled={isActive}
-                >
-                  <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive transition-colors" />
-                </Button>
+                <div className="flex items-center gap-0.5">
+                  {generation.status === 'done' && generation.output_url && (
+                    <StarButton generation={generation} size="sm" className="h-5 w-5" />
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    onClick={(e) => handleDelete(e, generation.id)}
+                    disabled={isActive}
+                  >
+                    <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive transition-colors" />
+                  </Button>
+                </div>
               </div>
             </motion.div>
           );

@@ -9,12 +9,24 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Copy, Sparkles, Bookmark, Wand2 } from 'lucide-react';
+import { Copy, Sparkles, Bookmark, Wand2, Trash2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useGenerationStore } from '@/store/generationStore';
 import { ALL_MODELS } from '@/types/generation';
 import type { Model } from '@/types/generation';
 import { LIBRARY_CATEGORIES, type LibraryItem } from '@/types/library';
+import { usePromptLibrary } from '@/hooks/usePromptLibrary';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface Props {
   item: LibraryItem | null;
@@ -24,8 +36,22 @@ interface Props {
 
 export function LibraryDetailDialog({ item, open, onOpenChange }: Props) {
   const navigate = useNavigate();
+  const { deleteFromLibrary, isDeleting } = usePromptLibrary();
 
   if (!item) return null;
+
+  const canRemove = !item.is_curated;
+
+  const handleRemove = async () => {
+    try {
+      await deleteFromLibrary(item.id);
+      toast.success('Removed from library');
+      onOpenChange(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to remove';
+      toast.error(msg);
+    }
+  };
 
   const categoryLabel =
     LIBRARY_CATEGORIES.find((c) => c.value === item.category)?.label ?? item.category;
@@ -134,8 +160,44 @@ export function LibraryDetailDialog({ item, open, onOpenChange }: Props) {
               </div>
             </ScrollArea>
 
-            <div className="p-5 pt-3 border-t border-border/40 shrink-0">
-              <Button onClick={handleUse} className={cn('w-full h-10 gap-2 font-semibold')}>
+            <div className="p-5 pt-3 border-t border-border/40 shrink-0 flex items-center gap-2">
+              {canRemove && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="h-10 px-3 gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      Remove
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Remove from library?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete "{item.title}" from your prompt library.
+                        Your generation history is unaffected.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleRemove}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Remove
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              <Button onClick={handleUse} className={cn('flex-1 h-10 gap-2 font-semibold')}>
                 <Wand2 className="h-4 w-4" />
                 Use this prompt
               </Button>

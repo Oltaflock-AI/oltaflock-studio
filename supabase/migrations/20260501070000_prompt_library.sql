@@ -14,7 +14,7 @@ create table if not exists public.prompt_library_items (
     ('text-to-image','text-to-video','image-to-image','image-to-video')),
   model text not null,
   model_params jsonb,
-  source_generation_id uuid references public.generations(id) on delete set null,
+  source_generation_id uuid,
   created_at timestamptz not null default now(),
   constraint prompt_library_owner_or_curated check (
     (is_curated = true and user_id is null) or

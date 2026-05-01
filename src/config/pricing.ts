@@ -92,39 +92,19 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   'qwen-image-edit': { baseCredits: 2 },
   
   // ==========================================================================
-  // VIDEO MODELS
+  // VIDEO MODELS (3 models only)
   // ==========================================================================
-  
-  // Google Veo 3.1: Fast → 60, Quality → 250
-  'veo-3.1': {
-    'veo3_fast': { baseCredits: 60 },
-    'veo3_quality': { baseCredits: 250 },
-  },
-  
-  // OpenAI Sora 2 Pro: Standard/High × 10s/15s
-  'sora-2-pro': {
-    'standard-10': { baseCredits: 150 },
-    'standard-15': { baseCredits: 270 },
-    'high-10': { baseCredits: 330 },
-    'high-15': { baseCredits: 630 },
-  },
-  
-  // Kling 3.0: mode (std/pro/4K) per second pricing approximation
+
+  // Kling 3.0: mode (std/pro/4K) per generation
   'kling-3.0': {
     'std': { baseCredits: 60 },
     'pro': { baseCredits: 120 },
     '4K': { baseCredits: 280 },
   },
 
-  // Seedance 1.0: Lite → 25, Pro → 50
-  'seedance-1.0': {
-    'lite': { baseCredits: 25 },
-    'pro': { baseCredits: 50 },
-  },
-
   // Seedance 2.0: flat per-generation
   'seedance-2.0': { baseCredits: 80 },
-  
+
   // Grok Imagine: 30 credits per generation
   'grok-imagine': { baseCredits: 30 },
 
@@ -137,17 +117,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     '4K': { baseCredits: 280 },
   },
   'seedance-2.0-i2v': { baseCredits: 80 },
-  'sora-2-pro-i2v': {
-    'standard-10': { baseCredits: 150 },
-    'standard-15': { baseCredits: 270 },
-    'high-10': { baseCredits: 330 },
-    'high-15': { baseCredits: 630 },
-  },
-  'veo-3.1-i2v': {
-    'veo3_fast': { baseCredits: 60 },
-    'veo3_quality': { baseCredits: 250 },
-  },
-  'seedance-1.0-i2v': { baseCredits: 50 },
+  'grok-imagine-i2v': { baseCredits: 30 },
 };
 
 // =============================================================================
@@ -181,23 +151,10 @@ export function calculateCost(
     const variantPricing = (pricing as Record<string, PricingRule>)[controls.variant as string];
     credits = variantPricing?.baseCredits || 0;
   }
-  // Quality + Duration pricing (Sora 2 Pro / i2v)
-  else if (modelId === 'sora-2-pro' || modelId === 'sora-2-pro-i2v') {
-    const quality = (controls.quality as string) || 'standard';
-    const duration = (controls.duration as number) || 10;
-    const key = `${quality}-${duration}`;
-    const tierPricing = (pricing as Record<string, PricingRule>)[key];
-    credits = tierPricing?.baseCredits || 0;
-  }
   // Kling 3.0: variant-based mode pricing (t2v + i2v)
   else if (modelId === 'kling-3.0' || modelId === 'kling-3.0-i2v') {
     const variant = (controls.variant as string) || 'std';
     const tierPricing = (pricing as Record<string, PricingRule>)[variant];
-    credits = tierPricing?.baseCredits || 0;
-  }
-  // Seedance 1.0: Variant (lite/pro)
-  else if (modelId === 'seedance-1.0' && controls.variant) {
-    const tierPricing = (pricing as Record<string, PricingRule>)[controls.variant as string];
     credits = tierPricing?.baseCredits || 0;
   }
   

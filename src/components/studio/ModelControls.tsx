@@ -7,10 +7,7 @@ import { FluxFlexControls } from './controls/FluxFlexControls';
 import { FluxFlexProControls } from './controls/FluxFlexProControls';
 import { GPT4oControls } from './controls/GPT4oControls';
 import { ZImageControls } from './controls/ZImageControls';
-import { Veo31Controls } from './controls/Veo31Controls';
-import { Sora2ProControls } from './controls/Sora2ProControls';
 import { Kling30Controls } from './controls/Kling30Controls';
-import { Seedance10Controls } from './controls/Seedance10Controls';
 import { Seedance20Controls } from './controls/Seedance20Controls';
 import { GrokImagineControls } from './controls/GrokImagineControls';
 // Image-to-Image Controls
@@ -33,11 +30,8 @@ export function ModelControls() {
     'flux-flex-pro': FluxFlexProControls,
     'gpt-4o': GPT4oControls,
     'z-image': ZImageControls,
-    // Text-to-Video
-    'veo-3.1': Veo31Controls,
-    'sora-2-pro': Sora2ProControls,
+    // Text-to-Video (3 models)
     'kling-3.0': Kling30Controls,
-    'seedance-1.0': Seedance10Controls,
     'seedance-2.0': Seedance20Controls,
     'grok-imagine': GrokImagineControls,
     // Image-to-Image
@@ -46,12 +40,10 @@ export function ModelControls() {
     'flux-flex-i2i': FluxFlexI2IControls,
     'flux-pro-i2i': FluxProI2IControls,
     'qwen-image-edit': QwenImageEditControls,
-    // Image-to-Video (reuse text-to-video controls — same params)
+    // Image-to-Video (3 models, reuse t2v controls)
     'kling-3.0-i2v': Kling30Controls,
-    'sora-2-pro-i2v': Sora2ProControls,
-    'veo-3.1-i2v': Veo31Controls,
-    'seedance-1.0-i2v': Seedance10Controls,
     'seedance-2.0-i2v': Seedance20Controls,
+    'grok-imagine-i2v': GrokImagineControls,
   };
 
   const ControlsComponent = controlsMap[selectedModel];

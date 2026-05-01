@@ -106,9 +106,9 @@ interface GenerationState {
 export const useGenerationStore = create<GenerationState>((set, get) => ({
   // Current Mode
   mode: 'image',
-  setMode: (mode) => set({ 
-    mode, 
-    selectedModel: null, 
+  setMode: (mode) => set({
+    mode,
+    selectedModel: null,
     generationType: mode === 'image' ? 'text-to-image'
       : mode === 'video' ? 'text-to-video'
       : mode === 'image-to-image' ? 'image-to-image'
@@ -117,8 +117,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     referenceFiles: [],
     uploadedImageUrls: [],
     characterIds: [],
-    currentOutput: null,
-    pendingRating: false,
+    // PRESERVE: currentOutput, selectedJobId, pendingRating
+    // — selected generation stays visible when switching modes
   }),
   
   // Selected Model

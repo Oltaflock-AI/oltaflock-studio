@@ -10,6 +10,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Loader2, Image as ImageIcon, Video, Download, Copy, ExternalLink, Maximize2, Sparkles, AlertCircle, RotateCcw, Bookmark } from 'lucide-react';
 import { SaveToLibraryDialog } from '@/components/library/SaveToLibraryDialog';
+import { StarButton } from '@/components/library/StarButton';
 import { toast } from 'sonner';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
@@ -263,6 +264,14 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Open
               </Button>
+              {selectedGeneration && (
+                <StarButton
+                  generation={selectedGeneration}
+                  size="md"
+                  stopPropagation={false}
+                  className="h-9 w-9 rounded-lg shadow-sm bg-secondary hover:bg-secondary/80"
+                />
+              )}
               <Button size="sm" variant="secondary" onClick={() => setShowSaveDialog(true)} className="h-9 px-4 rounded-lg shadow-sm">
                 <Bookmark className="h-4 w-4 mr-2" />
                 Save to Library
