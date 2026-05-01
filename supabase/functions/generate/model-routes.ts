@@ -111,34 +111,71 @@ export const MODEL_ROUTES: Record<string, ModelRoute> = {
     kieModel: 'kling-3.0/video',
     type: 'video',
     persona: 'Kling 3.0 with multi-shot capabilities, element references, and 4K output support',
-    buildPayload: (prompt, controls, callbackUrl) => ({
-      model: 'kling-3.0/video',
-      callBackUrl: callbackUrl,
-      input: {
-        prompt,
+    buildPayload: (prompt, controls, callbackUrl) => {
+      const multiShots = (controls.multi_shots as boolean) || false;
+      const multiPrompt = (controls.multi_prompt as Array<{ prompt: string; duration: number }>) || [];
+      const klingElements = (controls.kling_elements as Array<{
+        name: string;
+        description: string;
+        element_input_urls: string[];
+      }>) || [];
+
+      const input: Record<string, unknown> = {
         sound: controls.sound ?? false,
         aspect_ratio: controls.aspectRatio || '16:9',
         duration: String(controls.duration || 5),
         mode: (controls.variant as string) || 'std',
-      },
-    }),
+      };
+
+      if (multiShots && multiPrompt.length > 0) {
+        input.multi_shots = true;
+        input.multi_prompt = multiPrompt
+          .filter(s => s && s.prompt && s.prompt.trim().length > 0)
+          .slice(0, 5)
+          .map(s => ({ prompt: s.prompt, duration: Number(s.duration) || 3 }));
+      } else {
+        input.prompt = prompt;
+      }
+
+      if (klingElements.length > 0) {
+        input.kling_elements = klingElements
+          .filter(el => el.name && el.element_input_urls && el.element_input_urls.length >= 2)
+          .slice(0, 3)
+          .map(el => ({
+            name: el.name,
+            description: el.description || '',
+            element_input_urls: el.element_input_urls.slice(0, 4),
+          }));
+      }
+
+      return {
+        model: 'kling-3.0/video',
+        callBackUrl: callbackUrl,
+        input,
+      };
+    },
   },
   'seedance-2.0': {
     endpoint: KIE_CREATE_TASK,
     kieModel: 'bytedance/seedance-2',
     type: 'video',
     persona: 'Seedance 2.0 latest gen with audio support, 1080p output, and adaptive aspect ratios',
-    buildPayload: (prompt, controls, callbackUrl) => ({
-      model: 'bytedance/seedance-2',
-      callBackUrl: callbackUrl,
-      input: {
+    buildPayload: (prompt, controls, callbackUrl) => {
+      const input: Record<string, unknown> = {
         prompt,
         aspect_ratio: controls.aspectRatio || '16:9',
         resolution: controls.resolution || '720p',
         duration: Number(controls.duration) || 5,
-        generate_audio: controls.generateAudio !== false,
-      },
-    }),
+        generate_audio: controls.generate_audio !== false,
+      };
+      if (controls.web_search === true) input.web_search = true;
+      if (controls.nsfw_checker === true) input.nsfw_checker = true;
+      return {
+        model: 'bytedance/seedance-2',
+        callBackUrl: callbackUrl,
+        input,
+      };
+    },
   },
   'grok-imagine': {
     endpoint: KIE_CREATE_TASK,
@@ -246,23 +283,60 @@ export const MODEL_ROUTES: Record<string, ModelRoute> = {
   },
 
   // ─── Image-to-Video ──────────────────────────────────
-  'kling-3.0-i2v': {
+    'kling-3.0-i2v': {
     endpoint: KIE_CREATE_TASK,
     kieModel: 'kling-3.0/video',
     type: 'video',
     persona: 'Kling 3.0 image-to-video, animates images with multi-shot capabilities and 4K output',
-    buildPayload: (prompt, controls, callbackUrl, imageUrls) => ({
-      model: 'kling-3.0/video',
-      callBackUrl: callbackUrl,
-      input: {
-        prompt,
-        image_urls: imageUrls || [],
+    buildPayload: (prompt, controls, callbackUrl, imageUrls) => {
+      const multiShots = (controls.multi_shots as boolean) || false;
+      const multiPrompt = (controls.multi_prompt as Array<{ prompt: string; duration: number }>) || [];
+      const klingElements = (controls.kling_elements as Array<{
+        name: string;
+        description: string;
+        element_input_urls: string[];
+      }>) || [];
+
+      const input: Record<string, unknown> = {
         sound: controls.sound ?? false,
-        aspect_ratio: controls.aspectRatio || '16:9',
         duration: String(controls.duration || 5),
         mode: (controls.variant as string) || 'std',
-      },
-    }),
+      };
+      // For i2v: multi-shot supports only first frame (1 image), single-shot supports up to 2 (first/last)
+      if (multiShots) {
+        input.image_urls = (imageUrls || []).slice(0, 1);
+      } else {
+        input.image_urls = (imageUrls || []).slice(0, 2);
+      }
+
+      if (multiShots && multiPrompt.length > 0) {
+        input.multi_shots = true;
+        input.multi_prompt = multiPrompt
+          .filter(s => s && s.prompt && s.prompt.trim().length > 0)
+          .slice(0, 5)
+          .map(s => ({ prompt: s.prompt, duration: Number(s.duration) || 3 }));
+      } else {
+        input.prompt = prompt;
+        input.aspect_ratio = controls.aspectRatio || '16:9';
+      }
+
+      if (klingElements.length > 0) {
+        input.kling_elements = klingElements
+          .filter(el => el.name && el.element_input_urls && el.element_input_urls.length >= 2)
+          .slice(0, 3)
+          .map(el => ({
+            name: el.name,
+            description: el.description || '',
+            element_input_urls: el.element_input_urls.slice(0, 4),
+          }));
+      }
+
+      return {
+        model: 'kling-3.0/video',
+        callBackUrl: callbackUrl,
+        input,
+      };
+    },
   },
   'grok-imagine-i2v': {
     endpoint: KIE_CREATE_TASK,
@@ -286,19 +360,47 @@ export const MODEL_ROUTES: Record<string, ModelRoute> = {
     endpoint: KIE_CREATE_TASK,
     kieModel: 'bytedance/seedance-2',
     type: 'video',
-    persona: 'Seedance 2.0 image-to-video, latest gen with audio + 1080p output',
-    buildPayload: (prompt, controls, callbackUrl, imageUrls) => ({
-      model: 'bytedance/seedance-2',
-      callBackUrl: callbackUrl,
-      input: {
+    persona: 'Seedance 2.0 image-to-video, latest gen with audio + 1080p output, supports first/last frame and multi-modal refs',
+    buildPayload: (prompt, controls, callbackUrl, imageUrls) => {
+      const input: Record<string, unknown> = {
         prompt,
-        first_frame_url: imageUrls?.[0] || '',
         aspect_ratio: controls.aspectRatio || '16:9',
         resolution: controls.resolution || '720p',
         duration: Number(controls.duration) || 5,
-        generate_audio: controls.generateAudio !== false,
-      },
-    }),
+        generate_audio: controls.generate_audio !== false,
+      };
+
+      // First frame from uploaded image
+      if (imageUrls && imageUrls[0]) {
+        input.first_frame_url = imageUrls[0];
+      }
+
+      // Last frame: prefer explicit field; fallback to imageUrls[1]
+      const lastFrame = (controls.last_frame_url as string) || imageUrls?.[1];
+      if (lastFrame) input.last_frame_url = lastFrame;
+
+      // Reference images: imageUrls beyond first/last (idx 2+) get treated as refs
+      // OR explicit reference_image_urls control if provided
+      const explicitRefImgs = (controls.reference_image_urls as string[]) || [];
+      const extraImgs = (imageUrls || []).slice(2, 11);
+      const refImages = [...explicitRefImgs, ...extraImgs].slice(0, 9);
+      if (refImages.length > 0) input.reference_image_urls = refImages;
+
+      const refVideos = (controls.reference_video_urls as string[]) || [];
+      if (refVideos.length > 0) input.reference_video_urls = refVideos.slice(0, 3);
+
+      const refAudios = (controls.reference_audio_urls as string[]) || [];
+      if (refAudios.length > 0) input.reference_audio_urls = refAudios.slice(0, 3);
+
+      if (controls.web_search === true) input.web_search = true;
+      if (controls.nsfw_checker === true) input.nsfw_checker = true;
+
+      return {
+        model: 'bytedance/seedance-2',
+        callBackUrl: callbackUrl,
+        input,
+      };
+    },
   },
 };
 

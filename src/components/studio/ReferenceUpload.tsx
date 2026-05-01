@@ -35,9 +35,15 @@ export function ReferenceUpload() {
   const getMaxFiles = () => {
     if (selectedModel === 'qwen-image-edit') return 1;
     if (selectedModel === 'flux-flex-i2i' || selectedModel === 'flux-pro-i2i') return 8;
-    // i2v models accept 1 reference image (Sora/Seedance/Veo) or up to 2 (Kling)
+    // i2v models per Kie.ai spec
     if (mode === 'image-to-video') {
-      return selectedModel === 'kling-2.6-i2v' ? 2 : 1;
+      // Kling 3.0: 1 (multi-shot) or 2 (single-shot first/last frame)
+      if (selectedModel === 'kling-3.0-i2v') return 2;
+      // Seedance 2.0: first_frame + last_frame + up to 9 reference_image_urls = 11
+      if (selectedModel === 'seedance-2.0-i2v') return 11;
+      // Grok i2v: up to 7 image_urls
+      if (selectedModel === 'grok-imagine-i2v') return 7;
+      return 1;
     }
     return 8;
   };
