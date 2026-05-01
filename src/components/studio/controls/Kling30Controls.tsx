@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, X } from 'lucide-react';
+import { MediaUpload } from '@/components/studio/MediaUpload';
 import {
   Select,
   SelectContent,
@@ -27,7 +28,8 @@ interface KlingElement {
 }
 
 export function Kling30Controls() {
-  const { controls, setControl, pendingRating } = useGenerationStore();
+  const { controls, setControl, pendingRating, mode } = useGenerationStore();
+  const isI2V = mode === 'image-to-video';
 
   const multiShotsEnabled = (controls.multi_shots as boolean) || false;
   const multiPrompt: MultiShot[] = (controls.multi_prompt as MultiShot[]) || [];
@@ -61,9 +63,8 @@ export function Kling30Controls() {
   const removeElement = (i: number) => {
     setControl('kling_elements', klingElements.filter((_, idx) => idx !== i));
   };
-  const updateElementUrls = (i: number, urlsText: string) => {
-    const urls = urlsText.split('\n').map(u => u.trim()).filter(Boolean).slice(0, 4);
-    updateElement(i, { element_input_urls: urls });
+  const updateElementUrls = (i: number, urls: string[]) => {
+    updateElement(i, { element_input_urls: urls.slice(0, 4) });
   };
 
   return (
@@ -142,6 +143,25 @@ export function Kling30Controls() {
           disabled={pendingRating}
         />
       </div>
+
+      {/* End Frame (i2v, single-shot only) */}
+      {isI2V && !multiShotsEnabled && (
+        <div className="space-y-2 border-t border-border pt-4">
+          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            End Frame (optional)
+          </Label>
+          <p className="text-[10px] text-muted-foreground/60">
+            Single-shot only. Multi-shot uses start frame only.
+          </p>
+          <MediaUpload
+            kind="image"
+            maxFiles={1}
+            value={(controls.last_frame_url as string) ? [controls.last_frame_url as string] : []}
+            onChange={(urls) => setControl('last_frame_url', urls[0] || '')}
+            disabled={pendingRating}
+          />
+        </div>
+      )}
 
       {/* Multi-shot toggle */}
       <div className="flex items-center justify-between border-t border-border pt-4">
@@ -257,16 +277,14 @@ export function Kling30Controls() {
               className="text-xs min-h-[40px]"
               disabled={pendingRating}
             />
-            <Textarea
-              value={el.element_input_urls.join('\n')}
-              onChange={(e) => updateElementUrls(i, e.target.value)}
-              placeholder="2-4 image URLs, one per line"
-              className="text-[10px] min-h-[50px] font-mono"
+            <MediaUpload
+              kind="image"
+              maxFiles={4}
+              value={el.element_input_urls}
+              onChange={(urls) => updateElementUrls(i, urls)}
               disabled={pendingRating}
+              helperText={`${el.element_input_urls.length}/4 images (need 2-4)`}
             />
-            <p className="text-[9px] text-muted-foreground/60">
-              {el.element_input_urls.length}/4 images (need 2-4)
-            </p>
           </div>
         ))}
 

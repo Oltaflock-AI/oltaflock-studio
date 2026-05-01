@@ -2,7 +2,7 @@ import { useGenerationStore } from '@/store/generationStore';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { MediaUpload } from '@/components/studio/MediaUpload';
 import {
   Select,
   SelectContent,
@@ -130,55 +130,65 @@ export function Seedance20Controls() {
         </div>
       </div>
 
-      {/* I2V-only: last frame + reference URLs */}
+      {/* I2V-only: end frame + reference uploads */}
       {isI2V && (
-        <div className="space-y-3 border-t border-border pt-4">
+        <div className="space-y-4 border-t border-border pt-4">
           <p className="text-[10px] text-muted-foreground/60 italic">
-            First frame uses your uploaded image (above). Optionally specify last frame and other refs:
+            Start frame uses your uploaded image (above). Add optional end frame + refs:
           </p>
 
           <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Last Frame URL (optional)
+              End Frame (optional)
             </Label>
-            <Input
-              value={(controls.last_frame_url as string) || ''}
-              onChange={(e) => setControl('last_frame_url', e.target.value)}
-              placeholder="https://… (image URL or asset://id)"
-              className="text-xs"
+            <MediaUpload
+              kind="image"
+              maxFiles={1}
+              value={(controls.last_frame_url as string) ? [controls.last_frame_url as string] : []}
+              onChange={(urls) => setControl('last_frame_url', urls[0] || '')}
               disabled={pendingRating}
             />
           </div>
 
           <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Reference Video URLs
+              Reference Images (optional)
             </Label>
-            <Textarea
-              value={(controls.reference_video_urls as string[] || []).join('\n')}
-              onChange={(e) => {
-                const urls = e.target.value.split('\n').map(u => u.trim()).filter(Boolean).slice(0, 3);
-                setControl('reference_video_urls', urls);
-              }}
-              placeholder="One URL per line, max 3 (mp4/mov, ≤15s each)"
-              className="text-[10px] min-h-[50px] font-mono"
+            <MediaUpload
+              kind="image"
+              maxFiles={9}
+              value={(controls.reference_image_urls as string[]) || []}
+              onChange={(urls) => setControl('reference_image_urls', urls)}
               disabled={pendingRating}
+              helperText="Up to 9 reference images"
             />
           </div>
 
           <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Reference Audio URLs
+              Reference Videos (optional)
             </Label>
-            <Textarea
-              value={(controls.reference_audio_urls as string[] || []).join('\n')}
-              onChange={(e) => {
-                const urls = e.target.value.split('\n').map(u => u.trim()).filter(Boolean).slice(0, 3);
-                setControl('reference_audio_urls', urls);
-              }}
-              placeholder="One URL per line, max 3 (wav/mp3, ≤15s each)"
-              className="text-[10px] min-h-[50px] font-mono"
+            <MediaUpload
+              kind="video"
+              maxFiles={3}
+              value={(controls.reference_video_urls as string[]) || []}
+              onChange={(urls) => setControl('reference_video_urls', urls)}
               disabled={pendingRating}
+              helperText="Up to 3 (mp4/mov/webm, ≤15s each)"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Reference Audio (optional)
+            </Label>
+            <MediaUpload
+              kind="audio"
+              maxFiles={3}
+              value={(controls.reference_audio_urls as string[]) || []}
+              onChange={(urls) => setControl('reference_audio_urls', urls)}
+              disabled={pendingRating}
+              helperText="Up to 3 (mp3/wav, ≤15s each)"
             />
           </div>
         </div>

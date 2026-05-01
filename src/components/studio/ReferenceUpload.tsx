@@ -35,19 +35,19 @@ export function ReferenceUpload() {
   const getMaxFiles = () => {
     if (selectedModel === 'qwen-image-edit') return 1;
     if (selectedModel === 'flux-flex-i2i' || selectedModel === 'flux-pro-i2i') return 8;
-    // i2v models per Kie.ai spec
     if (mode === 'image-to-video') {
-      // Kling 3.0: 1 (multi-shot) or 2 (single-shot first/last frame)
-      if (selectedModel === 'kling-3.0-i2v') return 2;
-      // Seedance 2.0: first_frame + last_frame + up to 9 reference_image_urls = 11
-      if (selectedModel === 'seedance-2.0-i2v') return 11;
+      // Kling 3.0 i2v: start frame only (end frame in controls)
+      if (selectedModel === 'kling-3.0-i2v') return 1;
+      // Seedance 2.0 i2v: start frame only (end frame + refs in controls)
+      if (selectedModel === 'seedance-2.0-i2v') return 1;
       // Grok i2v: up to 7 image_urls
       if (selectedModel === 'grok-imagine-i2v') return 7;
       return 1;
     }
     return 8;
   };
-  
+
+  const isStartFrame = mode === 'image-to-video' && (selectedModel === 'kling-3.0-i2v' || selectedModel === 'seedance-2.0-i2v');
   const maxFiles = getMaxFiles();
   const canUploadMore = uploadedImageUrls.length < maxFiles;
   
@@ -136,7 +136,7 @@ export function ReferenceUpload() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Reference Image(s) <span className="text-destructive">*</span>
+          {isStartFrame ? 'Start Frame' : 'Reference Image(s)'} <span className="text-destructive">*</span>
         </Label>
         <span className="text-xs text-muted-foreground">
           {uploadedImageUrls.length}/{maxFiles}
@@ -195,8 +195,10 @@ export function ReferenceUpload() {
               <>
                 <ImageIcon className="h-5 w-5" />
                 <span className="text-xs">
-                  {selectedModel === 'qwen-image-edit' 
-                    ? 'Upload 1 image (required)' 
+                  {isStartFrame
+                    ? 'Upload start frame (required)'
+                    : selectedModel === 'qwen-image-edit'
+                    ? 'Upload 1 image (required)'
                     : `Upload up to ${maxFiles} images`}
                 </span>
               </>

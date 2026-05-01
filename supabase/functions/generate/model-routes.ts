@@ -302,11 +302,13 @@ export const MODEL_ROUTES: Record<string, ModelRoute> = {
         duration: String(controls.duration || 5),
         mode: (controls.variant as string) || 'std',
       };
-      // For i2v: multi-shot supports only first frame (1 image), single-shot supports up to 2 (first/last)
+      // For i2v: start frame from imageUrls[0]; end frame from controls.last_frame_url (single-shot only)
+      const startFrame = imageUrls?.[0];
+      const endFrame = (controls.last_frame_url as string) || '';
       if (multiShots) {
-        input.image_urls = (imageUrls || []).slice(0, 1);
+        input.image_urls = startFrame ? [startFrame] : [];
       } else {
-        input.image_urls = (imageUrls || []).slice(0, 2);
+        input.image_urls = [startFrame, endFrame].filter(Boolean);
       }
 
       if (multiShots && multiPrompt.length > 0) {
@@ -375,15 +377,12 @@ export const MODEL_ROUTES: Record<string, ModelRoute> = {
         input.first_frame_url = imageUrls[0];
       }
 
-      // Last frame: prefer explicit field; fallback to imageUrls[1]
-      const lastFrame = (controls.last_frame_url as string) || imageUrls?.[1];
+      // Last frame from explicit control upload
+      const lastFrame = (controls.last_frame_url as string) || '';
       if (lastFrame) input.last_frame_url = lastFrame;
 
-      // Reference images: imageUrls beyond first/last (idx 2+) get treated as refs
-      // OR explicit reference_image_urls control if provided
-      const explicitRefImgs = (controls.reference_image_urls as string[]) || [];
-      const extraImgs = (imageUrls || []).slice(2, 11);
-      const refImages = [...explicitRefImgs, ...extraImgs].slice(0, 9);
+      // Reference images from explicit control upload
+      const refImages = ((controls.reference_image_urls as string[]) || []).slice(0, 9);
       if (refImages.length > 0) input.reference_image_urls = refImages;
 
       const refVideos = (controls.reference_video_urls as string[]) || [];
