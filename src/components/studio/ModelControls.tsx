@@ -44,6 +44,11 @@ export function ModelControls() {
     'flux-flex-i2i': FluxFlexI2IControls,
     'flux-pro-i2i': FluxProI2IControls,
     'qwen-image-edit': QwenImageEditControls,
+    // Image-to-Video (reuse text-to-video controls — same params)
+    'kling-2.6-i2v': Kling26Controls,
+    'sora-2-pro-i2v': Sora2ProControls,
+    'veo-3.1-i2v': Veo31Controls,
+    'seedance-1.0-i2v': Seedance10Controls,
   };
 
   const ControlsComponent = controlsMap[selectedModel];

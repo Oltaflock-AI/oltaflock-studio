@@ -26,16 +26,20 @@ export function ReferenceUpload() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Only show for Image → Image mode
-  if (mode !== 'image-to-image') {
+  // Show for Image → Image and Image → Video modes
+  if (mode !== 'image-to-image' && mode !== 'image-to-video') {
     return null;
   }
-  
+
   // Determine max files based on model
   const getMaxFiles = () => {
     if (selectedModel === 'qwen-image-edit') return 1;
     if (selectedModel === 'flux-flex-i2i' || selectedModel === 'flux-pro-i2i') return 8;
-    return 8; // Default max
+    // i2v models accept 1 reference image (Sora/Seedance/Veo) or up to 2 (Kling)
+    if (mode === 'image-to-video') {
+      return selectedModel === 'kling-2.6-i2v' ? 2 : 1;
+    }
+    return 8;
   };
   
   const maxFiles = getMaxFiles();

@@ -125,6 +125,27 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   
   // Grok Imagine: 30 credits per generation
   'grok-imagine': { baseCredits: 30 },
+
+  // ==========================================================================
+  // IMAGE-TO-VIDEO MODELS (mirror text-to-video pricing)
+  // ==========================================================================
+  'kling-2.6-i2v': {
+    '5': { baseCredits: 55 },
+    '10': { baseCredits: 110 },
+    '5-audio': { baseCredits: 110 },
+    '10-audio': { baseCredits: 220 },
+  },
+  'sora-2-pro-i2v': {
+    'standard-10': { baseCredits: 150 },
+    'standard-15': { baseCredits: 270 },
+    'high-10': { baseCredits: 330 },
+    'high-15': { baseCredits: 630 },
+  },
+  'veo-3.1-i2v': {
+    'veo3_fast': { baseCredits: 60 },
+    'veo3_quality': { baseCredits: 250 },
+  },
+  'seedance-1.0-i2v': { baseCredits: 50 },
 };
 
 // =============================================================================
@@ -158,16 +179,16 @@ export function calculateCost(
     const variantPricing = (pricing as Record<string, PricingRule>)[controls.variant as string];
     credits = variantPricing?.baseCredits || 0;
   }
-  // Quality + Duration pricing (Sora 2 Pro)
-  else if (modelId === 'sora-2-pro') {
+  // Quality + Duration pricing (Sora 2 Pro / i2v)
+  else if (modelId === 'sora-2-pro' || modelId === 'sora-2-pro-i2v') {
     const quality = (controls.quality as string) || 'standard';
     const duration = (controls.duration as number) || 10;
     const key = `${quality}-${duration}`;
     const tierPricing = (pricing as Record<string, PricingRule>)[key];
     credits = tierPricing?.baseCredits || 0;
   }
-  // Kling 2.6: Duration + Audio multiplier
-  else if (modelId === 'kling-2.6') {
+  // Kling 2.6: Duration + Audio multiplier (t2v + i2v)
+  else if (modelId === 'kling-2.6' || modelId === 'kling-2.6-i2v') {
     const duration = (controls.duration as number) || 5;
     const hasSound = controls.sound === true;
     const key = hasSound ? `${duration}-audio` : String(duration);

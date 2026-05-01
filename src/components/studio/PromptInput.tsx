@@ -199,126 +199,112 @@ export function PromptInput() {
       </div>
 
       {/* Textarea */}
-      <div className="relative group focus-glow rounded-xl">
+      <div className="relative focus-glow rounded-xl">
         <Textarea
           value={rawPrompt}
           onChange={(e) => setRawPrompt(e.target.value)}
           placeholder="Describe your creative vision..."
           className={cn(
-            'min-h-[160px] bg-background border-border/60 resize-none pb-12',
+            'min-h-[140px] bg-background border-border/60 resize-none',
             'text-sm leading-relaxed tracking-normal',
             'placeholder:text-muted-foreground/40 placeholder:italic',
             'focus:border-primary/40 focus:ring-2 focus:ring-primary/10',
-            'transition-smooth rounded-xl p-4',
+            'transition-smooth rounded-xl p-3.5',
             isEnhancing && 'opacity-60'
           )}
           disabled={isDisabled}
         />
-
-        {/* Floating character counter */}
-        <div className="absolute bottom-3 right-3 text-xs text-muted-foreground/50 font-mono tabular-nums pointer-events-none">
+        <div className="absolute bottom-2.5 right-3 text-[10px] text-muted-foreground/40 font-mono tabular-nums pointer-events-none">
           {rawPrompt.length}
         </div>
+      </div>
 
-        {/* Floating action bar inside textarea */}
-        <div className="absolute bottom-2 left-2 flex items-center gap-1.5">
-          {/* ── Enhance Text ─────────────────────────────────── */}
+      {/* Toolbar — separated from textarea, cleaner */}
+      <div className="flex items-center gap-1.5">
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={handleEnhanceText}
+          disabled={isDisabled || !rawPrompt.trim()}
+          className={cn(
+            'h-7 px-2 gap-1.5 text-xs rounded-md font-medium',
+            'text-muted-foreground hover:text-primary hover:bg-primary/8',
+            'transition-colors',
+            isEnhancingText && 'text-primary bg-primary/8'
+          )}
+          title="Enhance prompt with AI"
+        >
+          {isEnhancingText ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Sparkles className="h-3 w-3" />
+          )}
+          {isEnhancingText ? 'Enhancing…' : 'Enhance'}
+        </Button>
+
+        {enhanceImageFile ? (
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={handleEnhanceFromImage}
+              disabled={isDisabled}
+              className={cn(
+                'flex items-center gap-1.5 h-7 pl-1 pr-2 rounded-md text-xs font-medium',
+                'text-primary bg-primary/10 hover:bg-primary/15 transition-colors',
+                isEnhancingImage && 'opacity-60 cursor-not-allowed'
+              )}
+              title="Analyze this image and enhance prompt"
+            >
+              {isEnhancingImage ? (
+                <Loader2 className="h-3 w-3 animate-spin ml-1" />
+              ) : (
+                <img
+                  src={enhanceImagePreview!}
+                  alt="staged"
+                  className="h-5 w-5 rounded object-cover"
+                />
+              )}
+              {isEnhancingImage ? 'Analyzing…' : 'Analyze'}
+            </button>
+            <button
+              type="button"
+              onClick={clearEnhanceImage}
+              disabled={isDisabled}
+              className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/40 transition-colors"
+              title="Remove staged image"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ) : (
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            onClick={handleEnhanceText}
-            disabled={isDisabled || !rawPrompt.trim()}
+            onClick={imageEnhanceReady ? handleEnhanceFromImage : () => imageInputRef.current?.click()}
+            disabled={isDisabled}
             className={cn(
-              'h-7 px-2.5 gap-1.5 text-xs rounded-lg',
-              'text-muted-foreground hover:text-primary hover:bg-primary/10',
-              'border border-transparent hover:border-primary/20',
-              'transition-all duration-200',
-              isEnhancingText && 'text-primary bg-primary/5 border-primary/20'
+              'h-7 px-2 gap-1.5 text-xs rounded-md font-medium',
+              'text-muted-foreground hover:text-primary hover:bg-primary/8',
+              'transition-colors',
+              isEnhancingImage && 'text-primary bg-primary/8',
+              imageEnhanceReady && 'text-primary/80'
             )}
-            title="Enhance prompt with AI"
+            title={
+              hasReferenceImage
+                ? 'Analyze reference image and enhance prompt'
+                : 'Upload an image to analyze and enhance prompt'
+            }
           >
-            {isEnhancingText ? (
+            {isEnhancingImage ? (
               <Loader2 className="h-3 w-3 animate-spin" />
             ) : (
-              <Sparkles className="h-3 w-3" />
+              <ScanSearch className="h-3 w-3" />
             )}
-            <span>{isEnhancingText ? 'Enhancing…' : 'Enhance'}</span>
+            {isEnhancingImage ? 'Analyzing…' : hasReferenceImage ? 'From Ref' : 'From Image'}
           </Button>
-
-          {/* ── Enhance from Image ───────────────────────────── */}
-          {enhanceImageFile ? (
-            // When an image is staged, show preview badge + action
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handleEnhanceFromImage}
-                disabled={isDisabled}
-                className={cn(
-                  'flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs',
-                  'text-primary bg-primary/10 border border-primary/20',
-                  'hover:bg-primary/15 transition-all duration-200',
-                  isEnhancingImage && 'opacity-60 cursor-not-allowed'
-                )}
-                title="Analyze this image and enhance prompt"
-              >
-                {isEnhancingImage ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <img
-                    src={enhanceImagePreview!}
-                    alt="staged"
-                    className="h-4 w-4 rounded object-cover"
-                  />
-                )}
-                <span>{isEnhancingImage ? 'Analyzing…' : 'Analyze & Enhance'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={clearEnhanceImage}
-                disabled={isDisabled}
-                className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/40 transition-all"
-                title="Remove staged image"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={imageEnhanceReady ? handleEnhanceFromImage : () => imageInputRef.current?.click()}
-              disabled={isDisabled}
-              className={cn(
-                'h-7 px-2.5 gap-1.5 text-xs rounded-lg',
-                'text-muted-foreground hover:text-primary hover:bg-primary/10',
-                'border border-transparent hover:border-primary/20',
-                'transition-all duration-200',
-                isEnhancingImage && 'text-primary bg-primary/5 border-primary/20',
-                imageEnhanceReady && 'text-primary/70 border-primary/15'
-              )}
-              title={
-                hasReferenceImage
-                  ? 'Analyze reference image and enhance prompt'
-                  : 'Upload an image to analyze and enhance prompt'
-              }
-            >
-              {isEnhancingImage ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <ScanSearch className="h-3 w-3" />
-              )}
-              <span>
-                {isEnhancingImage
-                  ? 'Analyzing…'
-                  : hasReferenceImage
-                  ? 'Enhance from Ref'
-                  : 'Enhance from Image'}
-              </span>
-            </Button>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Hidden file input for image selection */}

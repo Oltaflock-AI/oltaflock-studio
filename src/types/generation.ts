@@ -1,5 +1,5 @@
-// Generation Mode - includes 'image-to-image' now
-export type GenerationMode = 'image' | 'video' | 'image-to-image';
+// Generation Mode - includes 'image-to-image' and 'image-to-video'
+export type GenerationMode = 'image' | 'video' | 'image-to-image' | 'image-to-video';
 
 // Image Models - Split Flux into Flex and Flex Pro
 export type ImageModel = 'nano-banana-pro' | 'seedream-4.5' | 'flux-flex' | 'flux-flex-pro' | 'gpt-4o' | 'z-image';
@@ -10,11 +10,14 @@ export type VideoModel = 'veo-3.1' | 'sora-2-pro' | 'kling-2.6' | 'seedance-1.0'
 // Image to Image Models
 export type ImageToImageModel = 'nano-banana-pro-i2i' | 'seedream-4.5-edit' | 'flux-flex-i2i' | 'flux-pro-i2i' | 'qwen-image-edit';
 
-// All Models
-export type Model = ImageModel | VideoModel | ImageToImageModel;
+// Image to Video Models
+export type ImageToVideoModel = 'kling-2.6-i2v' | 'sora-2-pro-i2v' | 'veo-3.1-i2v' | 'seedance-1.0-i2v';
 
-// Generation Types - now includes image-to-image
-export type GenerationType = 'text-to-image' | 'text-to-video' | 'image-to-image';
+// All Models
+export type Model = ImageModel | VideoModel | ImageToImageModel | ImageToVideoModel;
+
+// Generation Types - now includes image-to-video
+export type GenerationType = 'text-to-image' | 'text-to-video' | 'image-to-image' | 'image-to-video';
 
 // Model API name mapping for webhook payload
 export const MODEL_API_NAMES: Record<Model, string> = {
@@ -37,6 +40,11 @@ export const MODEL_API_NAMES: Record<Model, string> = {
   'flux-flex-i2i': 'flux-2/flex-image-to-image',
   'flux-pro-i2i': 'flux-2/pro-image-to-image',
   'qwen-image-edit': 'qwen/image-edit',
+  // Image-to-Video models
+  'kling-2.6-i2v': 'kling-2.6/image-to-video',
+  'sora-2-pro-i2v': 'sora-2-pro-image-to-video',
+  'veo-3.1-i2v': 'veo-3.1-i2v',
+  'seedance-1.0-i2v': 'bytedance/v1-pro-image-to-video',
 };
 
 // Model Configurations
@@ -365,13 +373,43 @@ export const IMAGE_TO_IMAGE_MODELS: ModelConfig[] = [
   },
 ];
 
-export const ALL_MODELS = [...IMAGE_MODELS, ...VIDEO_MODELS, ...IMAGE_TO_IMAGE_MODELS];
+// Image-to-Video Models
+export const IMAGE_TO_VIDEO_MODELS: ModelConfig[] = [
+  {
+    id: 'kling-2.6-i2v',
+    displayName: 'Kling 2.6',
+    mode: 'image-to-video',
+    generationTypes: ['image-to-video'],
+  },
+  {
+    id: 'sora-2-pro-i2v',
+    displayName: 'Sora 2 Pro',
+    mode: 'image-to-video',
+    generationTypes: ['image-to-video'],
+  },
+  {
+    id: 'veo-3.1-i2v',
+    displayName: 'Veo 3.1',
+    mode: 'image-to-video',
+    generationTypes: ['image-to-video'],
+    variants: ['veo3_fast', 'veo3_quality'],
+  },
+  {
+    id: 'seedance-1.0-i2v',
+    displayName: 'Seedance 1.0',
+    mode: 'image-to-video',
+    generationTypes: ['image-to-video'],
+  },
+];
+
+export const ALL_MODELS = [...IMAGE_MODELS, ...VIDEO_MODELS, ...IMAGE_TO_IMAGE_MODELS, ...IMAGE_TO_VIDEO_MODELS];
 
 // Generation Type Labels
 export const TYPE_LABELS: Record<GenerationType, string> = {
   'text-to-image': 'Text to Image',
   'text-to-video': 'Text to Video',
   'image-to-image': 'Image to Image',
+  'image-to-video': 'Image to Video',
 };
 
 // Status Labels

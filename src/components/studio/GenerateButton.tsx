@@ -39,7 +39,7 @@ export function GenerateButton() {
   const modelConfig = ALL_MODELS.find((m) => m.id === selectedModel);
 
   // Image-to-Image requires uploaded images
-  const hasRequiredImages = mode === 'image-to-image' ? uploadedImageUrls.length > 0 : true;
+  const hasRequiredImages = (mode === 'image-to-image' || mode === 'image-to-video') ? uploadedImageUrls.length > 0 : true;
   
   // Validate specific model requirements for Image-to-Image
   const validateImageRequirements = () => {
@@ -136,7 +136,10 @@ export function GenerateButton() {
     const apiModelName = MODEL_API_NAMES[selectedModel as Model];
 
     // Determine the correct type for database
-    const dbType = mode === 'image-to-image' ? 'image' : mode;
+    const dbType =
+      mode === 'image-to-image' ? 'image'
+      : mode === 'image-to-video' ? 'video'
+      : mode;
 
     // Calculate cost for this generation
     const cost = calculateCost(selectedModel, modelParams);
@@ -162,7 +165,7 @@ export function GenerateButton() {
         error_message: null,
         model_params: {
           ...modelParams,
-          image_urls: mode === 'image-to-image' ? uploadedImageUrls : undefined,
+          image_urls: (mode === 'image-to-image' || mode === 'image-to-video') ? uploadedImageUrls : undefined,
           cost_credits: cost.credits,
           cost_usd: cost.usd,
         },
@@ -221,7 +224,7 @@ export function GenerateButton() {
         controls: cleanControls,
         generationId,
         enhancePromptEnabled,
-        ...(mode === 'image-to-image' && uploadedImageUrls.length > 0
+        ...((mode === 'image-to-image' || mode === 'image-to-video') && uploadedImageUrls.length > 0
           ? { imageUrls: uploadedImageUrls }
           : {}),
       };
@@ -255,7 +258,7 @@ export function GenerateButton() {
           setPendingRating(true);
         }
         toast.success('Generation complete');
-        if (mode === 'image-to-image') {
+        if (mode === 'image-to-image' || mode === 'image-to-video') {
           clearUploadedImageUrls();
         }
       } else if (data?.task_id) {
@@ -469,7 +472,7 @@ export function GenerateButton() {
               className="flex items-center"
             >
               <Play className="h-4 w-4 mr-2.5 fill-current" />
-              {mode === 'image-to-image' ? 'Transform' : 'Generate'}
+              {mode === 'image-to-image' ? 'Transform' : mode === 'image-to-video' ? 'Animate' : 'Generate'}
             </motion.span>
           )}
         </AnimatePresence>

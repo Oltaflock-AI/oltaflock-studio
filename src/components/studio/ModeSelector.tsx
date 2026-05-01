@@ -24,11 +24,11 @@ const modes: ModeOption[] = [
     icon: ImagePlus, 
     enabled: true,
   },
-  { 
-    value: 'image-to-video', 
-    label: 'Image → Video', 
-    icon: Film, 
-    enabled: false,
+  {
+    value: 'image-to-video',
+    label: 'Image → Video',
+    icon: Film,
+    enabled: true,
   },
   { 
     value: 'text-to-video', 
@@ -47,16 +47,18 @@ export function ModeSelector() {
     if (mode === 'image' && generationType === 'text-to-image') return 'text-to-image';
     if (mode === 'video' && generationType === 'text-to-video') return 'text-to-video';
     if (mode === 'image-to-image' && generationType === 'image-to-image') return 'image-to-image';
+    if (mode === 'image-to-video' && generationType === 'image-to-video') return 'image-to-video';
     // Default based on mode
     if (mode === 'image') return 'text-to-image';
     if (mode === 'video') return 'text-to-video';
     if (mode === 'image-to-image') return 'image-to-image';
+    if (mode === 'image-to-video') return 'image-to-video';
     return 'text-to-image';
   };
 
   const handleModeClick = (option: ModeOption) => {
     if (!option.enabled || pendingRating || isGenerating) return;
-    
+
     if (option.value === 'text-to-image') {
       setMode('image');
       setGenerationType('text-to-image');
@@ -66,6 +68,9 @@ export function ModeSelector() {
     } else if (option.value === 'text-to-video') {
       setMode('video');
       setGenerationType('text-to-video');
+    } else if (option.value === 'image-to-video') {
+      setMode('image-to-video');
+      setGenerationType('image-to-video');
     }
   };
 

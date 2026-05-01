@@ -109,7 +109,10 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setMode: (mode) => set({ 
     mode, 
     selectedModel: null, 
-    generationType: mode === 'image' ? 'text-to-image' : mode === 'video' ? 'text-to-video' : 'image-to-image',
+    generationType: mode === 'image' ? 'text-to-image'
+      : mode === 'video' ? 'text-to-video'
+      : mode === 'image-to-image' ? 'image-to-image'
+      : 'image-to-video',
     controls: {},
     referenceFiles: [],
     uploadedImageUrls: [],

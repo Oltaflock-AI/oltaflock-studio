@@ -276,6 +276,77 @@ export const MODEL_ROUTES: Record<string, ModelRoute> = {
       },
     }),
   },
+
+  // ─── Image-to-Video ──────────────────────────────────
+  'kling-2.6-i2v': {
+    endpoint: KIE_CREATE_TASK,
+    kieModel: 'kling-2.6/image-to-video',
+    type: 'video',
+    persona: 'Kling 2.6 image-to-video, animates static images with dynamic motion and sound support',
+    buildPayload: (prompt, controls, callbackUrl, imageUrls) => ({
+      model: 'kling-2.6/image-to-video',
+      callBackUrl: callbackUrl,
+      input: {
+        prompt,
+        image_urls: imageUrls || [],
+        sound: controls.sound ?? false,
+        aspect_ratio: controls.aspectRatio || '1:1',
+        duration: String(controls.duration || 5),
+      },
+    }),
+  },
+  'sora-2-pro-i2v': {
+    endpoint: KIE_CREATE_TASK,
+    kieModel: 'sora-2-pro-image-to-video',
+    type: 'video',
+    persona: 'Sora 2 Pro image-to-video, transforms images into high-fidelity cinematic motion',
+    buildPayload: (prompt, controls, callbackUrl, imageUrls) => ({
+      model: 'sora-2-pro-image-to-video',
+      callBackUrl: callbackUrl,
+      input: {
+        prompt,
+        image_url: imageUrls?.[0] || '',
+        aspect_ratio: controls.aspectRatio || 'landscape',
+        n_frames: String(controls.duration || 10),
+        size: controls.quality || 'high',
+        remove_watermark: controls.removeWatermark ?? true,
+      },
+    }),
+  },
+  'veo-3.1-i2v': {
+    endpoint: KIE_VEO_GENERATE,
+    kieModel: null,
+    type: 'video',
+    persona: 'Veo 3.1 image-to-video, animates images with realistic motion and camera dynamics',
+    buildPayload: (prompt, controls, callbackUrl, imageUrls) => ({
+      prompt,
+      model: controls.variant || 'veo3_fast',
+      imageUrls: imageUrls || [],
+      callBackUrl: callbackUrl,
+      aspect_ratio: controls.aspectRatio || '16:9',
+      enableFallback: false,
+      enableTranslation: true,
+      generationType: 'IMAGE_2_VIDEO',
+    }),
+  },
+  'seedance-1.0-i2v': {
+    endpoint: KIE_CREATE_TASK,
+    kieModel: 'bytedance/v1-pro-image-to-video',
+    type: 'video',
+    persona: 'Seedance 1.0 image-to-video, motion-focused for animating images with fluid movement',
+    buildPayload: (prompt, controls, callbackUrl, imageUrls) => ({
+      model: 'bytedance/v1-pro-image-to-video',
+      callBackUrl: callbackUrl,
+      input: {
+        prompt,
+        image_url: imageUrls?.[0] || '',
+        aspect_ratio: controls.aspectRatio || '16:9',
+        resolution: controls.resolution || '720p',
+        duration: String(controls.duration || 5),
+        camera_fixed: controls.cameraFixed ?? false,
+      },
+    }),
+  },
 };
 
 // No longer needed - buildPayload handles everything per-model

@@ -1,5 +1,5 @@
 import { useGenerationStore } from '@/store/generationStore';
-import { IMAGE_MODELS, VIDEO_MODELS, IMAGE_TO_IMAGE_MODELS, type Model, type ModelConfig } from '@/types/generation';
+import { IMAGE_MODELS, VIDEO_MODELS, IMAGE_TO_IMAGE_MODELS, IMAGE_TO_VIDEO_MODELS, type Model, type ModelConfig } from '@/types/generation';
 import {
   Select,
   SelectContent,
@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Image as ImageIcon, Video, ImagePlus } from 'lucide-react';
+import { Image as ImageIcon, Video, ImagePlus, Film } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const MODEL_DESCRIPTIONS: Record<Model, string> = {
@@ -33,6 +33,11 @@ const MODEL_DESCRIPTIONS: Record<Model, string> = {
   'flux-flex-i2i': 'Transform images with Flux Flex',
   'flux-pro-i2i': 'High-quality image transformation',
   'qwen-image-edit': 'Advanced image editing with Qwen',
+  // Image-to-Video
+  'kling-2.6-i2v': 'Animate images with Kling 2.6',
+  'sora-2-pro-i2v': 'Cinematic image-to-video with Sora 2 Pro',
+  'veo-3.1-i2v': 'Animate images with Veo 3.1',
+  'seedance-1.0-i2v': 'Motion-focused image-to-video',
 };
 
 export function ModelSelector() {
@@ -57,6 +62,7 @@ export function ModelSelector() {
     if (mode === 'image') return IMAGE_MODELS;
     if (mode === 'video') return VIDEO_MODELS;
     if (mode === 'image-to-image') return IMAGE_TO_IMAGE_MODELS;
+    if (mode === 'image-to-video') return IMAGE_TO_VIDEO_MODELS;
     return IMAGE_MODELS;
   };
 
@@ -67,6 +73,7 @@ export function ModelSelector() {
     if (mode === 'image') return { icon: ImageIcon, label: 'Image Models' };
     if (mode === 'video') return { icon: Video, label: 'Video Models' };
     if (mode === 'image-to-image') return { icon: ImagePlus, label: 'Image → Image Models' };
+    if (mode === 'image-to-video') return { icon: Film, label: 'Image → Video Models' };
     return { icon: ImageIcon, label: 'Models' };
   };
 
