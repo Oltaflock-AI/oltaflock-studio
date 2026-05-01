@@ -81,6 +81,12 @@ export default function Auth() {
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!magicLinkEmail.toLowerCase().endsWith('@oltaflock.ai')) {
+      toast.error('Magic link is restricted to @oltaflock.ai email addresses');
+      return;
+    }
+
     setIsSubmitting(true);
     const { error } = await signInWithMagicLink(magicLinkEmail);
     setIsSubmitting(false);
