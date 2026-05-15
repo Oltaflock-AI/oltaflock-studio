@@ -57,7 +57,7 @@ values
     'Studio product shot — clean white',
     'Professional product photograph on a seamless white studio background, soft diffused lighting from above, subtle shadow beneath the product, ultra-sharp focus, e-commerce ready, 8K, photorealistic, centered composition.',
     'product',
-    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80',
+    'https://d8j0ntlcm91z4.cloudfront.net/user_39FTDHJJzxjJhX73f8C5PxDFRyT/hf_20260515_070119_915dc4cd-cd67-434f-b706-c5e8f0eef504.png',
     'image',
     'text-to-image',
     'nano-banana-pro'
@@ -67,7 +67,7 @@ values
     'Lifestyle product on marble',
     'A premium product placed on white Carrara marble countertop with soft morning sunlight streaming from the left, minimal styling, blurred background of a modern kitchen, cinematic depth of field, magazine quality photography.',
     'lifestyle',
-    'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=800&q=80',
+    'https://d8j0ntlcm91z4.cloudfront.net/user_39FTDHJJzxjJhX73f8C5PxDFRyT/hf_20260515_070139_4692d8f5-43e4-492b-adc6-81a5a4cba1e1.png',
     'image',
     'text-to-image',
     'seedream-4.5'
@@ -77,7 +77,7 @@ values
     'Editorial portrait — cinematic',
     'Cinematic close-up portrait of a person, dramatic Rembrandt lighting, shallow depth of field, 85mm lens look, neutral background, skin texture sharp, editorial fashion magazine style, color graded warm tones.',
     'portrait',
-    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800&q=80',
+    'https://d8j0ntlcm91z4.cloudfront.net/user_39FTDHJJzxjJhX73f8C5PxDFRyT/hf_20260515_070207_a29b9f4e-7ab0-4090-9f61-53d57c027b80.png',
     'image',
     'text-to-image',
     'nano-banana-pro'
