@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { persistOutput } from '../_shared/persist-output.ts';
 
 // Kie.ai sends callbacks when tasks complete
 // Format: { taskId, state, resultJson, failMsg, ... }
@@ -159,6 +160,14 @@ async function processCallback(
       } catch (creditError) {
         console.error('[callback] Credit deduction failed:', creditError);
       }
+    }
+  }
+
+  // Move the output off the provider's temporary URL into R2 (no-op if unconfigured)
+  if (isSuccess && outputUrl) {
+    const persisted = await persistOutput(outputUrl, generation.user_id, generation.id);
+    if (persisted) {
+      await supabase.from('generations').update({ output_url: persisted }).eq('id', generation.id);
     }
   }
 

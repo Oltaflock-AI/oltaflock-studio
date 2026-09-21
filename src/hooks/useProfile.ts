@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { uploadFile } from '@/lib/storage';
 import { toast } from 'sonner';
 
 interface Profile {
@@ -61,22 +62,11 @@ export function useProfile() {
       if (!user) throw new Error('Not authenticated');
 
       const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-      const path = `${user.id}/avatar.${ext}`;
 
-      // Upload to avatars bucket
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, file, { upsert: true, contentType: file.type });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(path);
+      const publicUrl = await uploadFile('avatars', user.id, `avatar.${ext}`, file, { upsert: true });
 
       // Add cache-buster to force refresh
-      const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      const avatarUrl = `${publicUrl}?t=${Date.now()}`;
 
       // Update profile
       const { error: profileError } = await supabase

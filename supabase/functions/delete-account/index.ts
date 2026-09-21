@@ -57,6 +57,16 @@ serve(async (req) => {
       }
     }
 
+    // 1b. Delete the user's files in R2 (uploads, avatars, generations)
+    const storageApiUrl = Deno.env.get('STORAGE_API_URL');
+    if (storageApiUrl) {
+      const r2Res = await fetch(`${storageApiUrl.replace(/\/$/, '')}/u/me`, {
+        method: 'DELETE',
+        headers: { Authorization: authHeader },
+      });
+      if (!r2Res.ok) console.error('R2 purge failed:', r2Res.status, await r2Res.text());
+    }
+
     // 2. Delete user data from tables (cascade handles most, but be explicit)
     // credit_logs
     await adminClient.from('credit_logs').delete().eq('user_id', userId);

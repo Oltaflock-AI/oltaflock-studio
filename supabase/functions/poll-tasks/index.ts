@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.91.0";
+import { persistOutput } from "../_shared/persist-output.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '*',
@@ -96,6 +97,15 @@ serve(async (req) => {
           }).eq('id', task.id);
 
           await maybeDeductCredits(supabase, task);
+
+          // Move the output off the provider's temporary URL into R2 (no-op if unconfigured)
+          if (outputUrl) {
+            const persisted = await persistOutput(outputUrl, task.user_id, task.id);
+            if (persisted) {
+              await supabase.from('generations').update({ output_url: persisted }).eq('id', task.id);
+            }
+          }
+
           completed++;
           console.log(`[poll] ${task.external_task_id} → success`);
 

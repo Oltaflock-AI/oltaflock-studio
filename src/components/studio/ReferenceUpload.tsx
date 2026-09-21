@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useGenerationStore } from '@/store/generationStore';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { uploadFile } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
@@ -85,30 +85,19 @@ export function ReferenceUpload() {
         const timestamp = Date.now();
         const random = Math.random().toString(36).substring(2, 8);
         const ext = file.name.split('.').pop() || 'png';
-        const filePath = user ? `${user.id}/${timestamp}_${random}.${ext}` : `${timestamp}_${random}.${ext}`;
+        if (!user) {
+          toast.error('Sign in to upload images');
+          break;
+        }
 
-        // Upload to Supabase Storage (scoped to user folder)
-        const { data, error } = await supabase.storage
-          .from('generation-uploads')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false,
-          });
-        
-        if (error) {
+        try {
+          // Uploaded to the user's own folder
+          const publicUrl = await uploadFile('uploads', user.id, `${timestamp}_${random}.${ext}`, file);
+          addUploadedImageUrl(publicUrl);
+          addReferenceFiles([file]);
+        } catch (error) {
           console.error('Upload error:', error);
           toast.error(`Failed to upload ${file.name}`);
-          continue;
-        }
-        
-        // Get public URL
-        const { data: publicUrlData } = supabase.storage
-          .from('generation-uploads')
-          .getPublicUrl(data.path);
-        
-        if (publicUrlData?.publicUrl) {
-          addUploadedImageUrl(publicUrlData.publicUrl);
-          addReferenceFiles([file]);
         }
       }
       

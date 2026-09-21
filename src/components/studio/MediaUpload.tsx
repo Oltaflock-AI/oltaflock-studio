@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { uploadFile } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
 import { Upload, X, Loader2, Image as ImageIcon, Film, Music } from 'lucide-react';
 import { toast } from 'sonner';
@@ -81,23 +81,17 @@ export function MediaUpload({
         const ts = Date.now();
         const rand = Math.random().toString(36).substring(2, 8);
         const ext = file.name.split('.').pop() || 'bin';
-        const path = user ? `${user.id}/${ts}_${rand}.${ext}` : `${ts}_${rand}.${ext}`;
-
-        const { data, error } = await supabase.storage
-          .from('generation-uploads')
-          .upload(path, file, { cacheControl: '3600', upsert: false });
-
-        if (error) {
-          console.error('Upload error:', error);
-          toast.error(`Failed: ${file.name}`);
-          continue;
+        if (!user) {
+          toast.error('Sign in to upload files');
+          break;
         }
 
-        const { data: pub } = supabase.storage
-          .from('generation-uploads')
-          .getPublicUrl(data.path);
-
-        if (pub?.publicUrl) newUrls.push(pub.publicUrl);
+        try {
+          newUrls.push(await uploadFile('uploads', user.id, `${ts}_${rand}.${ext}`, file));
+        } catch (error) {
+          console.error('Upload error:', error);
+          toast.error(`Failed: ${file.name}`);
+        }
       }
 
       if (newUrls.length > 0) {
