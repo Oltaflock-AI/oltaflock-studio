@@ -60,6 +60,20 @@ export default {
   				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
+  			},
+  			// These CSS vars existed in index.css but were never registered as
+  			// Tailwind colors, so bg-success/text-warning/etc silently did nothing.
+  			success: {
+  				DEFAULT: 'hsl(var(--success))',
+  				foreground: 'hsl(var(--success-foreground))'
+  			},
+  			warning: {
+  				DEFAULT: 'hsl(var(--warning))',
+  				foreground: 'hsl(var(--warning-foreground))'
+  			},
+  			info: {
+  				DEFAULT: 'hsl(var(--info))',
+  				foreground: 'hsl(var(--info-foreground))'
   			}
   		},
   		borderRadius: {
@@ -103,7 +117,7 @@ export default {
   		},
   		fontFamily: {
   			sans: [
-  				'Inter',
+  				'IBM Plex Sans',
   				'ui-sans-serif',
   				'system-ui',
   				'-apple-system',
@@ -115,8 +129,11 @@ export default {
   				'Noto Sans',
   				'sans-serif'
   			],
+  			// Display/headline face — used for page titles and the wordmark, echoing
+  			// the brand kit's serif logotype (Roxie Rossa isn't confirmed as a
+  			// licensed web font, so Fraunces stands in for it).
   			serif: [
-  				'EB Garamond',
+  				'Fraunces',
   				'ui-serif',
   				'Georgia',
   				'Cambria',

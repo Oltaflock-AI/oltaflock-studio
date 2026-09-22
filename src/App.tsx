@@ -14,6 +14,9 @@ const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Library = lazy(() => import("./pages/Library"));
+const Presets = lazy(() => import("./pages/Presets"));
+const GenerationDetail = lazy(() => import("./pages/GenerationDetail"));
+const Assistant = lazy(() => import("./pages/Assistant"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -59,6 +62,30 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <Library />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/presets"
+                  element={
+                    <ProtectedRoute>
+                      <Presets />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/generation/:id"
+                  element={
+                    <ProtectedRoute>
+                      <GenerationDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/assistant"
+                  element={
+                    <ProtectedRoute>
+                      <Assistant />
                     </ProtectedRoute>
                   }
                 />
