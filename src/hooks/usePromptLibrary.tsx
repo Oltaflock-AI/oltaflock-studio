@@ -1,9 +1,14 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { Json } from '@/integrations/supabase/types';
-import type { LibraryItem, LibraryItemInsert } from '@/types/library';
+import {
+  normalizeCollectionName,
+  type LibraryCollection,
+  type LibraryItem,
+  type LibraryItemInsert,
+} from '@/types/library';
 import type { DbGeneration } from '@/hooks/useGenerations';
 import type { GenerationMode, GenerationType } from '@/types/generation';
 
@@ -77,6 +82,11 @@ export function usePromptLibrary() {
         model: input.model,
         model_params: (input.model_params ?? null) as Json | null,
         source_generation_id: input.source_generation_id ?? null,
+        // Only send `collection` when set, so saving keeps working even before the
+        // library_collections migration has been applied.
+        ...(normalizeCollectionName(input.collection)
+          ? { collection: normalizeCollectionName(input.collection) }
+          : {}),
       };
 
       const { data, error } = await supabase
@@ -109,7 +119,60 @@ export function usePromptLibrary() {
     },
   });
 
-  const items = libraryQuery.data ?? [];
+  const setCollectionMutation = useMutation({
+    mutationFn: async ({ ids, collection }: { ids: string[]; collection: string | null }) => {
+      if (!user?.id) throw new Error('User not authenticated');
+      if (ids.length === 0) return;
+      const { error } = await supabase
+        .from(TABLE)
+        .update({ collection: normalizeCollectionName(collection) } as never)
+        .in('id', ids)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prompt_library', user?.id] });
+    },
+  });
+
+  const items = useMemo(() => libraryQuery.data ?? [], [libraryQuery.data]);
+
+  /** True when the current user owns this item (can edit/delete/move it). */
+  const isOwnItem = useCallback(
+    (item: LibraryItem) => !item.is_curated && !!user?.id && item.user_id === user.id,
+    [user?.id]
+  );
+
+  /** Distinct collections across the current user's own items, with counts, sorted by name. */
+  const collections = useMemo<LibraryCollection[]>(() => {
+    const counts = new Map<string, number>();
+    for (const it of items) {
+      if (!isOwnItem(it)) continue;
+      const name = normalizeCollectionName(it.collection);
+      if (!name) continue;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+    return Array.from(counts, ([name, count]) => ({ name, count })).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [items, isOwnItem]);
+
+  /**
+   * For an item the user doesn't own (curated, or shared by a teammate), returns the
+   * user's own saved copy of it, if any.
+   */
+  const findSavedCopy = useCallback(
+    (item: LibraryItem): LibraryItem | undefined =>
+      items.find(
+        (it) =>
+          it.id !== item.id &&
+          isOwnItem(it) &&
+          it.prompt === item.prompt &&
+          it.thumbnail_url === item.thumbnail_url
+      ),
+    [items, isOwnItem]
+  );
 
   const findByGenerationId = useCallback(
     (genId: string): LibraryItem | undefined =>
@@ -142,6 +205,42 @@ export function usePromptLibrary() {
     [items, saveToLibrary, deleteFromLibrary]
   );
 
+  /** Copies an item the user doesn't own into their library (a "star" on a curated card). */
+  const saveCopy = useCallback(
+    (item: LibraryItem, collection?: string | null) =>
+      saveToLibrary.mutateAsync({
+        title: item.title,
+        prompt: item.prompt,
+        category: item.category,
+        thumbnail_url: item.thumbnail_url,
+        mode: item.mode,
+        generation_type: item.generation_type,
+        model: item.model,
+        model_params: item.model_params ?? null,
+        source_generation_id: null,
+        collection: collection ?? null,
+      }),
+    [saveToLibrary]
+  );
+
+  /** Re-inserts a previously deleted own item (used for "Undo" after un-starring). */
+  const restoreItem = useCallback(
+    (item: LibraryItem) =>
+      saveToLibrary.mutateAsync({
+        title: item.title,
+        prompt: item.prompt,
+        category: item.category,
+        thumbnail_url: item.thumbnail_url,
+        mode: item.mode,
+        generation_type: item.generation_type,
+        model: item.model,
+        model_params: item.model_params ?? null,
+        source_generation_id: item.source_generation_id,
+        collection: item.collection ?? null,
+      }),
+    [saveToLibrary]
+  );
+
   return {
     items,
     isLoading: libraryQuery.isLoading,
@@ -154,5 +253,13 @@ export function usePromptLibrary() {
     findByGenerationId,
     quickStar,
     isStarToggling: saveToLibrary.isPending || deleteFromLibrary.isPending,
+    isOwnItem,
+    collections,
+    setCollection: (ids: string[], collection: string | null) =>
+      setCollectionMutation.mutateAsync({ ids, collection }),
+    isSettingCollection: setCollectionMutation.isPending,
+    findSavedCopy,
+    saveCopy,
+    restoreItem,
   };
 }

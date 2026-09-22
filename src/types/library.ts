@@ -30,7 +30,22 @@ export interface LibraryItem {
   model: string;
   model_params: Record<string, unknown> | null;
   source_generation_id: string | null;
+  /** Free-text collection label (null = not in a collection). Only set on a user's own items. */
+  collection?: string | null;
   created_at: string;
+}
+
+export interface LibraryCollection {
+  name: string;
+  count: number;
+}
+
+export const MAX_COLLECTION_NAME_LENGTH = 60;
+
+/** Trims and collapses whitespace; returns null for an empty name. */
+export function normalizeCollectionName(name: string | null | undefined): string | null {
+  const clean = (name ?? '').trim().replace(/\s+/g, ' ').slice(0, MAX_COLLECTION_NAME_LENGTH);
+  return clean.length > 0 ? clean : null;
 }
 
 export interface LibraryItemInsert {
@@ -43,4 +58,5 @@ export interface LibraryItemInsert {
   model: Model | string;
   model_params?: Record<string, unknown> | null;
   source_generation_id?: string | null;
+  collection?: string | null;
 }
