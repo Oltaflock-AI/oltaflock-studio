@@ -18,7 +18,7 @@ import { resolveBadgeModelId } from '@/components/studio/resolveBadgeModelId';
 const statusDotColors: Record<GenerationStatus, string> = {
   queued: 'bg-muted-foreground animate-pulse',
   running: 'bg-primary animate-pulse',
-  done: 'bg-green-500',
+  done: 'bg-success',
   error: 'bg-destructive',
 };
 

@@ -20,7 +20,7 @@ const statusLabels: Record<GenerationStatus, string> = {
 const statusStyles: Record<GenerationStatus, string> = {
   queued: 'bg-muted text-muted-foreground',
   running: 'bg-primary/10 text-primary',
-  done: 'bg-green-500/10 text-green-600 dark:text-green-400',
+  done: 'bg-success/10 text-success',
   error: 'bg-destructive/10 text-destructive',
 };
 

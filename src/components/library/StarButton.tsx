@@ -54,7 +54,7 @@ export function StarButton({
             iconDim,
             'transition-colors',
             starred
-              ? 'fill-yellow-400 text-yellow-500'
+              ? 'fill-warning text-warning'
               : 'text-muted-foreground hover:text-foreground'
           )}
         />

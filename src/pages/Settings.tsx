@@ -10,7 +10,7 @@ import { PlanSection } from '@/components/settings/PlanSection';
 const Settings = () => {
   return (
     <AppShell>
-      <div className="mx-auto w-full max-w-[1200px] px-4 py-7 sm:px-8 flex flex-col gap-5">
+      <div className="mx-auto w-full max-w-[1520px] px-4 py-7 sm:px-8 flex flex-col gap-5">
         <header className="flex flex-col gap-0.5">
           <h1 className="font-serif text-[28px] font-medium leading-tight">Settings</h1>
           <p className="text-[13px] text-muted-foreground">Profile, security and credits</p>

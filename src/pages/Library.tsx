@@ -148,7 +148,7 @@ export default function Library() {
   return (
     <AppShell scrollableContent={false}>
       <AnimatedPage className="h-full">
-        <div className="mx-auto flex h-full w-full max-w-[1280px] flex-col gap-4 overflow-hidden px-8 pt-7">
+        <div className="mx-auto flex h-full w-full max-w-[1680px] flex-col gap-4 overflow-hidden px-8 pt-7">
           {/* Header */}
           <header className="flex shrink-0 flex-wrap items-center justify-between gap-3">
             <div className="flex flex-col gap-0.5">
@@ -254,7 +254,7 @@ export default function Library() {
             ) : (
               <motion.div
                 layout
-                className="grid grid-cols-1 gap-4 pb-8 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+                className="grid grid-cols-1 gap-4 pb-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
               >
                 <AnimatePresence mode="popLayout">
                   {filtered.map((item) => {

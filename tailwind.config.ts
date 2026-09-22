@@ -13,6 +13,16 @@ export default {
   		}
   	},
   	extend: {
+  		// Bump the base readable sizes up roughly one step for legibility.
+  		// `xs`/`sm`/`base` are used pervasively for primary content (labels,
+  		// descriptions, body copy) in this design, not just captions, so a
+  		// small scale-wide nudge reads better without touching spacing (the
+  		// spacing scale is separate, so layout density is unaffected).
+  		fontSize: {
+  			xs: ['0.8125rem', { lineHeight: '1.125rem' }],
+  			sm: ['0.9375rem', { lineHeight: '1.375rem' }],
+  			base: ['1.0625rem', { lineHeight: '1.625rem' }],
+  		},
   		letterSpacing: {
   			tighter: '-0.02em',
   			tight: '-0.01em',

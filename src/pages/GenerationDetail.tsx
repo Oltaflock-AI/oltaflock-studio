@@ -308,7 +308,7 @@ function GenerationDetailView({ generation }: { generation: DbGeneration }) {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1320px] px-5 py-6 md:px-8 md:py-7 flex flex-col gap-5">
+    <div className="mx-auto w-full max-w-[1600px] px-5 py-6 md:px-8 md:py-7 flex flex-col gap-5">
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb">
         <ol className="flex items-center gap-2 text-[13px] text-muted-foreground min-w-0">
@@ -724,7 +724,7 @@ function StateMessage({
 function DetailSkeleton() {
   return (
     <div
-      className="mx-auto w-full max-w-[1320px] px-5 py-6 md:px-8 md:py-7 flex flex-col gap-5"
+      className="mx-auto w-full max-w-[1600px] px-5 py-6 md:px-8 md:py-7 flex flex-col gap-5"
       aria-busy="true"
       aria-label="Loading generation"
     >

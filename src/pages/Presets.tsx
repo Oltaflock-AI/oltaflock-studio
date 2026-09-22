@@ -102,7 +102,7 @@ export default function Presets() {
 
   return (
     <AppShell>
-      <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-4 px-4 py-7 sm:px-8">
+      <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4 px-4 py-7 sm:px-8">
         {/* Header */}
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-col gap-0.5">
@@ -238,7 +238,7 @@ export default function Presets() {
             )}
 
             {visible.length > 0 ? (
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {visible.map((item) => (
                   <PresetCard
                     key={item.id}
@@ -281,7 +281,7 @@ function LoadingState() {
   return (
     <div className="flex flex-col gap-4" aria-busy="true" aria-label="Loading presets">
       <Skeleton className="h-[168px] w-full rounded-[20px]" />
-      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {Array.from({ length: 8 }).map((_, i) => (
           <Skeleton key={i} className="aspect-[16/10] w-full rounded-[15px]" />
         ))}

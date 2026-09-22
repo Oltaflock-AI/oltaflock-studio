@@ -93,7 +93,7 @@ export function AppShell({ children, scrollableContent = true }: AppShellProps) 
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-[11px] bg-warning/10 border border-warning/25">
             <Coins className="w-[15px] h-[15px] text-warning shrink-0" strokeWidth={2} />
-            <span className="text-xs text-warning-foreground/80">
+            <span className="text-xs text-warning">
               {balance != null ? `${Math.round(balance).toLocaleString()} credits` : 'Loading credits…'}
             </span>
           </div>
