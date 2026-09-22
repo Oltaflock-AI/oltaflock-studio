@@ -14,7 +14,7 @@ export function CostPreview() {
 
   return (
     <div className={cn(
-      "flex items-center justify-between py-2.5 px-3 rounded-lg",
+      "flex items-center justify-between py-2.5 px-3 rounded-xl",
       "bg-muted/30 border border-border/50",
       insufficientCredits && "border-destructive/50 bg-destructive/5"
     )}>

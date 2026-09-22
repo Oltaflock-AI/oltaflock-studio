@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { useMemo } from 'react';
 import { formatCredits } from '@/config/pricing';
 import { StarButton } from '@/components/library/StarButton';
+import { ModelBadge } from '@/components/studio/ModelBadge';
+import { resolveBadgeModelId } from '@/components/studio/resolveBadgeModelId';
 
 const statusDotColors: Record<GenerationStatus, string> = {
   queued: 'bg-muted-foreground animate-pulse',
@@ -93,12 +95,24 @@ export function RequestsPanel() {
               key={generation.id}
               variants={listItem}
               layout
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
+              aria-label={`Show request: ${promptPreview}`}
               onClick={() => handleSelectGeneration(generation)}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleSelectGeneration(generation);
+                }
+              }}
               className={cn(
                 'px-3 py-2.5 rounded-xl cursor-pointer transition-smooth group',
-                isSelected 
-                  ? 'bg-primary/8 ring-1 ring-primary/20' 
-                  : 'hover:bg-accent/40'
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                isSelected
+                  ? 'bg-primary/10 ring-1 ring-primary/25'
+                  : 'hover:bg-muted/70'
               )}
             >
               {/* Header: Status + Time */}
@@ -130,7 +144,8 @@ export function RequestsPanel() {
               {/* Footer: Model name + Cost + Delete */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">
+                  <ModelBadge modelId={resolveBadgeModelId(generation.model)} size="sm" />
+                  <span className="text-xs text-muted-foreground truncate max-w-[110px]">
                     {generation.model}
                   </span>
                   {(generation.model_params as Record<string, unknown> | null)?.cost_credits && (
@@ -146,9 +161,10 @@ export function RequestsPanel() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    className="h-5 w-5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0"
                     onClick={(e) => handleDelete(e, generation.id)}
                     disabled={isActive}
+                    aria-label="Delete request"
                   >
                     <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive transition-colors" />
                   </Button>

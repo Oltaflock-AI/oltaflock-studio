@@ -8,7 +8,7 @@ import { ALL_MODELS, generateJobId, MODEL_API_NAMES } from '@/types/generation';
 import type { Model } from '@/types/generation';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Play, RotateCcw, Loader2 } from 'lucide-react';
+import { Sparkles, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { calculateCost } from '@/config/pricing';
@@ -442,9 +442,10 @@ export function GenerateButton() {
           onClick={handleGenerate}
           disabled={!canGenerate}
           className={cn(
-            "w-full h-12 text-base font-bold tracking-wide",
-            "bg-primary hover:bg-primary/90 text-primary-foreground",
-            "shadow-md hover:shadow-lg transition-all duration-200",
+            "w-full h-12 rounded-xl text-[14px] font-semibold tracking-wide",
+            "bg-primary text-primary-foreground hover:bg-primary hover:brightness-110",
+            "shadow-[0_8px_20px_hsl(var(--primary)/0.3)] hover:shadow-[0_10px_26px_hsl(var(--primary)/0.4)]",
+            "transition-all duration-200",
             "disabled:opacity-50 disabled:shadow-none"
           )}
           size="lg"
@@ -471,7 +472,7 @@ export function GenerateButton() {
               transition={{ duration: 0.15 }}
               className="flex items-center"
             >
-              <Play className="h-4 w-4 mr-2.5 fill-current" />
+              <Sparkles className="h-4 w-4 mr-2" />
               {mode === 'image-to-image' ? 'Transform' : mode === 'image-to-video' ? 'Animate' : 'Generate'}
             </motion.span>
           )}

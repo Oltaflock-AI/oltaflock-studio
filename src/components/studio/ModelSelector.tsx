@@ -12,6 +12,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { Image as ImageIcon, Video, ImagePlus, Film } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ModelBadge } from '@/components/studio/ModelBadge';
+import { resolveBadgeModelId } from '@/components/studio/resolveBadgeModelId';
 
 const MODEL_DESCRIPTIONS: Record<Model, string> = {
   // Text-to-Image
@@ -64,6 +66,7 @@ export function ModelSelector() {
   };
 
   const modelsToDisplay = getModelsForMode();
+  const selectedConfig = modelsToDisplay.find((m) => m.id === selectedModel);
 
   // Get icon and label for current mode
   const getModeInfo = () => {
@@ -87,14 +90,23 @@ export function ModelSelector() {
         onValueChange={handleModelChange}
         disabled={pendingRating}
       >
-        <SelectTrigger className={cn(
-          "w-full bg-background border-border/60 h-11 rounded-lg",
-          "hover:border-border transition-smooth",
-          "[&>span]:truncate [&>span]:block [&>span]:max-w-[200px]"
-        )}>
-          <SelectValue placeholder="Select model" />
+        <SelectTrigger
+          aria-label="Model"
+          className={cn(
+            "w-full bg-muted/60 border-border/60 h-11 rounded-xl px-3",
+            "hover:border-border hover:bg-muted transition-smooth"
+          )}
+        >
+          <SelectValue placeholder="Select model">
+            {selectedConfig && (
+              <span className="flex items-center gap-2.5 min-w-0">
+                <ModelBadge modelId={resolveBadgeModelId(selectedConfig.id)} size="sm" />
+                <span className="font-medium text-sm truncate">{selectedConfig.displayName}</span>
+              </span>
+            )}
+          </SelectValue>
         </SelectTrigger>
-        <SelectContent className="max-h-[320px]">
+        <SelectContent className="max-h-[360px] rounded-xl">
           <SelectGroup>
             <SelectLabel className="flex items-center gap-2 text-xs text-muted-foreground px-2 py-2">
               <ModeIcon className="h-3.5 w-3.5" />
@@ -104,15 +116,18 @@ export function ModelSelector() {
               <SelectItem 
                 key={model.id} 
                 value={model.id}
-                className="py-3 px-3 cursor-pointer"
+                className="py-2.5 pl-8 pr-3 cursor-pointer rounded-lg"
               >
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium text-sm truncate max-w-[220px]">
-                    {model.displayName}
-                  </span>
-                  <span className="text-xs text-muted-foreground line-clamp-1">
-                    {MODEL_DESCRIPTIONS[model.id]}
-                  </span>
+                <div className="flex items-center gap-3">
+                  <ModelBadge modelId={resolveBadgeModelId(model.id)} />
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="font-medium text-sm truncate max-w-[220px]">
+                      {model.displayName}
+                    </span>
+                    <span className="text-xs text-muted-foreground line-clamp-1">
+                      {MODEL_DESCRIPTIONS[model.id]}
+                    </span>
+                  </div>
                 </div>
               </SelectItem>
             ))}
