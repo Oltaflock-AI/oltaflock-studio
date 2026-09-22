@@ -6,6 +6,8 @@
 // real logos — Kling/ByteDance/xAI/Black Forest Labs' actual trademarks
 // aren't ours to reproduce.
 
+import { ALL_MODELS } from '@/types/generation';
+
 export interface ModelIdentity {
   label: string;
   initials: string;
@@ -30,8 +32,19 @@ export const MODEL_FAMILIES: Record<string, ModelIdentity> = {
 
 const FALLBACK: ModelIdentity = { label: 'Model', initials: '?', badgeBg: '#3A3A40', badgeText: '#F5F5F2' };
 
-/** Strips a -i2i/-i2v suffix and looks up that model's shared visual identity. */
-export function getModelIdentity(modelId: string): ModelIdentity {
-  const family = modelId.replace(/-i2i$|-i2v$/, '');
+// Model ids whose family doesn't follow the plain "-i2i / -i2v suffix" rule.
+const FAMILY_ALIASES: Record<string, string> = {
+  'flux-pro-i2i': 'flux-flex-pro',
+  'seedream-4.5-edit': 'seedream-4.5',
+};
+
+/**
+ * Looks up a model's shared visual identity. Accepts a model id
+ * ('kling-3.0-i2v') or the display name that generation rows store
+ * ('Kling 3.0'), since both appear in real data.
+ */
+export function getModelIdentity(model: string): ModelIdentity {
+  const id = ALL_MODELS.find((m) => m.id === model || m.displayName === model)?.id ?? model;
+  const family = FAMILY_ALIASES[id] ?? id.replace(/-i2i$|-i2v$/, '');
   return MODEL_FAMILIES[family] ?? FALLBACK;
 }

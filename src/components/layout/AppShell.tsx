@@ -1,10 +1,14 @@
 import type { ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Sparkles, LayoutGrid, Layers, Clock, MessageCircle, Settings as SettingsIcon, Coins } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { Sparkles, LayoutGrid, Layers, Clock, MessageCircle, Settings as SettingsIcon, Coins, LogOut } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/studio/ThemeToggle';
+import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useUserCredits } from '@/hooks/useUserCredits';
+import { useGenerationStore } from '@/store/generationStore';
 import { cn } from '@/lib/utils';
 import logoMark from '@/assets/logo-mark.png';
 
@@ -37,7 +41,18 @@ export function AppShell({ children, scrollableContent = true }: AppShellProps) 
   const location = useLocation();
   const { displayName, initials, avatarUrl } = useProfile();
   const { balance } = useUserCredits();
-  const fullPath = location.pathname + location.search;
+  const { signOut } = useAuth();
+  const queryClient = useQueryClient();
+  const { clearAll } = useGenerationStore();
+  const onHistory = location.pathname === '/library' && new URLSearchParams(location.search).get('tab') === 'history';
+
+  const handleSignOut = async () => {
+    // Same order as UserMenu: drop cached user data before the session goes.
+    clearAll();
+    queryClient.clear();
+    await signOut();
+    toast.success('Signed out successfully');
+  };
 
   return (
     <div className="h-screen w-screen flex overflow-hidden bg-background text-foreground">
@@ -52,7 +67,10 @@ export function AppShell({ children, scrollableContent = true }: AppShellProps) 
 
         <nav className="flex flex-col gap-0.5">
           {NAV_ITEMS.map((item) => {
-            const isActive = item.to.includes('?') ? fullPath === item.to : location.pathname === item.to;
+            const isActive =
+              item.label === 'History' ? onHistory
+              : item.label === 'Library' ? location.pathname === '/library' && !onHistory
+              : location.pathname === item.to;
             const Icon = item.icon;
             return (
               <NavLink
@@ -87,6 +105,14 @@ export function AppShell({ children, scrollableContent = true }: AppShellProps) 
             <span className="text-xs text-muted-foreground truncate">{displayName}</span>
             <SettingsIcon className="w-3.5 h-3.5 text-muted-foreground/60 ml-auto shrink-0" />
           </NavLink>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-smooth"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Sign out
+          </button>
         </div>
       </aside>
 
