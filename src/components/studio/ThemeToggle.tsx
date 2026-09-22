@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { iconSwap } from '@/lib/motion';
 import { Button } from '@/components/ui/button';
@@ -9,36 +9,26 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sun, Moon, Monitor } from 'lucide-react';
+import { usePreferencesStore } from '@/store/preferencesStore';
 
-type Theme = 'light' | 'dark' | 'system';
+// Single source of truth for theme state lives in usePreferencesStore
+// (it owns the localStorage persistence and the document.documentElement
+// class toggling). This component is just a UI over it.
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('theme') as Theme) || 'system';
-    }
-    return 'system';
-  });
+  const { theme, setTheme } = usePreferencesStore();
 
+  // Apply once on mount in case the store's initial state predates this
+  // component mounting (e.g. a page rendered before ThemeToggle ever did).
   useEffect(() => {
-    const root = document.documentElement;
-    
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      root.classList.remove('light', 'dark');
-      root.classList.add(systemTheme);
-      localStorage.setItem('theme', 'system');
-    } else {
-      root.classList.remove('light', 'dark');
-      root.classList.add(theme);
-      localStorage.setItem('theme', theme);
-    }
-  }, [theme]);
+    setTheme(theme);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Listen for system theme changes when in system mode
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
+
     const handleChange = () => {
       if (theme === 'system') {
         const root = document.documentElement;
@@ -65,6 +55,7 @@ export function ThemeToggle() {
         <Button
           variant="ghost"
           size="sm"
+          aria-label="Change theme"
           className="h-8 w-8 p-0 hover:bg-accent rounded-lg transition-smooth overflow-hidden"
         >
           <AnimatePresence mode="wait">

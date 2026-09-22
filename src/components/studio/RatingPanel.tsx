@@ -48,7 +48,7 @@ export function RatingPanel() {
       initial="hidden"
       animate="visible"
       exit="exit"
-      className="bg-card/50 border border-primary/20 rounded-xl p-4 backdrop-blur-sm"
+      className="shrink-0 bg-card border border-primary/25 rounded-[18px] px-5 py-4 shadow-[0_2px_10px_rgba(30,25,15,0.06)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]"
     >
       <p className="text-base font-bold text-foreground mb-3">
         Rate this generation

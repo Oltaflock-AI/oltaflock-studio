@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { staggerContainer, staggerItem } from '@/lib/motion';
-import { TiltCard } from '@/components/effects/TiltCard';
+import { ModeSelector } from '@/components/studio/ModeSelector';
 import { ModelSelector } from '@/components/studio/ModelSelector';
 import { PromptInput } from '@/components/studio/PromptInput';
 import { ReferenceUpload } from '@/components/studio/ReferenceUpload';
@@ -9,31 +9,33 @@ import { GenerateButton } from '@/components/studio/GenerateButton';
 import { CostPreview } from '@/components/studio/CostPreview';
 import { PromptBrainToggle } from '@/components/studio/PromptBrainToggle';
 import { useGenerationStore } from '@/store/generationStore';
+import { cn } from '@/lib/utils';
+import { STUDIO_PANEL } from './studioSurface';
 
+/** The generation console: mode, prompt, model + per-model controls, and the Generate CTA. */
 export function ControlsPanel() {
   const { selectedModel, generationType } = useGenerationStore();
 
   return (
-    <motion.div
+    <motion.section
+      aria-label="Generation console"
       variants={staggerContainer}
       initial="hidden"
       animate="visible"
-      className="w-[280px] flex flex-col gap-3 overflow-hidden shrink-0"
+      className="w-[320px] 2xl:w-[340px] flex flex-col gap-3.5 overflow-hidden shrink-0"
     >
-      {/* Prompt Tile */}
-      <motion.div
-        variants={staggerItem}
-        className="bg-card rounded-xl border border-border/40 shadow-sm p-4 shrink-0"
-      >
+      {/* Prompt card: mode pills + prompt */}
+      <motion.div variants={staggerItem} className={cn(STUDIO_PANEL, 'px-5 py-[18px] shrink-0 space-y-4')}>
+        <ModeSelector />
         <PromptInput />
       </motion.div>
 
-      {/* Model + Controls Tile */}
+      {/* Model + controls card */}
       <motion.div
         variants={staggerItem}
-        className="flex-1 bg-card rounded-xl border border-border/40 shadow-sm flex flex-col overflow-hidden min-h-0"
+        className={cn(STUDIO_PANEL, 'flex-1 flex flex-col overflow-hidden min-h-0')}
       >
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+        <div className="flex-1 overflow-y-auto px-5 py-[18px] space-y-4 min-h-0">
           <ModelSelector />
           <ReferenceUpload />
           <AnimatePresence>
@@ -52,14 +54,12 @@ export function ControlsPanel() {
         </div>
       </motion.div>
 
-      {/* Generate Tile */}
-      <motion.div variants={staggerItem} className="shrink-0">
-        <TiltCard intensity={4} className="bg-card rounded-xl border border-border/40 shadow-sm p-4 space-y-3">
-          <PromptBrainToggle />
-          <CostPreview />
-          <GenerateButton />
-        </TiltCard>
+      {/* Generate card */}
+      <motion.div variants={staggerItem} className={cn(STUDIO_PANEL, 'shrink-0 px-5 py-4 space-y-3')}>
+        <PromptBrainToggle />
+        <CostPreview />
+        <GenerateButton />
       </motion.div>
-    </motion.div>
+    </motion.section>
   );
 }

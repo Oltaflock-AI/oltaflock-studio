@@ -77,50 +77,39 @@ export function ModeSelector() {
   const activeMode = getActiveMode();
 
   return (
-    <div className="space-y-1">
+    <div className="flex flex-wrap gap-2" role="group" aria-label="Generation mode">
       {modes.map((option) => {
         const Icon = option.icon;
         const isActive = activeMode === option.value;
         const isDisabled = !option.enabled || pendingRating || isGenerating;
-        
+
         return (
           <motion.button
             key={option.value}
+            type="button"
             onClick={() => handleModeClick(option)}
             disabled={isDisabled}
+            aria-pressed={isActive}
             whileTap={!isDisabled ? { scale: 0.97 } : undefined}
-            whileHover={!isDisabled ? { scale: 1.01 } : undefined}
             className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-smooth group',
-              isActive 
-                ? 'bg-primary/10 text-primary border border-primary/20' 
+              'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12.5px] whitespace-nowrap transition-smooth',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card',
+              isActive
+                ? 'bg-primary text-primary-foreground font-semibold shadow-[0_4px_12px_hsl(var(--primary)/0.25)]'
                 : option.enabled
-                  ? 'text-foreground/70 hover:bg-accent/50 hover:text-foreground border border-transparent'
-                  : 'text-muted-foreground/40 cursor-not-allowed border border-transparent',
-              isDisabled && option.enabled && 'opacity-50 cursor-not-allowed'
+                  ? 'bg-muted text-muted-foreground hover:text-foreground hover:brightness-95 dark:hover:brightness-125'
+                  : 'bg-muted/50 text-muted-foreground/40 cursor-not-allowed',
+              isDisabled && option.enabled && !isActive && 'opacity-50 cursor-not-allowed'
             )}
           >
-            <Icon className={cn(
-              'h-4 w-4 shrink-0 transition-smooth',
-              isActive && 'text-primary',
-              !option.enabled && 'text-muted-foreground/40'
-            )} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className={cn(
-                  'font-semibold text-sm tracking-wide',
-                  !option.enabled && 'text-muted-foreground/50'
-                )}>
-                  {option.label}
-                </span>
-                {!option.enabled && (
-                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 text-muted-foreground/50 border-muted-foreground/30">
-                    <Lock className="h-2 w-2 mr-0.5" />
-                    Soon
-                  </Badge>
-                )}
-              </div>
-            </div>
+            <Icon className="h-3.5 w-3.5 shrink-0" />
+            {option.label}
+            {!option.enabled && (
+              <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 text-muted-foreground/50 border-muted-foreground/30">
+                <Lock className="h-2 w-2 mr-0.5" />
+                Soon
+              </Badge>
+            )}
           </motion.button>
         );
       })}

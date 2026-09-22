@@ -201,15 +201,17 @@ export function PromptInput() {
       {/* Textarea */}
       <div className="relative focus-glow rounded-xl">
         <Textarea
+          id="studio-prompt"
+          aria-label="Prompt"
           value={rawPrompt}
           onChange={(e) => setRawPrompt(e.target.value)}
           placeholder="Describe your creative vision..."
           className={cn(
-            'min-h-[140px] bg-background border-border/60 resize-none',
-            'text-sm leading-relaxed tracking-normal',
-            'placeholder:text-muted-foreground/40 placeholder:italic',
+            'min-h-[140px] bg-muted/40 dark:bg-background/60 border-border/60 resize-none',
+            'text-[14px] leading-relaxed tracking-normal',
+            'placeholder:text-muted-foreground/60',
             'focus:border-primary/40 focus:ring-2 focus:ring-primary/10',
-            'transition-smooth rounded-xl p-3.5',
+            'transition-smooth rounded-xl px-4 py-3.5',
             isEnhancing && 'opacity-60'
           )}
           disabled={isDisabled}
