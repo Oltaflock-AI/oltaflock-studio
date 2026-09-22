@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.generate-title]
 verify_jwt = false
+
+[functions.model-assistant]
+verify_jwt = false
