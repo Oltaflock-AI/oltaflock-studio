@@ -9,7 +9,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Copy, Sparkles, Bookmark, Wand2, Trash2, Loader2 } from 'lucide-react';
+import { Copy, Sparkles, Bookmark, Wand2, Trash2, Loader2, Folder, FolderInput } from 'lucide-react';
+import { ModelBadge } from '@/components/studio/ModelBadge';
+import { modelDisplayName } from './modelName';
 import { cn } from '@/lib/utils';
 import { useGenerationStore } from '@/store/generationStore';
 import { ALL_MODELS } from '@/types/generation';
@@ -32,15 +34,17 @@ interface Props {
   item: LibraryItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Opens the "Move to collection" flow for this item (own items only). */
+  onMoveToCollection?: (item: LibraryItem) => void;
 }
 
-export function LibraryDetailDialog({ item, open, onOpenChange }: Props) {
+export function LibraryDetailDialog({ item, open, onOpenChange, onMoveToCollection }: Props) {
   const navigate = useNavigate();
-  const { deleteFromLibrary, isDeleting } = usePromptLibrary();
+  const { deleteFromLibrary, isDeleting, isOwnItem } = usePromptLibrary();
 
   if (!item) return null;
 
-  const canRemove = !item.is_curated;
+  const canRemove = isOwnItem(item);
 
   const handleRemove = async () => {
     try {
@@ -84,7 +88,7 @@ export function LibraryDetailDialog({ item, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden">
+      <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden rounded-[20px]">
         <div className="grid grid-cols-1 md:grid-cols-2 h-full max-h-[90vh]">
           <div className="relative bg-muted aspect-square md:aspect-auto md:h-full">
             <img
@@ -111,21 +115,28 @@ export function LibraryDetailDialog({ item, open, onOpenChange }: Props) {
                 <Badge variant="outline" className="text-[10px]">
                   {categoryLabel}
                 </Badge>
+                {item.collection && (
+                  <Badge variant="outline" className="gap-1 text-[10px] max-w-[160px]">
+                    <Folder className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{item.collection}</span>
+                  </Badge>
+                )}
               </div>
-              <DialogTitle className="text-lg leading-tight">{item.title}</DialogTitle>
+              <DialogTitle className="font-serif text-xl font-medium leading-tight">{item.title}</DialogTitle>
             </DialogHeader>
 
             <ScrollArea className="flex-1 min-h-0">
               <div className="p-5 space-y-4">
                 <Section label="Prompt">
                   <div className="relative">
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap font-mono text-muted-foreground bg-muted/40 rounded-lg p-3 pr-10">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap font-mono text-muted-foreground bg-muted/40 rounded-xl p-3 pr-10">
                       {item.prompt}
                     </p>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={handleCopy}
+                      aria-label="Copy prompt"
                       className="absolute top-2 right-2 h-7 w-7 p-0"
                     >
                       <Copy className="h-3.5 w-3.5" />
@@ -135,7 +146,12 @@ export function LibraryDetailDialog({ item, open, onOpenChange }: Props) {
 
                 <div className="grid grid-cols-2 gap-3">
                   <Section label="Model">
-                    <p className="text-sm font-medium">{item.model}</p>
+                    <div className="flex items-center gap-2">
+                      <ModelBadge modelId={item.model} />
+                      <p className="text-sm font-medium truncate" title={item.model}>
+                        {modelDisplayName(item.model)}
+                      </p>
+                    </div>
                   </Section>
                   <Section label="Mode">
                     <p className="text-sm font-medium capitalize">{item.mode.replace(/-/g, ' ')}</p>
@@ -148,7 +164,7 @@ export function LibraryDetailDialog({ item, open, onOpenChange }: Props) {
                       {Object.entries(item.model_params).map(([k, v]) => (
                         <div
                           key={k}
-                          className="flex justify-between gap-2 bg-muted/30 rounded px-2 py-1"
+                          className="flex justify-between gap-2 bg-muted/30 rounded-md px-2 py-1"
                         >
                           <span className="text-muted-foreground">{k}</span>
                           <span className="font-medium truncate">{String(v)}</span>
@@ -160,13 +176,23 @@ export function LibraryDetailDialog({ item, open, onOpenChange }: Props) {
               </div>
             </ScrollArea>
 
-            <div className="p-5 pt-3 border-t border-border/40 shrink-0 flex items-center gap-2">
+            <div className="p-5 pt-3 border-t border-border/40 shrink-0 flex flex-wrap items-center gap-2">
+              {canRemove && onMoveToCollection && (
+                <Button
+                  variant="outline"
+                  onClick={() => onMoveToCollection(item)}
+                  className="h-10 px-3 gap-2 rounded-[10px]"
+                >
+                  <FolderInput className="h-4 w-4" />
+                  {item.collection ? 'Move' : 'Add to collection'}
+                </Button>
+              )}
               {canRemove && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
                       variant="outline"
-                      className="h-10 px-3 gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      className="h-10 px-3 gap-2 rounded-[10px] text-destructive hover:text-destructive hover:bg-destructive/10"
                       disabled={isDeleting}
                     >
                       {isDeleting ? (
@@ -197,7 +223,7 @@ export function LibraryDetailDialog({ item, open, onOpenChange }: Props) {
                   </AlertDialogContent>
                 </AlertDialog>
               )}
-              <Button onClick={handleUse} className={cn('flex-1 h-10 gap-2 font-semibold')}>
+              <Button onClick={handleUse} className={cn('flex-1 h-10 gap-2 rounded-[10px] font-semibold')}>
                 <Wand2 className="h-4 w-4" />
                 Use this prompt
               </Button>
