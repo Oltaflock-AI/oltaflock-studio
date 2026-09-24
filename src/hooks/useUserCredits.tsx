@@ -44,6 +44,23 @@ export function useUserCredits() {
     enabled: !!user?.id,
   });
 
+  // The spendable balance is the live kie.ai account balance (it pays for every
+  // generation). user_credits only tracks per-user spend and generation counts.
+  const liveBalanceQuery = useQuery({
+    queryKey: ['live-credit-balance'],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke<{ balance: number }>('check-balance');
+      if (error) throw error;
+      const balance = Number(data?.balance);
+      if (!Number.isFinite(balance)) throw new Error('Invalid balance response');
+      return balance;
+    },
+    enabled: !!user?.id,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    staleTime: 10_000,
+  });
+
   const creditLogsQuery = useQuery({
     queryKey: ['credit-logs', user?.id],
     queryFn: async () => {
@@ -126,19 +143,21 @@ export function useUserCredits() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-credits', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['credit-logs', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['live-credit-balance'] });
     },
   });
 
   return {
     credits: creditsQuery.data,
-    balance: creditsQuery.data ? Number(creditsQuery.data.balance) : null,
+    balance: liveBalanceQuery.data ?? null,
+    balanceError: liveBalanceQuery.isError,
     totalSpent: creditsQuery.data ? Number(creditsQuery.data.total_spent) : 0,
     totalGenerations: creditsQuery.data?.total_generations ?? 0,
-    isLoading: creditsQuery.isLoading,
+    isLoading: creditsQuery.isLoading || liveBalanceQuery.isLoading,
     creditLogs: creditLogsQuery.data ?? [],
     logsLoading: creditLogsQuery.isLoading,
     deductCredits: deductCreditsMutation.mutateAsync,
     isDeducting: deductCreditsMutation.isPending,
-    refetch: creditsQuery.refetch,
+    refetch: () => Promise.all([creditsQuery.refetch(), liveBalanceQuery.refetch()]),
   };
 }

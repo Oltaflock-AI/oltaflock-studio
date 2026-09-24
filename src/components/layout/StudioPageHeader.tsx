@@ -2,7 +2,6 @@ import { motion } from 'framer-motion';
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { slideDown } from '@/lib/motion';
 import { MODEL_CATALOG } from '@catalog/index.ts';
-import { BalanceButton } from '@/components/studio/BalanceButton';
 import { UserMenu } from '@/components/studio/UserMenu';
 import { usePreferencesStore } from '@/store/preferencesStore';
 
@@ -10,8 +9,8 @@ const IMAGE_COUNT = MODEL_CATALOG.filter((m) => m.output === 'image').length;
 const VIDEO_COUNT = MODEL_CATALOG.length - IMAGE_COUNT;
 
 /**
- * Studio page title row: the provider balance check, the history panel
- * toggle and the account menu (with sign out).
+ * Studio page title row: the history panel toggle and the account menu
+ * (with sign out). The live credit balance lives in the AppShell sidebar.
  */
 export function StudioPageHeader() {
   const { showStudioSidebar, setShowStudioSidebar } = usePreferencesStore();
@@ -31,7 +30,6 @@ export function StudioPageHeader() {
         </p>
       </div>
       <div className="flex items-center gap-2.5 shrink-0">
-        <BalanceButton />
         <button
           type="button"
           onClick={() => setShowStudioSidebar(!showStudioSidebar)}

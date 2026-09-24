@@ -3,6 +3,7 @@ import { getSpec } from '../_shared/catalog/index.ts';
 import { API_ENDPOINTS, KIE_BASE, buildRequestBody, validateSpecInput } from '../_shared/catalog/adapters.ts';
 import type { ModelSpec } from '../_shared/catalog/types.ts';
 import { optimizePrompt } from '../_shared/brain/index.ts';
+import { fetchKieCredits } from '../_shared/kie-credits.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,18 +82,14 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[gen] user=${userId} model=${model} api=${spec.api} id=${generationId}`);
 
-    // 3. Credits
-    const { data: creditData } = await adminClient
-      .from('user_credits')
-      .select('balance')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    const balance = creditData ? Number(creditData.balance) : 0;
+    // 3. Credits — checked against the live kie.ai balance that actually pays for the job.
     const costCredits = Number(controls.cost_credits) || 0;
-
-    if (costCredits > 0 && balance < costCredits) {
-      return Response.json({ error: `Insufficient credits. Have ${balance}, need ${costCredits}.` }, { status: 402, headers: corsHeaders });
+    const balance = await fetchKieCredits();
+    if (balance !== null && costCredits > 0 && balance < costCredits) {
+      return Response.json(
+        { error: `Insufficient credits. Have ${balance}, need ${costCredits}.` },
+        { status: 402, headers: corsHeaders },
+      );
     }
 
     // 4. Prompt Brain — optimize for this model + use case if the toggle is ON

@@ -40,7 +40,7 @@ interface AppShellProps {
 export function AppShell({ children, scrollableContent = true }: AppShellProps) {
   const location = useLocation();
   const { displayName, initials, avatarUrl } = useProfile();
-  const { balance } = useUserCredits();
+  const { balance, balanceError } = useUserCredits();
   const { signOut } = useAuth();
   const queryClient = useQueryClient();
   const { clearAll } = useGenerationStore();
@@ -94,7 +94,9 @@ export function AppShell({ children, scrollableContent = true }: AppShellProps) 
           <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-[11px] bg-warning/10 border border-warning/25">
             <Coins className="w-[15px] h-[15px] text-warning shrink-0" strokeWidth={2} />
             <span className="text-xs text-warning">
-              {balance != null ? `${Math.round(balance).toLocaleString()} credits` : 'Loading credits…'}
+              {balance != null
+                ? `${balance.toLocaleString(undefined, { maximumFractionDigits: 1 })} credits`
+                : balanceError ? 'Credits unavailable' : 'Loading credits…'}
             </span>
           </div>
           <NavLink to="/settings" className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/60 transition-smooth">

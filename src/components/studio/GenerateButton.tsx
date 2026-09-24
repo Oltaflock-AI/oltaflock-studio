@@ -4,6 +4,7 @@ import { buttonTap, buttonHover } from '@/lib/motion';
 import { useGenerationStore } from '@/store/generationStore';
 import { useGenerations } from '@/hooks/useGenerations';
 import { useUserCredits } from '@/hooks/useUserCredits';
+import { useQueryClient } from '@tanstack/react-query';
 import { ALL_MODELS, findModelConfig, generateJobId, MODEL_API_NAMES } from '@/types/generation';
 import { getSpec } from '@catalog/index.ts';
 import { validateSpecInput } from '@catalog/adapters.ts';
@@ -17,7 +18,8 @@ import { calculateCost } from '@/config/pricing';
 
 export function GenerateButton() {
   const { createGeneration, updateGeneration, generations } = useGenerations();
-  const { balance, deductCredits } = useUserCredits();
+  const { balance } = useUserCredits();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const {
@@ -169,6 +171,8 @@ export function GenerateButton() {
       }
 
       console.log('[generate] Edge function response:', data);
+      // kie.ai charges when the task is created — refresh the live balance.
+      queryClient.invalidateQueries({ queryKey: ['live-credit-balance'] });
 
       // Edge function handles DB updates (status, output_url, credits)
       // Client just needs to handle UI state

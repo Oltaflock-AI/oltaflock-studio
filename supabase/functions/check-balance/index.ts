@@ -1,47 +1,32 @@
-// Fetch remaining credits from Kie.ai API
+// Returns the live kie.ai credit balance to signed-in users.
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { fetchKieCredits } from '../_shared/kie-credits.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const KIE_AI_API_KEY = Deno.env.get('KIE_AI_API_KEY') || '';
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  try {
-    if (!KIE_AI_API_KEY) {
-      return Response.json(
-        { error: 'KIE_AI_API_KEY not configured' },
-        { status: 500, headers: corsHeaders }
-      );
-    }
-
-    const res = await fetch('https://api.kie.ai/api/v1/chat/credit', {
-      headers: { 'Authorization': `Bearer ${KIE_AI_API_KEY}` },
-    });
-
-    const data = await res.json();
-
-    if (data.code !== 200) {
-      return Response.json(
-        { error: data.msg || 'Failed to fetch credits' },
-        { status: 502, headers: corsHeaders }
-      );
-    }
-
-    return Response.json(
-      { balance: String(data.data) },
-      { headers: corsHeaders }
-    );
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return Response.json(
-      { error: msg },
-      { status: 500, headers: corsHeaders }
-    );
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
   }
+
+  const credits = await fetchKieCredits();
+  if (credits === null) {
+    return Response.json({ error: 'Could not read kie.ai balance' }, { status: 502, headers: corsHeaders });
+  }
+
+  return Response.json({ balance: credits }, { headers: corsHeaders });
 });
