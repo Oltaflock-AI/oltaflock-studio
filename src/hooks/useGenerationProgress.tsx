@@ -109,6 +109,7 @@ export function useMultipleGenerationProgress(generationIds: string[]): Map<stri
 
     setProgressMap(prev => {
       const newProgressMap = new Map(prev);
+      let changed = false;
 
       generationIds.forEach(id => {
         const generation = generations.find(g => g.id === id);
@@ -119,7 +120,10 @@ export function useMultipleGenerationProgress(generationIds: string[]): Map<stri
 
         // Handle completed states
         if (status === 'done' && generation.output_url) {
-          newProgressMap.set(id, 100);
+          if (currentProgress !== 100) {
+            newProgressMap.set(id, 100);
+            changed = true;
+          }
           const existingInterval = intervals.get(id);
           if (existingInterval) {
             clearInterval(existingInterval);
@@ -140,8 +144,10 @@ export function useMultipleGenerationProgress(generationIds: string[]): Map<stri
         // Set base progress
         if (status === 'queued' && currentProgress < 10) {
           newProgressMap.set(id, 10);
+          changed = true;
         } else if (status === 'running' && currentProgress < 25) {
           newProgressMap.set(id, 25);
+          changed = true;
         }
 
         // Start simulation interval if running and no interval exists
@@ -159,7 +165,7 @@ export function useMultipleGenerationProgress(generationIds: string[]): Map<stri
         }
       });
 
-      return newProgressMap;
+      return changed ? newProgressMap : prev;
     });
 
     // Cleanup intervals for IDs no longer in the list

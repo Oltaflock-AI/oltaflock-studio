@@ -6,6 +6,10 @@ import type { Json } from '@/integrations/supabase/types';
 // Status type matching the generations table
 export type GenerationStatus = 'queued' | 'running' | 'done' | 'error';
 
+// Stable reference so consumers that memoize on `generations` don't see a
+// new array every render while the query has no data yet.
+const EMPTY_GENERATIONS: DbGeneration[] = [];
+
 // Database row type for generations table
 export interface DbGeneration {
   id: string;
@@ -165,7 +169,7 @@ export function useGenerations() {
   });
 
   return {
-    generations: generationsQuery.data ?? [],
+    generations: generationsQuery.data ?? EMPTY_GENERATIONS,
     isLoading: generationsQuery.isLoading,
     error: generationsQuery.error,
     createGeneration: createGenerationMutation.mutateAsync,
