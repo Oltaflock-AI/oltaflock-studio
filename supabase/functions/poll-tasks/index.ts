@@ -1,13 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.91.0";
 import { persistOutput } from "../_shared/persist-output.ts";
+import { apiForGeneration } from "../_shared/catalog/index.ts";
+import { API_ENDPOINTS, KIE_BASE, parseTaskStatus } from "../_shared/catalog/adapters.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const KIE_TASK_STATUS = 'https://api.kie.ai/api/v1/jobs/recordInfo';
 const KIE_AI_API_KEY = Deno.env.get('KIE_AI_API_KEY') || '';
 
 serve(async (req) => {
@@ -55,8 +56,8 @@ serve(async (req) => {
           continue;
         }
 
-        // Query Kie.ai task status
-        const statusUrl = `${KIE_TASK_STATUS}?taskId=${task.external_task_id}`;
+        const api = apiForGeneration(task);
+        const statusUrl = `${KIE_BASE}${API_ENDPOINTS[api].status}?taskId=${encodeURIComponent(task.external_task_id)}`;
         const response = await fetch(statusUrl, {
           headers: { 'Authorization': `Bearer ${KIE_AI_API_KEY}` },
         });
@@ -75,19 +76,16 @@ serve(async (req) => {
           continue;
         }
 
-        const { state, resultJson, failMsg, progress } = kieData.data;
+        const status = parseTaskStatus(api, kieData.data);
 
-        // Kie.ai states: waiting, queuing, generating, success, fail
-        if (state === 'success') {
-          // Parse resultJson for output URLs
-          let outputUrl = '';
-          try {
-            const result = typeof resultJson === 'string' ? JSON.parse(resultJson) : resultJson;
-            if (result?.resultUrls?.length > 0) {
-              outputUrl = result.resultUrls[0];
-            }
-          } catch (e) {
-            console.error(`[poll] Failed to parse resultJson:`, e);
+        if (status.state === 'success') {
+          const outputUrl = status.urls[0] ?? '';
+          if (!outputUrl) {
+            await supabase.from('generations').update({
+              status: 'error', error_message: 'Finished without an output URL', progress: 0,
+            }).eq('id', task.id);
+            failed++;
+            continue;
           }
 
           await supabase.from('generations').update({
@@ -99,31 +97,28 @@ serve(async (req) => {
           await maybeDeductCredits(supabase, task);
 
           // Move the output off the provider's temporary URL into R2 (no-op if unconfigured)
-          if (outputUrl) {
-            const persisted = await persistOutput(outputUrl, task.user_id, task.id);
-            if (persisted) {
-              await supabase.from('generations').update({ output_url: persisted }).eq('id', task.id);
-            }
+          const persisted = await persistOutput(outputUrl, task.user_id, task.id);
+          if (persisted) {
+            await supabase.from('generations').update({ output_url: persisted }).eq('id', task.id);
           }
 
           completed++;
-          console.log(`[poll] ${task.external_task_id} → success`);
+          console.log(`[poll] ${task.external_task_id} (${api}) → success`);
 
-        } else if (state === 'fail') {
+        } else if (status.state === 'fail') {
           await supabase.from('generations').update({
             status: 'error',
-            error_message: failMsg || 'Generation failed',
+            error_message: status.error || 'Generation failed',
             progress: 0,
           }).eq('id', task.id);
 
           failed++;
-          console.log(`[poll] ${task.external_task_id} → failed: ${failMsg}`);
+          console.log(`[poll] ${task.external_task_id} (${api}) → failed: ${status.error}`);
 
         } else {
-          // Still processing (waiting, queuing, generating)
-          if (progress && progress > 0) {
+          if (status.progress && status.progress > 0) {
             await supabase.from('generations').update({
-              progress: Math.min(90, progress),
+              progress: Math.min(90, status.progress),
             }).eq('id', task.id);
           }
           stillRunning++;

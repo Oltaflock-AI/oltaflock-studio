@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { persistOutput } from '../_shared/persist-output.ts';
+import { apiForGeneration } from '../_shared/catalog/index.ts';
+import { parseCallback } from '../_shared/catalog/adapters.ts';
 
 // Kie.ai sends callbacks when tasks complete
 // Format: { taskId, state, resultJson, failMsg, ... }
@@ -22,11 +24,9 @@ Deno.serve(async (req) => {
     const body = await req.json();
     console.log('[callback] Received:', JSON.stringify(body).slice(0, 500));
 
-    // Kie.ai callback format
-    const taskId = body.taskId || body.task_id || body.data?.taskId;
-    const state = body.state || body.status || body.data?.state;
-    const resultJson = body.resultJson || body.data?.resultJson;
-    const failMsg = body.failMsg || body.failCode || body.data?.failMsg || '';
+    // Callback shapes differ per kie.ai API; the task id is always near the top.
+    const taskId = body.taskId || body.task_id || body.data?.taskId || body.data?.task_id;
+    const state = body.state || body.status || body.data?.state || body.code;
 
     if (!taskId) {
       console.error('[callback] No taskId in payload');
@@ -62,10 +62,10 @@ Deno.serve(async (req) => {
       }
 
       // Use fallback match
-      return await processCallback(supabase, byRequest, state, resultJson, failMsg);
+      return await processCallback(supabase, byRequest, body);
     }
 
-    return await processCallback(supabase, generation, state, resultJson, failMsg);
+    return await processCallback(supabase, generation, body);
 
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
@@ -80,9 +80,7 @@ Deno.serve(async (req) => {
 async function processCallback(
   supabase: ReturnType<typeof createClient>,
   generation: { id: string; status: string; user_id: string; model: string; model_params: Record<string, unknown> | null },
-  state: string,
-  resultJson: string | Record<string, unknown> | null,
-  failMsg: string,
+  body: unknown,
 ) {
   // Skip if already done/error
   if (generation.status === 'done' || generation.status === 'error') {
@@ -93,29 +91,21 @@ async function processCallback(
     );
   }
 
-  const isSuccess = state === 'success' || state === 'completed';
-
-  // Parse output URL from resultJson
-  let outputUrl = '';
-  if (isSuccess && resultJson) {
-    try {
-      const parsed = typeof resultJson === 'string' ? JSON.parse(resultJson) : resultJson;
-      if (parsed?.resultUrls?.length > 0) {
-        outputUrl = parsed.resultUrls[0];
-      } else if (parsed?.url) {
-        outputUrl = parsed.url;
-      }
-    } catch (e) {
-      console.error('[callback] Failed to parse resultJson:', e);
-    }
+  const { status } = parseCallback(apiForGeneration(generation), body);
+  if (status.state === 'running') {
+    // Progress callbacks (e.g. Veo/GPT-4o) — polling will pick up the final state.
+    return new Response(JSON.stringify({ ok: true, pending: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
+  const isSuccess = status.state === 'success';
+  const outputUrl = status.urls[0] ?? '';
+  const failMsg = status.error ?? '';
 
   // Update generation record
   const updateData: Record<string, unknown> = {
     status: isSuccess && outputUrl ? 'done' : 'error',
     progress: isSuccess && outputUrl ? 100 : 0,
     output_url: outputUrl || null,
-    error_message: isSuccess ? null : (failMsg || `Generation failed with state: ${state}`),
+    error_message: isSuccess && outputUrl ? null : (failMsg || 'Generation failed'),
   };
 
   const { error: updateError } = await supabase

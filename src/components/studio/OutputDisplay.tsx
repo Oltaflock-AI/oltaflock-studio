@@ -283,17 +283,27 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
           </div>
         </div>
 
-        {/* Refined Prompt - Compact display */}
+        {/* Prompt actually sent (after Prompt Brain) */}
         {selectedGeneration.final_prompt && (
-          <div className="shrink-0 space-y-1.5">
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Refined Prompt
-            </Label>
-            <div className="bg-muted/30 rounded-lg p-3 max-h-16 overflow-y-auto">
-              <p className="text-xs text-muted-foreground leading-relaxed font-mono">
-                {selectedGeneration.final_prompt}
-              </p>
+          <div className="shrink-0 rounded-xl border border-border/60 bg-muted/30 px-3.5 py-2.5">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                {selectedGeneration.final_prompt !== selectedGeneration.user_prompt ? 'Prompt sent · optimized by Prompt Brain' : 'Prompt sent'}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(selectedGeneration.final_prompt ?? '');
+                  toast.success('Prompt copied');
+                }}
+                className="text-[11.5px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+              >
+                <Copy className="h-3 w-3" /> Copy
+              </button>
             </div>
+            <p className="text-[12.5px] text-foreground/80 leading-relaxed max-h-[4.5rem] overflow-y-auto">
+              {selectedGeneration.final_prompt}
+            </p>
           </div>
         )}
       </motion.div>

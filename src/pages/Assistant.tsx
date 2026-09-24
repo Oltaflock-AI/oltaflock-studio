@@ -4,11 +4,12 @@ import { ArrowRight, ArrowUp, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { ModelBadge } from '@/components/studio/ModelBadge';
-import { MODEL_FAMILIES } from '@/config/models';
-import { MODEL_PRICING, formatCredits } from '@/config/pricing';
+import { getModelIdentity } from '@/config/models';
+import { familyLeads } from '@catalog/index.ts';
+import { creditRange, formatCredits } from '@/config/pricing';
 import { supabase } from '@/integrations/supabase/client';
 import { useGenerationStore } from '@/store/generationStore';
-import { ALL_MODELS, TYPE_LABELS, type Model, type ModelConfig } from '@/types/generation';
+import { ALL_MODELS, TYPE_LABELS, fromStudioMode, type Model, type ModelConfig } from '@/types/generation';
 import { cn } from '@/lib/utils';
 import logoMark from '@/assets/logo-mark.png';
 
@@ -23,25 +24,12 @@ const SUGGESTIONS = [
   'Animate a product photo',
 ];
 
-/** One-line strengths for the cheat sheet, keyed by MODEL_FAMILIES id. */
-const MODEL_STRENGTHS: Record<string, string> = {
-  'kling-3.0': 'Cinematic camera moves, multi-shot sequencing, element references, start/end frames.',
-  'seedance-2.0': 'Realistic motion and liquid/fabric detail, native audio, up to 1080p.',
-  'grok-imagine': 'Fast, playful, stylized motion with fun / normal / spicy modes.',
-  'nano-banana-pro': 'Photoreal product shots and portraits, crisp text, up to 4K; faithful edits.',
-  'flux-flex-pro': 'High-fidelity detail at the lowest cost per image of the premium models.',
-  'flux-flex': 'Conceptual, surreal and stylized looks with bold composition.',
-  'seedream-4.5': 'Mood-driven, painterly scenes; clean multi-image edits and composites.',
-  'gpt-4o': 'Follows long, conversational art direction and negative instructions.',
-  'z-image': 'Cheapest and fastest — ideal for quick drafts and prompt tests.',
-  'qwen-image-edit': 'Precise, instruction-driven edits like "remove the background".',
-};
-
 const KIND_LABELS: Record<ModelConfig['mode'], string> = {
   image: 'Image',
   video: 'Video',
   'image-to-image': 'Edit',
   'image-to-video': 'Video',
+  'video-to-video': 'Video edit',
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -70,17 +58,7 @@ function parseReply(raw: string): { text: string; recommend?: ModelConfig } {
 }
 
 /** Lowest credit cost for a model id, and whether it varies by tier/resolution. */
-function getCreditEstimate(modelId: string): { credits: number; tiered: boolean } | null {
-  const pricing = MODEL_PRICING[modelId];
-  if (!pricing) return null;
-  if ('baseCredits' in pricing && typeof pricing.baseCredits === 'number') {
-    return { credits: pricing.baseCredits, tiered: false };
-  }
-  const values = Object.values(pricing as Record<string, { baseCredits: number }>).map((p) => p.baseCredits);
-  if (values.length === 0) return null;
-  const min = Math.min(...values);
-  return { credits: min, tiered: Math.max(...values) !== min };
-}
+const getCreditEstimate = creditRange;
 
 /** Renders **bold** spans inside plain text; newlines are preserved by the container's whitespace-pre-wrap. */
 function renderInline(text: string): ReactNode {
@@ -181,15 +159,12 @@ export default function Assistant() {
     navigate('/');
   };
 
-  const cheatSheet = Object.entries(MODEL_FAMILIES).map(([id, identity]) => {
-    const config = ALL_MODELS.find((m) => m.id === id);
-    return {
-      id,
-      label: identity.label,
-      kind: config ? KIND_LABELS[config.mode] : '',
-      strength: MODEL_STRENGTHS[id] ?? '',
-    };
-  });
+  const cheatSheet = familyLeads().map((spec) => ({
+    id: spec.id,
+    label: getModelIdentity(spec.id).label,
+    kind: KIND_LABELS[fromStudioMode(spec.mode)],
+    strength: spec.bestFor,
+  }));
 
   return (
     <AppShell scrollableContent={false}>

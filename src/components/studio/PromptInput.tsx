@@ -1,329 +1,269 @@
-import { useState, useRef } from 'react';
-import { useGenerationStore } from '@/store/generationStore';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { Sparkles, ScanSearch, Loader2, X } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Sparkles, ScanSearch, Loader2, X, Check, Undo2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getSpec } from '@catalog/index.ts';
+import { USE_CASES, casesForOutput } from '@catalog/use-cases.ts';
+import { useGenerationStore } from '@/store/generationStore';
+import { toStudioMode } from '@/types/generation';
 import { supabase } from '@/integrations/supabase/client';
-
-// ─── Types ───────────────────────────────────────────────────────────────────
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 interface EnhanceResponse {
   enhanced_prompt: string;
+  notes?: string[];
+  use_case?: string;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+interface Suggestion {
+  prompt: string;
+  notes: string[];
+  useCase?: string;
+}
 
-function fileToBase64(file: File): Promise<string> {
+function fileToBase64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      // Strip the data URL prefix, keep only base64 payload
-      resolve(result.split(',')[1]);
-    };
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
     reader.onerror = () => reject(new Error('Failed to read file'));
     reader.readAsDataURL(file);
   });
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+const TOOL_BUTTON =
+  'h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12px] font-medium transition-smooth disabled:opacity-50 disabled:cursor-not-allowed';
 
 export function PromptInput() {
-  const { rawPrompt, setRawPrompt, pendingRating, selectedModel, uploadedImageUrls, mode } = useGenerationStore();
+  const { rawPrompt, setRawPrompt, pendingRating, selectedModel, mode, controls, brainUseCase, setBrainUseCase } = useGenerationStore();
+  const spec = selectedModel ? getSpec(selectedModel) : undefined;
+  const output = toStudioMode(mode).endsWith('video') ? 'video' : 'image';
+  const useCases = casesForOutput(output);
+  const useCase = useCases.some((u) => u.id === brainUseCase) ? brainUseCase : 'auto';
 
-  const [isEnhancingText, setIsEnhancingText] = useState(false);
-  const [isEnhancingImage, setIsEnhancingImage] = useState(false);
-  const [enhanceImageFile, setEnhanceImageFile] = useState<File | null>(null);
-  const [enhanceImagePreview, setEnhanceImagePreview] = useState<string | null>(null);
-  const [lastEnhancedPrompt, setLastEnhancedPrompt] = useState<string | null>(null);
-
+  const [busy, setBusy] = useState<'text' | 'image' | null>(null);
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [previousPrompt, setPreviousPrompt] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  const isEnhancing = isEnhancingText || isEnhancingImage;
-  const isDisabled = pendingRating || isEnhancing;
+  const disabled = pendingRating || busy !== null;
+  const firstImage = Object.entries(controls)
+    .filter(([k, v]) => k.startsWith('media.') && Array.isArray(v))
+    .flatMap(([, v]) => v as string[])
+    .find((u) => /\.(png|jpe?g|webp|gif)(\?|$)/i.test(u));
 
-  // ── Text Enhancement ────────────────────────────────────────────────────────
-  const handleEnhanceText = async () => {
-    if (!rawPrompt.trim()) {
-      toast.error('Write a prompt first, then enhance it');
-      return;
-    }
+  const callBrain = async (body: Record<string, unknown>, kind: 'text' | 'image') => {
     if (!selectedModel) {
-      toast.error('Select a model first');
+      toast.error('Pick a model first — the brain tunes prompts per model');
       return;
     }
-
-    setIsEnhancingText(true);
+    setBusy(kind);
     try {
       const { data, error } = await supabase.functions.invoke<EnhanceResponse>('enhance-prompt', {
         body: {
           prompt: rawPrompt,
           model: selectedModel,
-          mode,
-          type: 'text',
+          mode: toStudioMode(mode),
+          use_case: useCase,
+          controls,
+          ...body,
         },
       });
-
       if (error || !data?.enhanced_prompt) throw new Error(error?.message ?? 'No response from brain');
-
-      setLastEnhancedPrompt(rawPrompt); // Save original so user can undo
-      setRawPrompt(data.enhanced_prompt);
-      toast.success('Prompt enhanced ✦');
+      setSuggestion({ prompt: data.enhanced_prompt, notes: data.notes ?? [], useCase: data.use_case });
     } catch (err) {
-      console.error('Text enhance error:', err);
-      toast.error('Enhancement failed — try again');
+      console.error('Brain error:', err);
+      toast.error('Prompt Brain failed — try again');
     } finally {
-      setIsEnhancingText(false);
+      setBusy(null);
     }
   };
 
-  // ── Image Upload for Image-Based Enhancement ─────────────────────────────────
-  const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
+  const optimize = () => {
+    if (!rawPrompt.trim()) {
+      toast.error('Write a rough idea first');
       return;
     }
-
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Image must be under 10MB');
-      return;
-    }
-
-    setEnhanceImageFile(file);
-    setEnhanceImagePreview(URL.createObjectURL(file));
+    callBrain({ type: 'text' }, 'text');
   };
 
-  const clearEnhanceImage = () => {
-    setEnhanceImageFile(null);
-    setEnhanceImagePreview(null);
-    if (imageInputRef.current) imageInputRef.current.value = '';
-  };
-
-  // ── Image-Based Enhancement ──────────────────────────────────────────────────
-  const handleEnhanceFromImage = async () => {
-    if (!selectedModel) {
-      toast.error('Select a model first');
-      return;
-    }
-
-    // Determine image source: either an uploaded reference image or a user-selected analysis image
-    let base64Image: string | null = null;
-    let imageMediaType = 'image/jpeg';
-
-    if (enhanceImageFile) {
-      // User selected an image specifically for analysis
-      base64Image = await fileToBase64(enhanceImageFile);
-      imageMediaType = enhanceImageFile.type;
-    } else if (uploadedImageUrls.length > 0 && mode === 'image-to-image') {
-      // Use the first already-uploaded reference image
-      // Fetch it and convert to base64
+  const analyzeImage = async (file?: File) => {
+    let blob: Blob | undefined = file;
+    if (!blob && firstImage) {
       try {
-        const response = await fetch(uploadedImageUrls[0]);
-        const blob = await response.blob();
-        const file = new File([blob], 'reference.jpg', { type: blob.type });
-        base64Image = await fileToBase64(file);
-        imageMediaType = blob.type || 'image/jpeg';
+        blob = await (await fetch(firstImage)).blob();
       } catch {
-        toast.error('Could not load reference image for analysis');
+        toast.error('Could not load your uploaded image');
         return;
       }
-    } else {
-      // No image available — open file picker
+    }
+    if (!blob) {
       imageInputRef.current?.click();
       return;
     }
-
-    setIsEnhancingImage(true);
-    try {
-      const { data, error } = await supabase.functions.invoke<EnhanceResponse>('enhance-prompt', {
-        body: {
-          prompt: rawPrompt,
-          model: selectedModel,
-          mode,
-          type: 'image',
-          image_base64: base64Image,
-          image_media_type: imageMediaType,
-        },
-      });
-
-      if (error || !data?.enhanced_prompt) throw new Error(error?.message ?? 'No response from brain');
-
-      setLastEnhancedPrompt(rawPrompt);
-      setRawPrompt(data.enhanced_prompt);
-      toast.success('Prompt enhanced from image ✦');
-      clearEnhanceImage(); // Clean up after success
-    } catch (err) {
-      console.error('Image enhance error:', err);
-      toast.error('Image enhancement failed — try again');
-    } finally {
-      setIsEnhancingImage(false);
+    if (blob.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5MB for analysis');
+      return;
     }
+    const base64 = await fileToBase64(blob);
+    callBrain({ type: 'image', image_base64: base64, image_media_type: blob.type || 'image/jpeg' }, 'image');
   };
 
-  // ── Undo Enhancement ──────────────────────────────────────────────────────
-  const handleUndoEnhancement = () => {
-    if (lastEnhancedPrompt !== null) {
-      setRawPrompt(lastEnhancedPrompt);
-      setLastEnhancedPrompt(null);
-      toast('Reverted to original prompt');
-    }
+  const apply = () => {
+    if (!suggestion) return;
+    setPreviousPrompt(rawPrompt);
+    setRawPrompt(suggestion.prompt);
+    setSuggestion(null);
   };
 
-  // ── Determine image enhance button behavior ───────────────────────────────
-  const hasReferenceImage = mode === 'image-to-image' && uploadedImageUrls.length > 0;
-  const imageEnhanceReady = enhanceImageFile !== null || hasReferenceImage;
+  if (spec?.noPrompt) {
+    return (
+      <p className="rounded-xl border border-dashed border-border/70 bg-muted/30 px-4 py-3.5 text-[13px] text-muted-foreground">
+        {spec.name} doesn't use a prompt — just add your {spec.media[0]?.kind ?? 'file'} below and generate.
+      </p>
+    );
+  }
+
+  const limit = spec?.promptMax;
+  const over = limit !== undefined && rawPrompt.length > limit;
+  const detected = suggestion?.useCase && USE_CASES.find((u) => u.id === suggestion.useCase);
 
   return (
     <div className="space-y-2.5">
-      {/* Label row */}
-      <div className="flex items-center justify-between">
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Prompt
-        </Label>
-
-        {/* Undo enhancement — only visible after an enhance */}
-        {lastEnhancedPrompt !== null && (
-          <button
-            onClick={handleUndoEnhancement}
-            className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors underline underline-offset-2"
-          >
-            undo enhancement
-          </button>
-        )}
-      </div>
-
-      {/* Textarea */}
-      <div className="relative focus-glow rounded-xl">
+      <div className="relative rounded-xl focus-glow">
         <Textarea
           id="studio-prompt"
           aria-label="Prompt"
           value={rawPrompt}
           onChange={(e) => setRawPrompt(e.target.value)}
-          placeholder="Describe your creative vision..."
+          placeholder={
+            output === 'video'
+              ? 'Describe the shot — subject, action, camera, mood…'
+              : 'Describe the image — subject, setting, light, style…'
+          }
           className={cn(
-            'min-h-[140px] bg-muted/40 dark:bg-background/60 border-border/60 resize-none',
-            'text-[14px] leading-relaxed tracking-normal',
-            'placeholder:text-muted-foreground/60',
-            'focus:border-primary/40 focus:ring-2 focus:ring-primary/10',
-            'transition-smooth rounded-xl px-4 py-3.5',
-            isEnhancing && 'opacity-60'
+            'min-h-[132px] max-h-[320px] bg-muted/40 dark:bg-background/60 border-border/60 resize-y',
+            'text-[14px] leading-relaxed placeholder:text-muted-foreground/60 rounded-xl px-4 pt-3.5 pb-7',
+            'focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-smooth',
+            busy && 'opacity-60',
           )}
-          disabled={isDisabled}
+          disabled={disabled}
         />
-        <div className="absolute bottom-2.5 right-3 text-[10px] text-muted-foreground/40 font-mono tabular-nums pointer-events-none">
-          {rawPrompt.length}
-        </div>
-      </div>
-
-      {/* Toolbar — separated from textarea, cleaner */}
-      <div className="flex items-center gap-1.5">
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={handleEnhanceText}
-          disabled={isDisabled || !rawPrompt.trim()}
+        <span
           className={cn(
-            'h-7 px-2 gap-1.5 text-xs rounded-md font-medium',
-            'text-muted-foreground hover:text-primary hover:bg-primary/8',
-            'transition-colors',
-            isEnhancingText && 'text-primary bg-primary/8'
+            'absolute bottom-2 right-3 text-[10.5px] font-mono tabular-nums pointer-events-none',
+            over ? 'text-destructive' : 'text-muted-foreground/50',
           )}
-          title="Enhance prompt with AI"
         >
-          {isEnhancingText ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <Sparkles className="h-3 w-3" />
-          )}
-          {isEnhancingText ? 'Enhancing…' : 'Enhance'}
-        </Button>
-
-        {enhanceImageFile ? (
-          <div className="flex items-center gap-0.5">
-            <button
-              type="button"
-              onClick={handleEnhanceFromImage}
-              disabled={isDisabled}
-              className={cn(
-                'flex items-center gap-1.5 h-7 pl-1 pr-2 rounded-md text-xs font-medium',
-                'text-primary bg-primary/10 hover:bg-primary/15 transition-colors',
-                isEnhancingImage && 'opacity-60 cursor-not-allowed'
-              )}
-              title="Analyze this image and enhance prompt"
-            >
-              {isEnhancingImage ? (
-                <Loader2 className="h-3 w-3 animate-spin ml-1" />
-              ) : (
-                <img
-                  src={enhanceImagePreview!}
-                  alt="staged"
-                  className="h-5 w-5 rounded object-cover"
-                />
-              )}
-              {isEnhancingImage ? 'Analyzing…' : 'Analyze'}
-            </button>
-            <button
-              type="button"
-              onClick={clearEnhanceImage}
-              disabled={isDisabled}
-              className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/40 transition-colors"
-              title="Remove staged image"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={imageEnhanceReady ? handleEnhanceFromImage : () => imageInputRef.current?.click()}
-            disabled={isDisabled}
-            className={cn(
-              'h-7 px-2 gap-1.5 text-xs rounded-md font-medium',
-              'text-muted-foreground hover:text-primary hover:bg-primary/8',
-              'transition-colors',
-              isEnhancingImage && 'text-primary bg-primary/8',
-              imageEnhanceReady && 'text-primary/80'
-            )}
-            title={
-              hasReferenceImage
-                ? 'Analyze reference image and enhance prompt'
-                : 'Upload an image to analyze and enhance prompt'
-            }
-          >
-            {isEnhancingImage ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <ScanSearch className="h-3 w-3" />
-            )}
-            {isEnhancingImage ? 'Analyzing…' : hasReferenceImage ? 'From Ref' : 'From Image'}
-          </Button>
-        )}
+          {rawPrompt.length}{limit ? ` / ${limit}` : ''}
+        </span>
       </div>
 
-      {/* Hidden file input for image selection */}
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleImageFileSelect}
-      />
+      {/* Prompt Brain toolbar */}
+      <div className="flex items-center gap-1.5">
+        <Select value={useCase} onValueChange={setBrainUseCase} disabled={disabled}>
+          <SelectTrigger
+            aria-label="What are you making?"
+            className="h-8 w-auto min-w-0 flex-1 gap-1.5 rounded-lg border-border/60 bg-transparent px-2.5 text-[12px]"
+          >
+            <Wand2 className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span className="truncate"><SelectValue /></span>
+          </SelectTrigger>
+          <SelectContent className="max-h-80">
+            {useCases.map((u) => (
+              <SelectItem key={u.id} value={u.id} className="py-2">
+                <div className="flex flex-col">
+                  <span className="text-[13px] font-medium">{u.label}</span>
+                  <span className="text-[11.5px] text-muted-foreground">{u.hint}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <button
+          type="button"
+          onClick={optimize}
+          disabled={disabled || !rawPrompt.trim()}
+          className={cn(TOOL_BUTTON, 'bg-primary/10 text-primary hover:bg-primary/15')}
+          title={spec ? `Rewrite for ${spec.name}` : 'Rewrite with Prompt Brain'}
+        >
+          {busy === 'text' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          {busy === 'text' ? 'Thinking…' : 'Optimize'}
+        </button>
+        <button
+          type="button"
+          onClick={() => analyzeImage()}
+          disabled={disabled}
+          className={cn(TOOL_BUTTON, 'text-muted-foreground hover:text-foreground hover:bg-muted')}
+          title={firstImage ? 'Write a prompt from your uploaded image' : 'Upload an image to write a prompt from it'}
+        >
+          {busy === 'image' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
+          <span className="sr-only sm:not-sr-only">{firstImage ? 'From upload' : 'From image'}</span>
+        </button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) analyzeImage(f);
+            e.target.value = '';
+          }}
+        />
+      </div>
 
-      {/* Enhanced prompt indicator — subtle, shown after enhancement */}
-      {lastEnhancedPrompt !== null && (
-        <p className="text-xs text-primary/50 flex items-center gap-1.5 pl-1">
-          <Sparkles className="h-2.5 w-2.5" />
-          Enhanced by AI — original preserved for undo
-        </p>
+      <AnimatePresence initial={false}>
+        {suggestion && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.16 }}
+            className="rounded-xl border border-primary/30 bg-primary/[0.04] p-3.5 space-y-2.5"
+          >
+            <div className="flex items-center gap-1.5 text-[11.5px] font-semibold text-primary">
+              <Sparkles className="h-3.5 w-3.5" />
+              Tuned for {spec?.name ?? 'this model'}
+              {detected && detected.id !== 'auto' && <span className="font-normal text-muted-foreground">· {detected.label}</span>}
+            </div>
+            <p className="text-[13px] leading-relaxed whitespace-pre-wrap max-h-56 overflow-y-auto">{suggestion.prompt}</p>
+            {suggestion.notes.length > 0 && (
+              <ul className="space-y-1">
+                {suggestion.notes.slice(0, 3).map((n, i) => (
+                  <li key={i} className="text-[12px] text-muted-foreground flex gap-1.5">
+                    <span className="text-primary">•</span>{n}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex gap-1.5 pt-0.5">
+              <button type="button" onClick={apply} className={cn(TOOL_BUTTON, 'bg-primary text-primary-foreground hover:brightness-110')}>
+                <Check className="h-3.5 w-3.5" /> Use prompt
+              </button>
+              <button type="button" onClick={optimize} disabled={disabled} className={cn(TOOL_BUTTON, 'text-muted-foreground hover:text-foreground hover:bg-muted')}>
+                <Sparkles className="h-3.5 w-3.5" /> Try again
+              </button>
+              <button type="button" onClick={() => setSuggestion(null)} className={cn(TOOL_BUTTON, 'ml-auto text-muted-foreground hover:text-foreground hover:bg-muted')}>
+                <X className="h-3.5 w-3.5" /> Discard
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {previousPrompt !== null && !suggestion && (
+        <button
+          type="button"
+          onClick={() => {
+            setRawPrompt(previousPrompt);
+            setPreviousPrompt(null);
+          }}
+          className="inline-flex items-center gap-1.5 text-[11.5px] text-muted-foreground hover:text-foreground"
+        >
+          <Undo2 className="h-3 w-3" /> Restore my original prompt
+        </button>
       )}
     </div>
   );

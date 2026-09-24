@@ -8,6 +8,9 @@ interface PreferencesState {
   theme: Theme;
   defaultMode: DefaultMode;
   notificationSound: boolean;
+  /** Studio's right-hand history/details column. */
+  showStudioSidebar: boolean;
+  setShowStudioSidebar: (show: boolean) => void;
   setTheme: (theme: Theme) => void;
   setDefaultMode: (mode: DefaultMode) => void;
   setNotificationSound: (enabled: boolean) => void;
@@ -19,6 +22,8 @@ export const usePreferencesStore = create<PreferencesState>()(
       theme: (localStorage.getItem('theme') as Theme) || 'system',
       defaultMode: 'image',
       notificationSound: true,
+      showStudioSidebar: true,
+      setShowStudioSidebar: (showStudioSidebar) => set({ showStudioSidebar }),
       setTheme: (theme) => {
         localStorage.setItem('theme', theme);
         const root = document.documentElement;
@@ -40,6 +45,7 @@ export const usePreferencesStore = create<PreferencesState>()(
         theme: state.theme,
         defaultMode: state.defaultMode,
         notificationSound: state.notificationSound,
+        showStudioSidebar: state.showStudioSidebar,
       }),
     }
   )

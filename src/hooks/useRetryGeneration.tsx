@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGenerations } from '@/hooks/useGenerations';
 import { useGenerationStore } from '@/store/generationStore';
-import { ALL_MODELS, generateJobId } from '@/types/generation';
+import { findModelConfig, generateJobId } from '@/types/generation';
 import type { Model } from '@/types/generation';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateCost } from '@/config/pricing';
@@ -34,7 +34,7 @@ export function useRetryGeneration() {
       const originalType = selectedGeneration.type;
       const originalModelName = selectedGeneration.model;
 
-      const originalModelConfig = ALL_MODELS.find(m => m.displayName === originalModelName);
+      const originalModelConfig = findModelConfig(originalModelName, originalModelParams);
       if (!originalModelConfig) {
         toast.error('Could not find model configuration');
         setIsRetrying(false);
@@ -105,6 +105,7 @@ export function useRetryGeneration() {
           },
           generationId,
           enhancePromptEnabled,
+          useCase: modelParams.use_case,
           imageUrls,
         },
       });

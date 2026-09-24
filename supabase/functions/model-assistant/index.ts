@@ -9,6 +9,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Anthropic from 'npm:@anthropic-ai/sdk';
+import { MODEL_CATALOG } from '../_shared/catalog/index.ts';
+import { specPriceText } from '../_shared/catalog/pricing.ts';
+import { MODE_LABELS, type ModelSpec, type StudioMode } from '../_shared/catalog/types.ts';
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 
@@ -21,49 +24,36 @@ const MAX_HISTORY = 12;
 const MAX_MESSAGE_CHARS = 4000;
 
 // ─── Model catalogue ──────────────────────────────────────────────────────────
-// Deno can't import from src/, so this mirrors src/types/generation.ts,
-// src/config/pricing.ts and supabase/functions/generate/model-routes.ts.
-// Keep it in sync when models or prices change. 1000 credits = $5.
+// Generated from the shared catalog (../_shared/catalog), the same source the
+// Studio UI and the generate function use. 1000 credits = $5.
 
-const MODEL_CATALOGUE = `
-## Modes in Studio
-- "image" = text → image
-- "image-to-image" = edit/transform uploaded reference image(s)
-- "video" = text → video
-- "image-to-video" = animate an uploaded start image
+function optionsText(spec: ModelSpec): string {
+  return spec.fields
+    .filter((f) => f.type === 'enum' && f.options && !f.advanced)
+    .map((f) => `${f.label} ${f.options!.map((o) => o.label ?? String(o.value)).join('/')}`)
+    .join('; ');
+}
 
-## Text → Image (mode: image)
-- nano-banana-pro — Nano Banana Pro (Google). Photorealistic, sharp detail, textures, lighting, commercial/product shots, clean portraits, text-in-image. Aspect auto/1:1/16:9/9:16; resolution 1K/2K/4K. Cost: 18 credits (1K/2K), 24 credits (4K).
-- seedream-4.5 — Seedream 4.5 (ByteDance). Strong aesthetic sense: mood-driven scenes, painterly/illustrated styles, emotional portraits. Many aspect ratios incl. 21:9; quality basic/high. Cost: 6.5 credits.
-- flux-flex — Flux Flex (Black Forest Labs Flux 2). Versatile, conceptual/design work, surrealism, stylized renders. Aspect 1:1/16:9/9:16/4:3/3:4; 1K/2K. Cost: 14 credits (1K), 24 credits (2K).
-- flux-flex-pro — Flux Pro (Flux 2 Pro). High-fidelity, excellent detail, professional output; handles complex scenes. 1K/2K. Cost: 5 credits (1K), 7 credits (2K) — best quality-per-credit.
-- gpt-4o — GPT-4o Image. Best instruction following for complex, conversational art direction; follows negative instructions. Sizes 1:1/3:2/2:3. Cost: 10 credits.
-- z-image — Z Image. Budget and fast, for quick iterations and tests; keep prompts short. Cost: 0.8 credits (cheapest).
+const MODE_KEYS: Record<StudioMode, string> = {
+  'text-to-image': 'image',
+  'image-to-image': 'image-to-image',
+  'text-to-video': 'video',
+  'image-to-video': 'image-to-video',
+  'video-to-video': 'video-to-video',
+};
 
-## Image → Image (mode: image-to-image)
-- nano-banana-pro-i2i — Nano Banana Pro edit. High-quality edits that preserve the original composition; many aspect ratios; 1K/2K/4K. Cost: 18 credits (1K/2K), 24 (4K).
-- seedream-4.5-edit — Seedream 4.5 Edit. Style transfer and aesthetic refinement, multi-image edits/composites. Cost: 6.5 credits.
-- flux-flex-i2i — Flux Flex I2I. Artistic transformations and style changes, multi-image synthesis. Cost: 14 (1K) / 24 (2K).
-- flux-pro-i2i — Flux Pro I2I. Professional-grade transformations with fine detail. Cost: 5 (1K) / 7 (2K).
-- qwen-image-edit — Qwen Image Edit. Precise, instruction-following edits ("remove the background", "make the jacket red"); supports negative prompt and guidance scale. Cost: 2 credits.
+const MODEL_CATALOGUE = (Object.keys(MODE_LABELS) as StudioMode[])
+  .map((mode) => {
+    const specs = MODEL_CATALOG.filter((m) => m.mode === mode);
+    if (!specs.length) return '';
+    return `## ${MODE_LABELS[mode]} (mode: ${MODE_KEYS[mode]})\n` + specs
+      .map((m) => `- ${m.id} — ${m.name} (${m.provider}). ${m.bestFor}${m.audio ? ' Native audio.' : ''} ${optionsText(m)}. Inputs: ${m.media.map((x) => `${x.label} (max ${x.max})`).join(', ') || 'prompt only'}. Cost: ${specPriceText(m)}.`)
+      .join('\n');
+  })
+  .filter(Boolean)
+  .join('\n\n');
 
-## Text → Video (mode: video)
-- kling-3.0 — Kling 3.0. Cinematic camera moves; MULTI-SHOT mode (up to 5 shots, each with its own prompt and duration, in one generation); ELEMENT references (up to 3 named elements, each 2–4 reference images, to keep a character/product consistent); optional sound effects. Tiers std (720p) / pro (1080p) / 4K (2160p). Duration 3–15 s. Aspect 16:9/9:16/1:1. Cost: 60 credits (std), 120 (pro), 280 (4K).
-- seedance-2.0 — Seedance 2.0 (ByteDance). Latest-gen realistic motion, fine liquid/fabric detail, native generated AUDIO (on by default), up to 1080p (480p/720p/1080p), duration 4–15 s, aspect 16:9/9:16/1:1/4:3/3:4/21:9/adaptive, optional web search. Cost: 80 credits.
-- grok-imagine — Grok Imagine (xAI). Fast, playful, stylized/creative interpretation; motion modes fun/normal/spicy. Aspect 2:3/3:2/1:1/9:16/16:9. Cost: 30 credits (cheapest video).
-
-## Image → Video (mode: image-to-video)
-- kling-3.0-i2v — Kling 3.0 I2V. Animates a start image; single-shot supports START + END frame; also multi-shot and element references; std/pro/4K. Cost: 60 / 120 / 280 credits.
-- seedance-2.0-i2v — Seedance 2.0 I2V. First frame + optional last frame, plus multi-modal references (up to 9 reference images, 3 reference videos, 3 reference audio clips); audio, up to 1080p. Cost: 80 credits.
-- grok-imagine-i2v — Grok Imagine I2V. Animates up to 7 images with fun/normal/spicy motion; 480p/720p. Cost: 30 credits.
-`;
-
-const VALID_MODEL_IDS = [
-  'nano-banana-pro', 'seedream-4.5', 'flux-flex', 'flux-flex-pro', 'gpt-4o', 'z-image',
-  'nano-banana-pro-i2i', 'seedream-4.5-edit', 'flux-flex-i2i', 'flux-pro-i2i', 'qwen-image-edit',
-  'kling-3.0', 'seedance-2.0', 'grok-imagine',
-  'kling-3.0-i2v', 'seedance-2.0-i2v', 'grok-imagine-i2v',
-];
+const VALID_MODEL_IDS = MODEL_CATALOG.map((m) => m.id);
 
 const SYSTEM_PROMPT = `You are the Model Assistant inside Oltaflock Creative Studio, an AI image and video generation app. You are an expert advisor on the exact models available in this app, and you help users pick the right model and mode for their shot.
 

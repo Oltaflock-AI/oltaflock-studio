@@ -4,7 +4,9 @@ import { buttonTap, buttonHover } from '@/lib/motion';
 import { useGenerationStore } from '@/store/generationStore';
 import { useGenerations } from '@/hooks/useGenerations';
 import { useUserCredits } from '@/hooks/useUserCredits';
-import { ALL_MODELS, generateJobId, MODEL_API_NAMES } from '@/types/generation';
+import { ALL_MODELS, findModelConfig, generateJobId, MODEL_API_NAMES } from '@/types/generation';
+import { getSpec } from '@catalog/index.ts';
+import { validateSpecInput } from '@catalog/adapters.ts';
 import type { Model } from '@/types/generation';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -24,7 +26,6 @@ export function GenerateButton() {
     generationType,
     rawPrompt,
     controls,
-    uploadedImageUrls,
     addActiveGeneration,
     removeActiveGeneration,
     setCurrentOutput,
@@ -33,94 +34,27 @@ export function GenerateButton() {
     currentOutput,
     selectedJobId,
     setSelectedJobId,
-    clearUploadedImageUrls,
   } = useGenerationStore();
 
   const modelConfig = ALL_MODELS.find((m) => m.id === selectedModel);
 
-  // Image-to-Image requires uploaded images
-  const hasRequiredImages = (mode === 'image-to-image' || mode === 'image-to-video') ? uploadedImageUrls.length > 0 : true;
-  
-  // Validate specific model requirements for Image-to-Image
-  const validateImageRequirements = () => {
-    if (mode !== 'image-to-image') return true;
-    
-    if (selectedModel === 'qwen-image-edit' && uploadedImageUrls.length !== 1) {
-      toast.error('Qwen Image Edit requires exactly 1 image');
-      return false;
-    }
-    
-    if ((selectedModel === 'flux-flex-i2i' || selectedModel === 'flux-pro-i2i') && 
-        (uploadedImageUrls.length < 1 || uploadedImageUrls.length > 8)) {
-      toast.error('Flux requires 1-8 images');
-      return false;
-    }
-    
-    return true;
-  };
+  const spec = selectedModel ? getSpec(selectedModel) : undefined;
+  const isMultiShot = controls.multi_shots === true;
 
   // Note: No global isGenerating check - allows multiple concurrent generations
-  const canGenerate = 
-    selectedModel && 
-    generationType && 
-    rawPrompt.trim() && 
-    hasRequiredImages &&
+  const canGenerate =
+    selectedModel &&
+    generationType &&
+    (rawPrompt.trim() || isMultiShot || spec?.promptRequired === false || spec?.noPrompt) &&
     !isSubmitting; // Only block during the brief submission phase
 
   const handleGenerate = async () => {
-    if (!canGenerate || !modelConfig) return;
-    
-    if (!validateImageRequirements()) return;
+    if (!canGenerate || !modelConfig || !spec) return;
 
-    // Validate required fields for specific models
-    if (selectedModel === 'veo-3.1') {
-      if (!controls.variant) {
-        toast.error('Variant is required for Veo 3.1');
-        return;
-      }
-      if (!controls.aspectRatio) {
-        toast.error('Aspect ratio is required for Veo 3.1');
-        return;
-      }
-    }
-
-    if (selectedModel === 'z-image' && !controls.aspectRatio) {
-      toast.error('Aspect ratio is required for Z Image');
+    const problem = validateSpecInput(spec, rawPrompt, controls);
+    if (problem) {
+      toast.error(problem);
       return;
-    }
-
-    if ((selectedModel === 'flux-flex' || selectedModel === 'flux-flex-pro')) {
-      if (!controls.aspectRatio) {
-        toast.error('Aspect ratio is required for Flux');
-        return;
-      }
-      if (!controls.resolution) {
-        toast.error('Resolution is required for Flux');
-        return;
-      }
-    }
-
-    // Validate Image-to-Image model controls
-    if (selectedModel === 'seedream-4.5-edit') {
-      if (!controls.aspect_ratio) {
-        toast.error('Aspect ratio is required for Seedream 4.5 Edit');
-        return;
-      }
-      if (!controls.quality) {
-        toast.error('Quality is required for Seedream 4.5 Edit');
-        return;
-      }
-    }
-
-    if (selectedModel === 'flux-flex-i2i' || selectedModel === 'flux-pro-i2i') {
-      if (!controls.aspect_ratio) {
-        toast.error('Aspect ratio is required');
-        return;
-      }
-      if (!controls.resolution) {
-        toast.error('Resolution is required');
-        return;
-      }
     }
 
     // Brief submission lock - only while creating DB record
@@ -132,14 +66,7 @@ export function GenerateButton() {
     // Build model_params object from controls
     const modelParams = { ...controls };
     
-    // Get API model name
-    const apiModelName = MODEL_API_NAMES[selectedModel as Model];
-
-    // Determine the correct type for database
-    const dbType =
-      mode === 'image-to-image' ? 'image'
-      : mode === 'image-to-video' ? 'video'
-      : mode;
+    const dbType = spec.output;
 
     // Calculate cost for this generation
     const cost = calculateCost(selectedModel, modelParams);
@@ -165,7 +92,8 @@ export function GenerateButton() {
         error_message: null,
         model_params: {
           ...modelParams,
-          image_urls: (mode === 'image-to-image' || mode === 'image-to-video') ? uploadedImageUrls : undefined,
+          model_id: selectedModel,
+          use_case: useGenerationStore.getState().brainUseCase,
           cost_credits: cost.credits,
           cost_usd: cost.usd,
         },
@@ -206,7 +134,7 @@ export function GenerateButton() {
     modelParams: Record<string, unknown>,
   ) => {
     try {
-      const { enhancePromptEnabled } = useGenerationStore.getState();
+      const { enhancePromptEnabled, brainUseCase } = useGenerationStore.getState();
 
       console.log('[generate] Invoking edge function:', { model: selectedModel, generationId });
 
@@ -224,9 +152,7 @@ export function GenerateButton() {
         controls: cleanControls,
         generationId,
         enhancePromptEnabled,
-        ...((mode === 'image-to-image' || mode === 'image-to-video') && uploadedImageUrls.length > 0
-          ? { imageUrls: uploadedImageUrls }
-          : {}),
+        useCase: brainUseCase,
       };
 
       console.log('[generate] Invoke body:', JSON.stringify(invokeBody).slice(0, 500));
@@ -258,9 +184,6 @@ export function GenerateButton() {
           setPendingRating(true);
         }
         toast.success('Generation complete');
-        if (mode === 'image-to-image' || mode === 'image-to-video') {
-          clearUploadedImageUrls();
-        }
       } else if (data?.task_id) {
         // Async result - edge function stored task_id, polling will pick it up
         toast.info('Generation submitted, waiting for results...');
@@ -297,17 +220,15 @@ export function GenerateButton() {
       const originalType = selectedGeneration.type; // 'image' or 'video'
       const originalModelName = selectedGeneration.model;
       
-      // Find the model config by display name
-      const originalModelConfig = ALL_MODELS.find(m => m.displayName === originalModelName);
+      const originalModelConfig = findModelConfig(originalModelName, originalModelParams);
       if (!originalModelConfig) {
         toast.error('Could not find model configuration');
         setIsSubmitting(false);
         return;
       }
       
-      // Get API model name
       const apiModelName = MODEL_API_NAMES[originalModelConfig.id];
-      
+
       // Generate new request_id
       const requestId = generateJobId();
       
@@ -372,7 +293,7 @@ export function GenerateButton() {
       // Clean undefined values + extract image_urls separately
       const cleanControls: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(modelParams)) {
-        if (v !== undefined && k !== 'image_urls') cleanControls[k] = v;
+        if (v !== undefined) cleanControls[k] = v;
       }
       cleanControls.cost_credits = cost.credits;
 
@@ -388,6 +309,7 @@ export function GenerateButton() {
           controls: cleanControls,
           generationId,
           enhancePromptEnabled,
+          useCase: modelParams.use_case,
           ...(imageUrls && imageUrls.length > 0 ? { imageUrls } : {}),
         },
       });
@@ -473,7 +395,7 @@ export function GenerateButton() {
               className="flex items-center"
             >
               <Sparkles className="h-4 w-4 mr-2" />
-              {mode === 'image-to-image' ? 'Transform' : mode === 'image-to-video' ? 'Animate' : 'Generate'}
+              {mode === 'image-to-image' || mode === 'video-to-video' ? 'Transform' : mode === 'image-to-video' ? 'Animate' : 'Generate'}
             </motion.span>
           )}
         </AnimatePresence>

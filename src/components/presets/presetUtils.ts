@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useGenerationStore } from '@/store/generationStore';
 import { ALL_MODELS, TYPE_LABELS } from '@/types/generation';
 import type { GenerationType, Model } from '@/types/generation';
-import { getModelIdentity, MODEL_FAMILIES } from '@/config/models';
+import { getModelIdentity } from '@/config/models';
 import type { LibraryItem } from '@/types/library';
 
 const VIDEO_EXT = /\.(mp4|webm|mov|m4v)(\?|#|$)/i;
@@ -19,9 +19,7 @@ export function isKnownModel(modelId: string | null | undefined): boolean {
 /** Human label for a preset's model, falling back to the raw id when unknown. */
 export function modelLabel(modelId: string | null | undefined): string {
   if (!modelId) return 'Any model';
-  const family = modelId.replace(/-i2i$|-i2v$/, '');
-  if (MODEL_FAMILIES[family]) return getModelIdentity(modelId).label;
-  return ALL_MODELS.find((m) => m.id === modelId)?.displayName ?? modelId;
+  return ALL_MODELS.find((m) => m.id === modelId)?.displayName ?? getModelIdentity(modelId).label ?? modelId;
 }
 
 export function typeLabel(type: GenerationType | null | undefined): string | null {

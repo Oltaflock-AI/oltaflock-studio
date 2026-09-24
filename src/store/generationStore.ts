@@ -6,6 +6,7 @@ import type {
   JobEntry,
   JobStatus
 } from '@/types/generation';
+import { toStudioMode } from '@/types/generation';
 
 interface GenerationState {
   // Current Mode
@@ -69,6 +70,9 @@ interface GenerationState {
   // Prompt Brain (enhancement toggle)
   enhancePromptEnabled: boolean;
   setEnhancePromptEnabled: (enabled: boolean) => void;
+  /** Prompt Brain use-case profile id ('auto' lets the brain infer it). */
+  brainUseCase: string;
+  setBrainUseCase: (id: string) => void;
 
   // Pending Rating
   pendingRating: boolean;
@@ -109,10 +113,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setMode: (mode) => set({
     mode,
     selectedModel: null,
-    generationType: mode === 'image' ? 'text-to-image'
-      : mode === 'video' ? 'text-to-video'
-      : mode === 'image-to-image' ? 'image-to-image'
-      : 'image-to-video',
+    generationType: toStudioMode(mode),
     controls: {},
     referenceFiles: [],
     uploadedImageUrls: [],
@@ -123,13 +124,15 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   
   // Selected Model
   selectedModel: null,
-  setSelectedModel: (model) => set({ 
-    selectedModel: model, 
-    controls: {},
+  // Uploaded media (controls under `media.*`) survives switching between
+  // models in the same mode, so users can compare models on one input.
+  setSelectedModel: (model) => set((state) => ({
+    selectedModel: model,
+    controls: Object.fromEntries(Object.entries(state.controls).filter(([k]) => k.startsWith('media.'))),
     referenceFiles: [],
     uploadedImageUrls: [],
     characterIds: [],
-  }),
+  })),
   
   // Generation Type
   generationType: null,
@@ -208,6 +211,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   // Prompt Brain
   enhancePromptEnabled: true,
   setEnhancePromptEnabled: (enabled) => set({ enhancePromptEnabled: enabled }),
+  brainUseCase: 'auto',
+  setBrainUseCase: (id) => set({ brainUseCase: id }),
 
   // Pending Rating
   pendingRating: false,

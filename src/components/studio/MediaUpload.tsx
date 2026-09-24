@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { uploadFile } from '@/lib/storage';
-import { Button } from '@/components/ui/button';
-import { Upload, X, Loader2, Image as ImageIcon, Film, Music } from 'lucide-react';
+import { X, Loader2, Image as ImageIcon, Film, Music } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -121,7 +120,7 @@ export function MediaUpload({
             <div key={i} className="relative group">
               {kind === 'image' && (
                 <div className="aspect-square">
-                  <img src={url} alt={`Upload ${i + 1}`} className="w-full h-full object-cover rounded-md border border-border" />
+                  <img src={url} alt={`Upload ${i + 1}`} className="w-full h-full object-cover rounded-lg border border-border/70" />
                 </div>
               )}
               {kind === 'video' && (
@@ -161,31 +160,31 @@ export function MediaUpload({
             disabled={isDisabled}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
           />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-full h-16 border-dashed flex flex-col gap-1"
-            disabled={isDisabled}
+          <div
+            className={cn(
+              'w-full h-[72px] rounded-xl border border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-1 text-muted-foreground transition-smooth',
+              !isDisabled && 'hover:border-primary/50 hover:bg-primary/5 hover:text-foreground',
+              isDisabled && 'opacity-50'
+            )}
           >
             {isUploading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-[10px]">Uploading...</span>
+                <span className="text-[11px]">Uploading…</span>
               </>
             ) : (
               <>
                 <Icon className="h-4 w-4" />
-                <span className="text-[10px]">
-                  Upload {kind} ({value.length}/{maxFiles})
+                <span className="text-[11.5px]">
+                  Drop or click to add {kind}{maxFiles > 1 ? 's' : ''}
                 </span>
               </>
             )}
-          </Button>
+          </div>
         </div>
       )}
 
-      {helperText && <p className="text-[10px] text-muted-foreground/60">{helperText}</p>}
+      {helperText && <p className="text-[11px] text-muted-foreground/70">{helperText}</p>}
     </div>
   );
 }

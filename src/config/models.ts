@@ -1,11 +1,11 @@
 // Shared visual identity for each AI model family, used anywhere a model
 // needs a quick-glance badge: the Presets grid, the Assistant cheat sheet,
-// the model selector, and generation cards.
+// the model picker, and generation cards.
 //
 // These are original marks (a color + initials), not the providers'
-// real logos — Kling/ByteDance/xAI/Black Forest Labs' actual trademarks
-// aren't ours to reproduce.
+// real logos — the providers' actual trademarks aren't ours to reproduce.
 
+import { MODEL_CATALOG, familyLeads } from '@catalog/index.ts';
 import { ALL_MODELS } from '@/types/generation';
 
 export interface ModelIdentity {
@@ -15,28 +15,77 @@ export interface ModelIdentity {
   badgeText: string;
 }
 
-// Keyed by "family" — the part of a model id before any -i2i/-i2v suffix,
-// so 'kling-3.0' and 'kling-3.0-i2v' share one identity.
-export const MODEL_FAMILIES: Record<string, ModelIdentity> = {
-  'kling-3.0': { label: 'Kling 3.0', initials: 'K', badgeBg: '#5B3FA6', badgeText: '#F5F5F2' },
-  'seedance-2.0': { label: 'Seedance 2.0', initials: 'SD', badgeBg: '#1F8F7A', badgeText: '#F5F5F2' },
-  'grok-imagine': { label: 'Grok', initials: 'GK', badgeBg: '#2B2B30', badgeText: '#F5F5F2' },
-  'nano-banana-pro': { label: 'Nano Banana Pro', initials: 'NB', badgeBg: '#E8B93A', badgeText: '#141417' },
-  'flux-flex-pro': { label: 'Flux Pro', initials: 'FX', badgeBg: '#C1552C', badgeText: '#F5F5F2' },
-  'flux-flex': { label: 'Flux Flex', initials: 'FX', badgeBg: '#C1552C', badgeText: '#F5F5F2' },
-  'seedream-4.5': { label: 'Seedream 4.5', initials: 'SM', badgeBg: '#4A5FC4', badgeText: '#F5F5F2' },
-  'gpt-4o': { label: 'GPT-4o', initials: 'GPT', badgeBg: '#0F7A6C', badgeText: '#F5F5F2' },
-  'z-image': { label: 'Z Image', initials: 'Z', badgeBg: '#7A5C2E', badgeText: '#F5F5F2' },
-  'qwen-image-edit': { label: 'Qwen', initials: 'QW', badgeBg: '#8B3A62', badgeText: '#F5F5F2' },
+const LIGHT = '#F5F5F2';
+const DARK = '#141417';
+
+/** Hand-picked colors per family; anything missing gets a stable hashed hue. */
+const FAMILY_COLORS: Record<string, { bg: string; text?: string; initials?: string }> = {
+  kling: { bg: '#5B3FA6', initials: 'K' },
+  seedance: { bg: '#1F8F7A', initials: 'SD' },
+  seedream: { bg: '#4A5FC4', initials: 'SM' },
+  grok: { bg: '#2B2B30', initials: 'GK' },
+  'nano-banana': { bg: '#E8B93A', text: DARK, initials: 'NB' },
+  flux: { bg: '#C1552C', initials: 'FX' },
+  gpt: { bg: '#0F7A6C', initials: 'GPT' },
+  'z-image': { bg: '#7A5C2E', initials: 'Z' },
+  qwen: { bg: '#8B3A62', initials: 'QW' },
+  veo: { bg: '#1A73E8', initials: 'VEO' },
+  sora: { bg: '#111111', initials: 'SO' },
+  wan: { bg: '#6E3BD8', initials: 'WN' },
+  hailuo: { bg: '#E0457B', initials: 'HL' },
+  runway: { bg: '#3A3A3A', initials: 'RW' },
+  imagen: { bg: '#34A853', initials: 'IM' },
+  ideogram: { bg: '#2F2F8F', initials: 'ID' },
+  topaz: { bg: '#0B5CAD', initials: 'TP' },
+  recraft: { bg: '#E24C2B', initials: 'RC' },
+  infinitalk: { bg: '#B24BD1', initials: 'IT' },
+  'gemini-omni': { bg: '#4285F4', initials: 'GO' },
+  happyhorse: { bg: '#D9822B', initials: 'HH' },
+  pixverse: { bg: '#7B2FF7', initials: 'PV' },
+  omnihuman: { bg: '#0E9F8E', initials: 'OH' },
+  volcengine: { bg: '#E0301E', initials: 'VL' },
+  aleph: { bg: '#3A3A3A', initials: 'AL' },
+  'flux-kontext': { bg: '#A8441F', initials: 'FK' },
+  'wan-image': { bg: '#6E3BD8', initials: 'WN' },
 };
 
-const FALLBACK: ModelIdentity = { label: 'Model', initials: '?', badgeBg: '#3A3A40', badgeText: '#F5F5F2' };
+function hashHue(s: string): number {
+  let h = 0;
+  for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360;
+  return h;
+}
 
-// Model ids whose family doesn't follow the plain "-i2i / -i2v suffix" rule.
-const FAMILY_ALIASES: Record<string, string> = {
-  'flux-pro-i2i': 'flux-flex-pro',
-  'seedream-4.5-edit': 'seedream-4.5',
-};
+function familyColor(family: string) {
+  if (FAMILY_COLORS[family]) return FAMILY_COLORS[family];
+  const key = Object.keys(FAMILY_COLORS)
+    .filter((k) => family.startsWith(k))
+    .sort((a, b) => b.length - a.length)[0];
+  return key ? FAMILY_COLORS[key] : undefined;
+}
+
+function familyLabel(family: string): string {
+  const lead = familyLeads().find((s) => s.family === family);
+  return lead ? lead.name.replace(/\s+(Edit|Image to Video|Text to Video|I2V|T2V)$/i, '') : family;
+}
+
+function buildIdentity(family: string): ModelIdentity {
+  const label = familyLabel(family);
+  const c = familyColor(family);
+  const initials =
+    c?.initials ?? label.split(/[\s-]+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+  return {
+    label,
+    initials,
+    badgeBg: c?.bg ?? `hsl(${hashHue(family)} 45% 38%)`,
+    badgeText: c?.text ?? LIGHT,
+  };
+}
+
+export const MODEL_FAMILIES: Record<string, ModelIdentity> = Object.fromEntries(
+  [...new Set(MODEL_CATALOG.map((m) => m.family))].map((f) => [f, buildIdentity(f)]),
+);
+
+const FALLBACK: ModelIdentity = { label: 'Model', initials: '?', badgeBg: '#3A3A40', badgeText: LIGHT };
 
 /**
  * Looks up a model's shared visual identity. Accepts a model id
@@ -45,6 +94,7 @@ const FAMILY_ALIASES: Record<string, string> = {
  */
 export function getModelIdentity(model: string): ModelIdentity {
   const id = ALL_MODELS.find((m) => m.id === model || m.displayName === model)?.id ?? model;
-  const family = FAMILY_ALIASES[id] ?? id.replace(/-i2i$|-i2v$/, '');
-  return MODEL_FAMILIES[family] ?? FALLBACK;
+  const spec = MODEL_CATALOG.find((m) => m.id === id);
+  if (spec) return MODEL_FAMILIES[spec.family] ?? FALLBACK;
+  return MODEL_FAMILIES[id] ?? FALLBACK;
 }

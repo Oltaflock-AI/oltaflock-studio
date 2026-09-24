@@ -1,48 +1,34 @@
-// Generation Mode - includes 'image-to-image' and 'image-to-video'
-export type GenerationMode = 'image' | 'video' | 'image-to-image' | 'image-to-video';
+import { MODEL_CATALOG } from '@catalog/index.ts';
+import type { StudioMode } from '@catalog/types.ts';
 
-// Image Models - Split Flux into Flex and Flex Pro
-export type ImageModel = 'nano-banana-pro' | 'seedream-4.5' | 'flux-flex' | 'flux-flex-pro' | 'gpt-4o' | 'z-image';
+// Store-level mode. 'image'/'video' are the text-to-* modes (legacy names kept
+// because they're persisted in presets and library items).
+export type GenerationMode = 'image' | 'video' | 'image-to-image' | 'image-to-video' | 'video-to-video';
 
-// Video Models
-export type VideoModel = 'kling-3.0' | 'seedance-2.0' | 'grok-imagine';
+// Model ids come from the shared catalog (supabase/functions/_shared/catalog).
+export type Model = string;
+export type ImageModel = Model;
+export type VideoModel = Model;
+export type ImageToImageModel = Model;
+export type ImageToVideoModel = Model;
 
-// Image to Image Models
-export type ImageToImageModel = 'nano-banana-pro-i2i' | 'seedream-4.5-edit' | 'flux-flex-i2i' | 'flux-pro-i2i' | 'qwen-image-edit';
+export type GenerationType = 'text-to-image' | 'text-to-video' | 'image-to-image' | 'image-to-video' | 'video-to-video';
 
-// Image to Video Models
-export type ImageToVideoModel = 'kling-3.0-i2v' | 'seedance-2.0-i2v' | 'grok-imagine-i2v';
+export function toStudioMode(mode: GenerationMode): StudioMode {
+  if (mode === 'image') return 'text-to-image';
+  if (mode === 'video') return 'text-to-video';
+  return mode;
+}
 
-// All Models
-export type Model = ImageModel | VideoModel | ImageToImageModel | ImageToVideoModel;
+export function fromStudioMode(mode: StudioMode): GenerationMode {
+  if (mode === 'text-to-image') return 'image';
+  if (mode === 'text-to-video') return 'video';
+  return mode;
+}
 
-// Generation Types - now includes image-to-video
-export type GenerationType = 'text-to-image' | 'text-to-video' | 'image-to-image' | 'image-to-video';
-
-// Model API name mapping for webhook payload
-export const MODEL_API_NAMES: Record<Model, string> = {
-  // Text-to-Image models
-  'nano-banana-pro': 'nano-banana/pro',
-  'seedream-4.5': 'seedream/4.5',
-  'flux-flex': 'flux-2/flex',
-  'flux-flex-pro': 'flux-2/pro',
-  'gpt-4o': 'gpt/4o',
-  'z-image': 'z-image',
-  // Text-to-Video models
-  'kling-3.0': 'kling-3.0/video',
-  'seedance-2.0': 'bytedance/seedance-2',
-  'grok-imagine': 'grok-imagine/text-to-video',
-  // Image-to-Image models
-  'nano-banana-pro-i2i': 'nano-banana-pro',
-  'seedream-4.5-edit': 'seedream/4.5-edit',
-  'flux-flex-i2i': 'flux-2/flex-image-to-image',
-  'flux-pro-i2i': 'flux-2/pro-image-to-image',
-  'qwen-image-edit': 'qwen/image-edit',
-  // Image-to-Video models
-  'kling-3.0-i2v': 'kling-3.0/video',
-  'seedance-2.0-i2v': 'bytedance/seedance-2',
-  'grok-imagine-i2v': 'grok-imagine/image-to-video',
-};
+export const MODEL_API_NAMES: Record<string, string> = Object.fromEntries(
+  MODEL_CATALOG.map((m) => [m.id, m.kieModel ?? m.api]),
+);
 
 // Model Configurations
 export interface ModelConfig {
@@ -260,127 +246,31 @@ export interface JobEntry {
 // Legacy alias for backward compatibility
 export type HistoryEntry = JobEntry;
 
-// Model Registry - Text-to-Image
-export const IMAGE_MODELS: ModelConfig[] = [
-  {
-    id: 'nano-banana-pro',
-    displayName: 'Nano Banana Pro',
-    mode: 'image',
-    generationTypes: ['text-to-image'],
-  },
-  {
-    id: 'seedream-4.5',
-    displayName: 'Seedream 4.5',
-    mode: 'image',
-    generationTypes: ['text-to-image'],
-  },
-  {
-    id: 'flux-flex',
-    displayName: 'Flux Flex',
-    mode: 'image',
-    generationTypes: ['text-to-image'],
-  },
-  {
-    id: 'flux-flex-pro',
-    displayName: 'Flux Flex Pro',
-    mode: 'image',
-    generationTypes: ['text-to-image'],
-  },
-  {
-    id: 'gpt-4o',
-    displayName: 'GPT-4o Image',
-    mode: 'image',
-    generationTypes: ['text-to-image'],
-  },
-  {
-    id: 'z-image',
-    displayName: 'Z Image',
-    mode: 'image',
-    generationTypes: ['text-to-image'],
-  },
-];
+// Model registry, derived from the catalog.
+const toConfig = (m: (typeof MODEL_CATALOG)[number]): ModelConfig => ({
+  id: m.id,
+  displayName: m.name,
+  mode: fromStudioMode(m.mode),
+  generationTypes: [m.mode],
+});
 
-// Video Models - Only Veo 3.1 (no Veo 3)
-export const VIDEO_MODELS: ModelConfig[] = [
-  {
-    id: 'kling-3.0',
-    displayName: 'Kling 3.0',
-    mode: 'video',
-    generationTypes: ['text-to-video'],
-    variants: ['std', 'pro', '4K'],
-  },
-  {
-    id: 'seedance-2.0',
-    displayName: 'Seedance 2.0',
-    mode: 'video',
-    generationTypes: ['text-to-video'],
-  },
-  {
-    id: 'grok-imagine',
-    displayName: 'Grok Imagine',
-    mode: 'video',
-    generationTypes: ['text-to-video'],
-  },
-];
+export const ALL_MODELS: ModelConfig[] = MODEL_CATALOG.map(toConfig);
+export const IMAGE_MODELS = ALL_MODELS.filter((m) => m.mode === 'image');
+export const VIDEO_MODELS = ALL_MODELS.filter((m) => m.mode === 'video');
+export const IMAGE_TO_IMAGE_MODELS = ALL_MODELS.filter((m) => m.mode === 'image-to-image');
+export const IMAGE_TO_VIDEO_MODELS = ALL_MODELS.filter((m) => m.mode === 'image-to-video');
+export const VIDEO_TO_VIDEO_MODELS = ALL_MODELS.filter((m) => m.mode === 'video-to-video');
 
-// Image-to-Image Models
-export const IMAGE_TO_IMAGE_MODELS: ModelConfig[] = [
-  {
-    id: 'nano-banana-pro-i2i',
-    displayName: 'Nano Banana Pro',
-    mode: 'image-to-image',
-    generationTypes: ['image-to-image'],
-  },
-  {
-    id: 'seedream-4.5-edit',
-    displayName: 'Seedream 4.5 Edit',
-    mode: 'image-to-image',
-    generationTypes: ['image-to-image'],
-  },
-  {
-    id: 'flux-flex-i2i',
-    displayName: 'Flux Flex',
-    mode: 'image-to-image',
-    generationTypes: ['image-to-image'],
-  },
-  {
-    id: 'flux-pro-i2i',
-    displayName: 'Flux Pro',
-    mode: 'image-to-image',
-    generationTypes: ['image-to-image'],
-  },
-  {
-    id: 'qwen-image-edit',
-    displayName: 'Qwen Image Edit',
-    mode: 'image-to-image',
-    generationTypes: ['image-to-image'],
-  },
-];
-
-// Image-to-Video Models
-export const IMAGE_TO_VIDEO_MODELS: ModelConfig[] = [
-  {
-    id: 'kling-3.0-i2v',
-    displayName: 'Kling 3.0',
-    mode: 'image-to-video',
-    generationTypes: ['image-to-video'],
-    variants: ['std', 'pro', '4K'],
-  },
-  {
-    id: 'seedance-2.0-i2v',
-    displayName: 'Seedance 2.0',
-    mode: 'image-to-video',
-    generationTypes: ['image-to-video'],
-  },
-  {
-    id: 'grok-imagine-i2v',
-    displayName: 'Grok Imagine',
-    mode: 'image-to-video',
-    generationTypes: ['image-to-video'],
-  },
-];
-
-export const ALL_MODELS = [...IMAGE_MODELS, ...VIDEO_MODELS, ...IMAGE_TO_IMAGE_MODELS, ...IMAGE_TO_VIDEO_MODELS];
+/** Resolves a generation row's model: prefers the stored id, falls back to display name. */
+export function findModelConfig(model: string, modelParams?: Record<string, unknown> | null, type?: GenerationType) {
+  const id = modelParams?.model_id as string | undefined;
+  return (
+    (id && ALL_MODELS.find((m) => m.id === id)) ||
+    ALL_MODELS.find((m) => m.id === model) ||
+    (type && ALL_MODELS.find((m) => m.displayName === model && m.generationTypes.includes(type))) ||
+    ALL_MODELS.find((m) => m.displayName === model)
+  );
+}
 
 // Generation Type Labels
 export const TYPE_LABELS: Record<GenerationType, string> = {
@@ -388,6 +278,7 @@ export const TYPE_LABELS: Record<GenerationType, string> = {
   'text-to-video': 'Text to Video',
   'image-to-image': 'Image to Image',
   'image-to-video': 'Image to Video',
+  'video-to-video': 'Video Edit',
 };
 
 // Status Labels

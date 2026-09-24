@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@catalog": path.resolve(__dirname, "./supabase/functions/_shared/catalog"),
     },
   },
 }));

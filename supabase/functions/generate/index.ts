@@ -1,5 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { MODEL_ROUTES } from './model-routes.ts';
+import { getSpec } from '../_shared/catalog/index.ts';
+import { API_ENDPOINTS, KIE_BASE, buildRequestBody, validateSpecInput } from '../_shared/catalog/adapters.ts';
+import type { ModelSpec } from '../_shared/catalog/types.ts';
+import { optimizePrompt } from '../_shared/brain/index.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,6 +10,29 @@ const corsHeaders = {
 };
 
 const KIE_AI_API_KEY = Deno.env.get('KIE_AI_API_KEY') || '';
+
+// Controls saved before the catalog refactor used fixed keys; map them onto media slots.
+const LEGACY_MEDIA: Record<string, string> = {
+  last_frame_url: 'end_frame',
+  reference_image_urls: 'ref_images',
+  reference_video_urls: 'ref_videos',
+  reference_audio_urls: 'ref_audios',
+};
+
+function normalizeLegacy(spec: ModelSpec, controls: Record<string, unknown>, imageUrls?: string[]) {
+  const out = { ...controls };
+  for (const [legacy, slotKey] of Object.entries(LEGACY_MEDIA)) {
+    const v = out[legacy];
+    if (v && !out[`media.${slotKey}`] && spec.media.some((m) => m.key === slotKey)) {
+      out[`media.${slotKey}`] = Array.isArray(v) ? v : [v];
+    }
+  }
+  if (imageUrls?.length) {
+    const primary = spec.media.find((m) => m.kind === 'image' && (m.min ?? 0) > 0) ?? spec.media.find((m) => m.kind === 'image');
+    if (primary && !out[`media.${primary.key}`]) out[`media.${primary.key}`] = imageUrls;
+  }
+  return out;
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -31,20 +57,29 @@ Deno.serve(async (req: Request) => {
 
     // 2. Parse
     const body = await req.json();
-    const { prompt, model, controls = {}, generationId, imageUrls, enhancePromptEnabled = false } = body;
+    const { prompt = '', model, controls: rawControls = {}, generationId, imageUrls, enhancePromptEnabled = false, useCase = 'auto' } = body;
 
-    if (!prompt || !model || !generationId) {
-      return Response.json({ error: 'Missing: prompt, model, generationId' }, { status: 400, headers: corsHeaders });
+    if (!model || !generationId) {
+      return Response.json({ error: 'Missing: model, generationId' }, { status: 400, headers: corsHeaders });
     }
 
-    const route = MODEL_ROUTES[model];
-    if (!route) {
+    const spec = getSpec(model);
+    if (!spec) {
       return Response.json({ error: `Unknown model: ${model}` }, { status: 400, headers: corsHeaders });
     }
 
-    console.log(`[gen] user=${userId} model=${model} id=${generationId}`);
-
+    const controls = normalizeLegacy(spec, rawControls, imageUrls);
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    const fail = async (msg: string, status = 400) => {
+      await adminClient.from('generations').update({ status: 'error', error_message: msg, progress: 0 }).eq('id', generationId);
+      return Response.json({ error: msg }, { status, headers: corsHeaders });
+    };
+
+    const invalid = validateSpecInput(spec, prompt, controls);
+    if (invalid) return await fail(invalid);
+
+    console.log(`[gen] user=${userId} model=${model} api=${spec.api} id=${generationId}`);
 
     // 3. Credits
     const { data: creditData } = await adminClient
@@ -60,85 +95,42 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error: `Insufficient credits. Have ${balance}, need ${costCredits}.` }, { status: 402, headers: corsHeaders });
     }
 
-    // 4. Prompt Brain — enhance if toggle is ON
+    // 4. Prompt Brain — optimize for this model + use case if the toggle is ON
     let finalPrompt = prompt;
-    if (enhancePromptEnabled) {
-      const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
-      if (anthropicKey) {
-        try {
-          console.log('[gen] Brain enhancing prompt...');
-          const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': anthropicKey,
-              'anthropic-version': '2023-06-01',
-            },
-            body: JSON.stringify({
-              model: 'claude-sonnet-4-20250514',
-              max_tokens: 400,
-              system: `You are a prompt engineer for AI image/video generation. Rewrite the user's prompt optimized for the model "${model}" (${route.persona}). Return ONLY the enhanced prompt. No explanation. Max 220 words. Never change the subject. Enhance visual quality, not complexity.`,
-              messages: [{ role: 'user', content: prompt }],
-            }),
-          });
-          if (claudeRes.ok) {
-            const claudeData = await claudeRes.json();
-            const enhanced = claudeData.content?.[0]?.text?.trim();
-            if (enhanced && enhanced.toLowerCase() !== prompt.toLowerCase()) {
-              finalPrompt = enhanced;
-              console.log(`[gen] Brain enhanced: ${enhanced.slice(0, 80)}...`);
-            }
-          }
-        } catch (brainErr) {
-          console.error('[gen] Brain failed, using original:', brainErr);
-        }
-      }
+    if (enhancePromptEnabled && prompt.trim() && !spec.noPrompt) {
+      const result = await optimizePrompt({
+        spec, prompt, useCase, controls, userId, supabase: adminClient,
+      });
+      if (result) finalPrompt = result.prompt;
     }
 
-    // 5. Update generation to running + store final prompt
+    // 5. Mark running + store final prompt
     await adminClient.from('generations').update({
       status: 'running',
       progress: 10,
       final_prompt: finalPrompt,
     }).eq('id', generationId);
 
-    // 6. Build payload using the route's buildPayload function
+    // 6. Build request
     const callbackUrl = `${supabaseUrl}/functions/v1/generation-callback`;
-    let kiePayload: Record<string, unknown>;
-    try {
-      kiePayload = route.buildPayload(finalPrompt, controls, callbackUrl, imageUrls);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error('[gen] buildPayload error:', msg);
-      await adminClient.from('generations').update({
-        status: 'error', error_message: msg, progress: 0,
-      }).eq('id', generationId);
-      return Response.json({ error: msg }, { status: 400, headers: corsHeaders });
-    }
+    const kiePayload = buildRequestBody(spec, finalPrompt, controls, callbackUrl);
+    const endpoint = `${KIE_BASE}${API_ENDPOINTS[spec.api].create}`;
 
-    console.log(`[gen] endpoint=${route.endpoint}`);
-    console.log(`[gen] payload=${JSON.stringify(kiePayload).slice(0, 500)}`);
+    console.log(`[gen] endpoint=${endpoint}`);
+    console.log(`[gen] payload=${JSON.stringify(kiePayload).slice(0, 600)}`);
 
-    // 6. Mock mode
+    // Mock mode
     if (!KIE_AI_API_KEY) {
       console.log('[gen] MOCK MODE');
-      if (route.type === 'image') {
-        const mockUrl = `https://placehold.co/1024x1024/229DE7/fff?text=${encodeURIComponent(model)}`;
-        await adminClient.from('generations').update({
-          status: 'done', output_url: mockUrl, progress: 100,
-        }).eq('id', generationId);
-        return Response.json({ output_url: mockUrl }, { headers: corsHeaders });
-      } else {
-        const mockTaskId = `mock_${Date.now()}`;
-        await adminClient.from('generations').update({
-          status: 'running', external_task_id: mockTaskId, progress: 10,
-        }).eq('id', generationId);
-        return Response.json({ task_id: mockTaskId }, { headers: corsHeaders });
-      }
+      const mockTaskId = `mock_${Date.now()}`;
+      await adminClient.from('generations').update({
+        status: 'running', external_task_id: mockTaskId, progress: 10,
+      }).eq('id', generationId);
+      return Response.json({ task_id: mockTaskId, enhanced_prompt: finalPrompt }, { headers: corsHeaders });
     }
 
-    // 7. Call Kie.ai
-    const kieRes = await fetch(route.endpoint, {
+    // 7. Call kie.ai
+    const kieRes = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -150,50 +142,23 @@ Deno.serve(async (req: Request) => {
     const kieText = await kieRes.text();
     console.log(`[gen] Kie status=${kieRes.status} body=${kieText.slice(0, 300)}`);
 
-    let kieData: Record<string, any>;
+    let kieData: { code?: number; msg?: string; taskId?: string; task_id?: string; data?: { taskId?: string; task_id?: string } };
     try {
       kieData = JSON.parse(kieText);
     } catch {
-      await adminClient.from('generations').update({
-        status: 'error', error_message: `Kie.ai invalid response: ${kieText.slice(0, 100)}`, progress: 0,
-      }).eq('id', generationId);
-      return Response.json({ error: 'Kie.ai invalid JSON', raw: kieText.slice(0, 200) }, { status: 502, headers: corsHeaders });
+      return await fail(`Kie.ai invalid response: ${kieText.slice(0, 100)}`, 502);
     }
 
-    // Extract taskId - different APIs return it differently
-    const taskId = kieData.data?.taskId || kieData.taskId || kieData.task_id;
-
-    if (!taskId && kieData.code !== 200) {
-      const errorMsg = kieData.msg || `Kie.ai error ${kieRes.status}`;
-      await adminClient.from('generations').update({
-        status: 'error', error_message: errorMsg, progress: 0,
-      }).eq('id', generationId);
-      return Response.json({ error: errorMsg, kie_response: kieData }, { status: 502, headers: corsHeaders });
+    const taskId = kieData.data?.taskId || kieData.data?.task_id || kieData.taskId || kieData.task_id;
+    if (!taskId) {
+      return await fail(kieData.msg || `Kie.ai error ${kieRes.status}`, 502);
     }
 
-    if (taskId) {
-      await adminClient.from('generations').update({
-        status: 'running', external_task_id: taskId, progress: 25,
-      }).eq('id', generationId);
-      console.log(`[gen] Task created: ${taskId}`);
-      return Response.json({ task_id: taskId }, { headers: corsHeaders });
-    }
-
-    // Some APIs might return result directly
-    const outputUrl = kieData.data?.output_url || kieData.output_url;
-    if (outputUrl) {
-      await adminClient.from('generations').update({
-        status: 'done', output_url: outputUrl, progress: 100,
-      }).eq('id', generationId);
-      if (costCredits > 0) await deductCredits(adminClient, userId, costCredits, generationId, model);
-      return Response.json({ output_url: outputUrl }, { headers: corsHeaders });
-    }
-
-    // Unexpected response
     await adminClient.from('generations').update({
-      status: 'error', error_message: `Unexpected Kie.ai response`, progress: 0,
+      status: 'running', external_task_id: taskId, progress: 25,
     }).eq('id', generationId);
-    return Response.json({ error: 'Unexpected response', kie_response: kieData }, { status: 502, headers: corsHeaders });
+    console.log(`[gen] Task created: ${taskId}`);
+    return Response.json({ task_id: taskId, enhanced_prompt: finalPrompt }, { headers: corsHeaders });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
@@ -201,24 +166,3 @@ Deno.serve(async (req: Request) => {
     return Response.json({ error: 'Internal error', detail: msg }, { status: 500, headers: corsHeaders });
   }
 });
-
-async function deductCredits(
-  supabase: ReturnType<typeof createClient>,
-  userId: string, credits: number, generationId: string, model: string,
-) {
-  try {
-    const { data: cur } = await supabase.from('user_credits')
-      .select('balance, total_spent, total_generations').eq('user_id', userId).single();
-    if (!cur) return;
-    const newBal = Math.max(0, Number(cur.balance) - credits);
-    await supabase.from('user_credits').update({
-      balance: newBal, total_spent: Number(cur.total_spent) + credits,
-      total_generations: cur.total_generations + 1, updated_at: new Date().toISOString(),
-    }).eq('user_id', userId);
-    await supabase.from('credit_logs').insert({
-      user_id: userId, balance: String(newBal), credits_used: credits,
-      generation_id: generationId, model, description: `Generation: ${model}`,
-      checked_at: new Date().toISOString(),
-    });
-  } catch (e) { console.error('[credits]', e); }
-}

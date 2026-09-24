@@ -41,7 +41,7 @@ import { useGenerationProgress } from '@/hooks/useGenerationProgress';
 import { useRetryGeneration } from '@/hooks/useRetryGeneration';
 import { usePromptLibrary } from '@/hooks/usePromptLibrary';
 import { useGenerationStore } from '@/store/generationStore';
-import { ALL_MODELS, TYPE_LABELS, type GenerationType } from '@/types/generation';
+import { ALL_MODELS, TYPE_LABELS, findModelConfig, type GenerationType } from '@/types/generation';
 import { formatCredits, formatUsd } from '@/config/pricing';
 import { downloadGeneration } from '@/lib/downloadGeneration';
 import { cn } from '@/lib/utils';
@@ -77,9 +77,7 @@ function getGenerationType(gen: DbGeneration): GenerationType {
 
 /** Generations store the model's display name; resolve it back to a model id for the badge. */
 function resolveModelId(gen: DbGeneration, genType: GenerationType): string {
-  const config =
-    ALL_MODELS.find((m) => m.displayName === gen.model && m.generationTypes.includes(genType)) ??
-    ALL_MODELS.find((m) => m.displayName === gen.model);
+  const config = findModelConfig(gen.model, gen.model_params as Record<string, unknown> | null, genType);
   return config?.id ?? gen.model;
 }
 

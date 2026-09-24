@@ -33,7 +33,7 @@ const Index = () => {
               variants={staggerItem}
               initial="hidden"
               animate="visible"
-              className="flex-1 flex flex-col gap-3.5 overflow-hidden min-w-[380px]"
+              className="flex-1 flex flex-col gap-3.5 overflow-hidden min-w-[360px]"
             >
               {isFirstRun ? (
                 <div className={cn(STUDIO_PANEL, 'flex-1 min-h-0 overflow-y-auto')}>
