@@ -17,7 +17,6 @@ export function useRetryGeneration() {
     addActiveGeneration,
     removeActiveGeneration,
     setCurrentOutput,
-    setPendingRating,
     enhancePromptEnabled,
   } = useGenerationStore();
 
@@ -61,7 +60,6 @@ export function useRetryGeneration() {
       setSelectedJobId(dbGeneration.id);
       addActiveGeneration(dbGeneration.id);
       setCurrentOutput(null);
-      setPendingRating(false);
 
       toast.success('Retry started');
       setIsRetrying(false);
@@ -122,7 +120,6 @@ export function useRetryGeneration() {
             outputUrl: data.output_url,
             refinedPrompt: data.enhanced_prompt || '',
           });
-          setPendingRating(true);
         }
         toast.success('Generation complete');
       } else if (data?.task_id) {

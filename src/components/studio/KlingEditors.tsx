@@ -23,7 +23,7 @@ const ADD_BUTTON =
   'w-full h-9 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-[12px] text-muted-foreground hover:text-foreground hover:border-primary/50 transition-smooth disabled:opacity-50';
 
 /** Kling 3.0 storyboard shot list, shown while the `multi_shots` setting is on. */
-export function KlingMultiShotEditor({ disabled }: { disabled: boolean }) {
+export function KlingMultiShotEditor({ disabled = false }: { disabled?: boolean }) {
   const { controls, setControl } = useGenerationStore();
   const enabled = controls.multi_shots === true;
   const shots: MultiShot[] = (controls.multi_prompt as MultiShot[]) ?? [];
@@ -85,7 +85,7 @@ export function KlingMultiShotEditor({ disabled }: { disabled: boolean }) {
 }
 
 /** Kling elements: named characters/objects (2–4 images each) referenced as @name. */
-export function KlingElementsEditor({ disabled }: { disabled: boolean }) {
+export function KlingElementsEditor({ disabled = false }: { disabled?: boolean }) {
   const { controls, setControl } = useGenerationStore();
   const elements: KlingElement[] = (controls.kling_elements as KlingElement[]) ?? [];
   const write = (next: KlingElement[]) => setControl('kling_elements', next);

@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { staggerItem } from '@/lib/motion';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { AppShell } from '@/components/layout/AppShell';
@@ -8,7 +8,6 @@ import { ControlsPanel } from '@/components/layout/ControlsPanel';
 import { RightSidebar } from '@/components/layout/RightSidebar';
 import { STUDIO_PANEL } from '@/components/layout/studioSurface';
 import { OutputDisplay } from '@/components/studio/OutputDisplay';
-import { RatingPanel } from '@/components/studio/RatingPanel';
 import { RecentGenerations } from '@/components/studio/RecentGenerations';
 import { StudioOnboarding } from '@/components/studio/StudioOnboarding';
 import { AssistantFab } from '@/components/studio/AssistantFab';
@@ -33,7 +32,7 @@ const Index = () => {
               variants={staggerItem}
               initial="hidden"
               animate="visible"
-              className="flex-1 flex flex-col gap-3.5 overflow-hidden min-w-[360px]"
+              className="flex-1 flex flex-col gap-3.5 lg:overflow-hidden lg:min-w-[360px] min-h-[70vh] lg:min-h-0"
             >
               {isFirstRun ? (
                 <div className={cn(STUDIO_PANEL, 'flex-1 min-h-0 overflow-y-auto')}>
@@ -44,9 +43,6 @@ const Index = () => {
                   <div className={cn(STUDIO_PANEL, 'flex-1 min-h-0 overflow-hidden p-4')}>
                     <OutputDisplay onRetry={retry} isRetrying={isRetrying} />
                   </div>
-                  <AnimatePresence>
-                    <RatingPanel />
-                  </AnimatePresence>
                   <RecentGenerations />
                 </>
               )}

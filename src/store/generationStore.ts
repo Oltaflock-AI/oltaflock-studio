@@ -7,6 +7,16 @@ import type {
   JobStatus
 } from '@/types/generation';
 import { toStudioMode } from '@/types/generation';
+import { getSpec, specsForMode } from '@catalog/index.ts';
+
+/** Model to preselect for a mode: the one last used there, else the top featured pick. */
+export function defaultModelFor(mode: GenerationMode, lastModelByMode: Record<string, string>): string | null {
+  const studioMode = toStudioMode(mode);
+  const last = lastModelByMode[studioMode];
+  if (last && getSpec(last)?.mode === studioMode) return last;
+  const specs = specsForMode(studioMode);
+  return (specs.find((s) => s.featured) ?? specs[0])?.id ?? null;
+}
 
 interface GenerationState {
   // Current Mode
@@ -16,6 +26,8 @@ interface GenerationState {
   // Selected Model
   selectedModel: Model | null;
   setSelectedModel: (model: Model | null) => void;
+  /** Last model picked in each studio mode, so switching modes restores it. */
+  lastModelByMode: Record<string, string>;
   
   // Generation Type
   generationType: GenerationType | null;
@@ -74,9 +86,6 @@ interface GenerationState {
   brainUseCase: string;
   setBrainUseCase: (id: string) => void;
 
-  // Pending Rating
-  pendingRating: boolean;
-  setPendingRating: (pending: boolean) => void;
   
   // Jobs (formerly History)
   jobs: JobEntry[];
@@ -110,24 +119,28 @@ interface GenerationState {
 export const useGenerationStore = create<GenerationState>((set, get) => ({
   // Current Mode
   mode: 'image',
-  setMode: (mode) => set({
+  setMode: (mode) => set((state) => ({
     mode,
-    selectedModel: null,
+    selectedModel: defaultModelFor(mode, state.lastModelByMode),
     generationType: toStudioMode(mode),
     controls: {},
     referenceFiles: [],
     uploadedImageUrls: [],
     characterIds: [],
-    // PRESERVE: currentOutput, selectedJobId, pendingRating
+    // PRESERVE: currentOutput, selectedJobId
     // — selected generation stays visible when switching modes
-  }),
+  })),
   
   // Selected Model
-  selectedModel: null,
+  selectedModel: defaultModelFor('image', {}),
   // Uploaded media (controls under `media.*`) survives switching between
   // models in the same mode, so users can compare models on one input.
+  lastModelByMode: {},
   setSelectedModel: (model) => set((state) => ({
     selectedModel: model,
+    lastModelByMode: model && getSpec(model)
+      ? { ...state.lastModelByMode, [getSpec(model)!.mode]: model }
+      : state.lastModelByMode,
     controls: Object.fromEntries(Object.entries(state.controls).filter(([k]) => k.startsWith('media.'))),
     referenceFiles: [],
     uploadedImageUrls: [],
@@ -135,7 +148,7 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   })),
   
   // Generation Type
-  generationType: null,
+  generationType: 'text-to-image',
   setGenerationType: (type) => set({ 
     generationType: type,
     referenceFiles: [],
@@ -214,9 +227,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   brainUseCase: 'auto',
   setBrainUseCase: (id) => set({ brainUseCase: id }),
 
-  // Pending Rating
-  pendingRating: false,
-  setPendingRating: (pending) => set({ pendingRating: pending }),
   
   // Jobs
   jobs: [],
@@ -260,7 +270,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     jobs: state.jobs.map((job) =>
       job.id === id ? { ...job, rating } : job
     ),
-    pendingRating: false,
   })),
   updateHistoryStatus: (id, status, error) => set((state) => ({
     jobs: state.jobs.map((job) =>
@@ -286,14 +295,14 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     uploadedImageUrls: [],
     characterIds: [],
     currentOutput: null,
-    pendingRating: false,
   }),
   
   // Clear all state (for logout)
   clearAll: () => set({
     mode: 'image',
-    selectedModel: null,
-    generationType: null,
+    selectedModel: defaultModelFor('image', {}),
+    lastModelByMode: {},
+    generationType: 'text-to-image',
     rawPrompt: '',
     controls: {},
     referenceFiles: [],
@@ -302,7 +311,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     activeGenerationIds: new Set<string>(),
     isGenerating: false,
     currentOutput: null,
-    pendingRating: false,
     jobs: [],
     selectedJobId: null,
   }),

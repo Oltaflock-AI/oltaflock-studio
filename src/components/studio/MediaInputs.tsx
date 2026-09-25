@@ -6,7 +6,7 @@ import { ControlLabel } from './SchemaControls';
 
 /** Upload slots (start frame, end frame, references…) declared by a model spec. */
 export function MediaInputs({ spec }: { spec: ModelSpec }) {
-  const { controls, setControl, pendingRating } = useGenerationStore();
+  const { controls, setControl } = useGenerationStore();
   const slots = visibleMedia(spec, controls);
   if (slots.length === 0) return null;
 
@@ -26,7 +26,6 @@ export function MediaInputs({ spec }: { spec: ModelSpec }) {
               maxFiles={slot.max}
               value={urls}
               onChange={(next) => setControl(`media.${slot.key}`, next)}
-              disabled={pendingRating}
               maxSizeMB={slot.kind === 'image' ? 10 : 50}
             />
           </div>

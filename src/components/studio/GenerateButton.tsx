@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { buttonTap, buttonHover } from '@/lib/motion';
 import { useGenerationStore } from '@/store/generationStore';
@@ -16,6 +16,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { calculateCost } from '@/config/pricing';
 
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+
 export function GenerateButton() {
   const { createGeneration, updateGeneration, generations } = useGenerations();
   const { balance } = useUserCredits();
@@ -31,8 +33,6 @@ export function GenerateButton() {
     addActiveGeneration,
     removeActiveGeneration,
     setCurrentOutput,
-    setPendingRating,
-    pendingRating,
     currentOutput,
     selectedJobId,
     setSelectedJobId,
@@ -107,9 +107,10 @@ export function GenerateButton() {
 
       // Clear previous output state for fresh view
       setCurrentOutput(null);
-      setPendingRating(false);
 
-      toast.success('Generation started');
+      toast.success(`Generating with ${spec.name}`, {
+        description: cost.credits > 0 ? `${cost.credits} credits · you can keep working while it runs` : undefined,
+      });
     } catch (error) {
       console.error('Failed to create generation:', error);
       const errorDetails = error instanceof Error
@@ -185,12 +186,10 @@ export function GenerateButton() {
             outputUrl: data.output_url,
             refinedPrompt: data.enhanced_prompt || '',
           });
-          setPendingRating(true);
         }
         toast.success('Generation complete');
       } else if (data?.task_id) {
-        // Async result - edge function stored task_id, polling will pick it up
-        toast.info('Generation submitted, waiting for results...');
+        // Async result - edge function stored task_id; polling / callback finish it
         return; // Don't remove from active set
       } else if (data?.error) {
         toast.error(`Generation failed: ${data.error}`);
@@ -257,9 +256,8 @@ export function GenerateButton() {
       setSelectedJobId(dbGeneration.id);
       addActiveGeneration(dbGeneration.id);
       setCurrentOutput(null);
-      setPendingRating(false);
       
-      toast.success('Regeneration started');
+      toast.success(`Running ${originalModelName} again`);
       setIsSubmitting(false);
       
       // Process generation with original settings
@@ -335,11 +333,9 @@ export function GenerateButton() {
             outputUrl: data.output_url,
             refinedPrompt: data.enhanced_prompt || '',
           });
-          setPendingRating(true);
         }
         toast.success('Regeneration complete');
       } else if (data?.task_id) {
-        toast.info('Regeneration submitted, waiting for results...');
         return;
       } else if (data?.error) {
         toast.error(`Regeneration failed: ${data.error}`);
@@ -356,6 +352,20 @@ export function GenerateButton() {
       removeActiveGeneration(generationId);
     }
   };
+
+  // ⌘/Ctrl + Enter generates from anywhere in the Studio.
+  const generateRef = useRef(handleGenerate);
+  generateRef.current = handleGenerate;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.repeat) {
+        e.preventDefault();
+        generateRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Check if there's a completed output to show regenerate option
   const selectedGeneration = generations.find(g => g.id === selectedJobId);
@@ -400,13 +410,16 @@ export function GenerateButton() {
             >
               <Sparkles className="h-4 w-4 mr-2" />
               {mode === 'image-to-image' || mode === 'video-to-video' ? 'Transform' : mode === 'image-to-video' ? 'Animate' : 'Generate'}
+              <kbd className="ml-2.5 hidden md:inline-flex items-center rounded-md bg-primary-foreground/15 px-1.5 py-0.5 text-[10.5px] font-medium tracking-normal">
+                {IS_MAC ? '⌘' : 'Ctrl'} ↵
+              </kbd>
             </motion.span>
           )}
         </AnimatePresence>
         </Button>
       </motion.div>
 
-      {hasCompletedOutput && !pendingRating && !isSubmitting && (
+      {hasCompletedOutput && !isSubmitting && (
         <Button
           variant="ghost"
           onClick={handleRegenerateFromJob}
@@ -414,7 +427,7 @@ export function GenerateButton() {
           className="w-full h-9 text-xs text-muted-foreground hover:text-foreground transition-smooth"
         >
           <RotateCcw className="h-3.5 w-3.5 mr-2" />
-          Regenerate with Same Settings
+          Run again with the same settings
         </Button>
       )}
     </div>

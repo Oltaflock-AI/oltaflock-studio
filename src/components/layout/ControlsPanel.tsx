@@ -34,9 +34,9 @@ export function ControlsPanel() {
       variants={staggerContainer}
       initial="hidden"
       animate="visible"
-      className={cn(STUDIO_PANEL, 'w-[380px] 2xl:w-[420px] flex flex-col overflow-hidden shrink-0')}
+      className={cn(STUDIO_PANEL, 'w-full lg:w-[360px] xl:w-[380px] 2xl:w-[420px] flex flex-col lg:overflow-hidden shrink-0')}
     >
-      <motion.div variants={staggerItem} className="flex-1 overflow-y-auto min-h-0 px-5 py-5 space-y-6">
+      <motion.div variants={staggerItem} className="flex-1 lg:overflow-y-auto min-h-0 px-5 py-5 space-y-6">
         <ModeSelector />
 
         <Section title="Prompt">
@@ -60,7 +60,10 @@ export function ControlsPanel() {
         )}
       </motion.div>
 
-      <motion.div variants={staggerItem} className="shrink-0 border-t border-border/60 px-5 py-4 space-y-3 bg-card">
+      <motion.div
+        variants={staggerItem}
+        className="shrink-0 border-t border-border/60 px-5 py-4 space-y-3 bg-card rounded-b-[18px] max-lg:sticky max-lg:bottom-0 max-lg:z-10 max-lg:shadow-[0_-6px_16px_rgba(0,0,0,0.06)]"
+      >
         <div className="flex items-center justify-between gap-3">
           <PromptBrainToggle />
           <CostPreview />

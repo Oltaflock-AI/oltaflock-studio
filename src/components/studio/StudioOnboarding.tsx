@@ -32,7 +32,6 @@ function focusPrompt() {
 export function StudioOnboarding() {
   const { displayName } = useProfile();
   const { items } = usePromptLibrary();
-  const { pendingRating, isGenerating } = useGenerationStore();
 
   const presets = useMemo(
     () => items.filter((it) => it.is_curated && it.thumbnail_url).slice(0, MAX_PRESETS),
@@ -40,10 +39,8 @@ export function StudioOnboarding() {
   );
 
   const firstName = displayName.trim().split(/\s+/)[0];
-  const locked = pendingRating || isGenerating;
 
   const handlePreset = (item: LibraryItem) => {
-    if (locked) return;
     applyLibraryItem(item);
     toast.success(`Loaded “${item.title}” into the console`);
     requestAnimationFrame(focusPrompt);
@@ -98,7 +95,6 @@ export function StudioOnboarding() {
                 key={p.id}
                 type="button"
                 onClick={() => handlePreset(p)}
-                disabled={locked}
                 aria-label={`Use preset: ${p.title}`}
                 className={cn(
                   STUDIO_MEDIA_CARD,

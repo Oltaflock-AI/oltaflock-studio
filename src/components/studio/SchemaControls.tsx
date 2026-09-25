@@ -55,7 +55,7 @@ function optionLabel(o: { value: unknown; label?: string }) {
   return o.label ?? String(o.value);
 }
 
-function FieldControl({ field, disabled }: { field: FieldSpec; disabled: boolean }) {
+function FieldControl({ field, disabled = false }: { field: FieldSpec; disabled?: boolean }) {
   const { controls, setControl } = useGenerationStore();
   const value = fieldValue(field, controls);
   const set = (v: unknown) => setControl(field.key, v);
@@ -243,7 +243,7 @@ function FieldControl({ field, disabled }: { field: FieldSpec; disabled: boolean
 
 /** Renders every control a model exposes, straight from its catalog spec. */
 export function SchemaControls({ spec }: { spec: ModelSpec }) {
-  const { controls, pendingRating } = useGenerationStore();
+  const { controls } = useGenerationStore();
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const fields = visibleFields(spec, controls);
@@ -252,10 +252,10 @@ export function SchemaControls({ spec }: { spec: ModelSpec }) {
 
   return (
     <div className="space-y-4">
-      {basic.map((f) => <FieldControl key={f.key} field={f} disabled={pendingRating} />)}
+      {basic.map((f) => <FieldControl key={f.key} field={f} />)}
 
-      {spec.editors?.includes('kling-multishot') && <KlingMultiShotEditor disabled={pendingRating} />}
-      {spec.editors?.includes('kling-elements') && <KlingElementsEditor disabled={pendingRating} />}
+      {spec.editors?.includes('kling-multishot') && <KlingMultiShotEditor />}
+      {spec.editors?.includes('kling-elements') && <KlingElementsEditor />}
 
       {advanced.length > 0 && (
         <div className="rounded-xl border border-border/60">
@@ -281,7 +281,7 @@ export function SchemaControls({ spec }: { spec: ModelSpec }) {
                 className="overflow-hidden"
               >
                 <div className="px-3.5 pb-3.5 pt-1 space-y-4 border-t border-border/50">
-                  {advanced.map((f) => <FieldControl key={f.key} field={f} disabled={pendingRating} />)}
+                  {advanced.map((f) => <FieldControl key={f.key} field={f} />)}
                 </div>
               </motion.div>
             )}

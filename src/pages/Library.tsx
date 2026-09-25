@@ -148,7 +148,7 @@ export default function Library() {
   return (
     <AppShell scrollableContent={false}>
       <AnimatedPage className="h-full">
-        <div className="mx-auto flex h-full w-full max-w-[1680px] flex-col gap-4 overflow-hidden px-8 pt-7">
+        <div className="mx-auto flex h-full w-full max-w-[1680px] flex-col gap-4 overflow-hidden px-4 sm:px-8 pt-7">
           {/* Header */}
           <header className="flex shrink-0 flex-wrap items-center justify-between gap-3">
             <div className="flex flex-col gap-0.5">

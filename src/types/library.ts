@@ -32,6 +32,8 @@ export interface LibraryItem {
   source_generation_id: string | null;
   /** Free-text collection label (null = not in a collection). Only set on a user's own items. */
   collection?: string | null;
+  /** Sensitive: previews stay blurred until explicitly revealed. */
+  is_nsfw?: boolean;
   created_at: string;
 }
 
@@ -58,5 +60,6 @@ export interface LibraryItemInsert {
   model: Model | string;
   model_params?: Record<string, unknown> | null;
   source_generation_id?: string | null;
+  is_nsfw?: boolean;
   collection?: string | null;
 }

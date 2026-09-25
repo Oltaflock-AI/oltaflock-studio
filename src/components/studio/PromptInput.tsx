@@ -32,11 +32,24 @@ function fileToBase64(file: Blob): Promise<string> {
   });
 }
 
+const STARTERS: Record<'image' | 'video', string[]> = {
+  image: [
+    'Minimal product shot of a matte black perfume bottle on travertine, soft window light',
+    'Cozy Scandinavian reading nook at golden hour, warm oak and linen',
+    'Bold poster that says "SUMMER DROP" in chunky 3D letters, pastel gradient',
+  ],
+  video: [
+    'Slow orbit around a sneaker floating in mid-air, studio rim light, dust particles',
+    'Handheld selfie: a woman in her car says "okay, this changed my morning routine"',
+    'Drone push-in over misty pine forest at sunrise, birdsong and wind',
+  ],
+};
+
 const TOOL_BUTTON =
   'h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12px] font-medium transition-smooth disabled:opacity-50 disabled:cursor-not-allowed';
 
 export function PromptInput() {
-  const { rawPrompt, setRawPrompt, pendingRating, selectedModel, mode, controls, brainUseCase, setBrainUseCase } = useGenerationStore();
+  const { rawPrompt, setRawPrompt, selectedModel, mode, controls, brainUseCase, setBrainUseCase } = useGenerationStore();
   const spec = selectedModel ? getSpec(selectedModel) : undefined;
   const output = toStudioMode(mode).endsWith('video') ? 'video' : 'image';
   const useCases = casesForOutput(output);
@@ -47,7 +60,7 @@ export function PromptInput() {
   const [previousPrompt, setPreviousPrompt] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  const disabled = pendingRating || busy !== null;
+  const disabled = busy !== null;
   const firstImage = Object.entries(controls)
     .filter(([k, v]) => k.startsWith('media.') && Array.isArray(v))
     .flatMap(([, v]) => v as string[])
@@ -159,6 +172,22 @@ export function PromptInput() {
           {rawPrompt.length}{limit ? ` / ${limit}` : ''}
         </span>
       </div>
+
+      {!rawPrompt.trim() && !suggestion && toStudioMode(mode).startsWith('text-') && (
+        <div className="flex flex-wrap gap-1.5" aria-label="Starter ideas">
+          {STARTERS[output].map((idea) => (
+            <button
+              key={idea}
+              type="button"
+              onClick={() => setRawPrompt(idea)}
+              className="max-w-full truncate rounded-full border border-border/60 px-2.5 py-1 text-[11.5px] text-muted-foreground hover:text-foreground hover:border-primary/40 transition-smooth"
+              title={idea}
+            >
+              {idea.length > 42 ? `${idea.slice(0, 40)}…` : idea}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Prompt Brain toolbar */}
       <div className="flex items-center gap-1.5">

@@ -11,6 +11,9 @@ interface PreferencesState {
   /** Studio's right-hand history/details column. */
   showStudioSidebar: boolean;
   setShowStudioSidebar: (show: boolean) => void;
+  /** Blur outputs marked NSFW until they're explicitly revealed. */
+  blurSensitive: boolean;
+  setBlurSensitive: (enabled: boolean) => void;
   setTheme: (theme: Theme) => void;
   setDefaultMode: (mode: DefaultMode) => void;
   setNotificationSound: (enabled: boolean) => void;
@@ -24,6 +27,8 @@ export const usePreferencesStore = create<PreferencesState>()(
       notificationSound: true,
       showStudioSidebar: true,
       setShowStudioSidebar: (showStudioSidebar) => set({ showStudioSidebar }),
+      blurSensitive: true,
+      setBlurSensitive: (blurSensitive) => set({ blurSensitive }),
       setTheme: (theme) => {
         localStorage.setItem('theme', theme);
         const root = document.documentElement;
@@ -46,6 +51,7 @@ export const usePreferencesStore = create<PreferencesState>()(
         defaultMode: state.defaultMode,
         notificationSound: state.notificationSound,
         showStudioSidebar: state.showStudioSidebar,
+        blurSensitive: state.blurSensitive,
       }),
     }
   )

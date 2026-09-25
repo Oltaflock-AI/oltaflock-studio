@@ -82,6 +82,7 @@ export function usePromptLibrary() {
         model: input.model,
         model_params: (input.model_params ?? null) as Json | null,
         source_generation_id: input.source_generation_id ?? null,
+        ...(input.is_nsfw ? { is_nsfw: true } : {}),
         // Only send `collection` when set, so saving keeps working even before the
         // library_collections migration has been applied.
         ...(normalizeCollectionName(input.collection)
@@ -127,6 +128,22 @@ export function usePromptLibrary() {
         .from(TABLE)
         .update({ collection: normalizeCollectionName(collection) } as never)
         .in('id', ids)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prompt_library', user?.id] });
+    },
+  });
+
+  const setItemNsfwMutation = useMutation({
+    mutationFn: async ({ id, isNsfw }: { id: string; isNsfw: boolean }) => {
+      if (!user?.id) throw new Error('User not authenticated');
+      const { error } = await supabase
+        .from(TABLE)
+        .update({ is_nsfw: isNsfw } as never)
+        .eq('id', id)
         .eq('user_id', user.id);
 
       if (error) throw error;
@@ -199,6 +216,7 @@ export function usePromptLibrary() {
         model: gen.model,
         model_params: gen.model_params ?? null,
         source_generation_id: gen.id,
+        is_nsfw: !!gen.is_nsfw,
       });
       return { starred: true };
     },
@@ -218,6 +236,7 @@ export function usePromptLibrary() {
         model: item.model,
         model_params: item.model_params ?? null,
         source_generation_id: null,
+        is_nsfw: !!item.is_nsfw,
         collection: collection ?? null,
       }),
     [saveToLibrary]
@@ -236,6 +255,7 @@ export function usePromptLibrary() {
         model: item.model,
         model_params: item.model_params ?? null,
         source_generation_id: item.source_generation_id,
+        is_nsfw: !!item.is_nsfw,
         collection: item.collection ?? null,
       }),
     [saveToLibrary]

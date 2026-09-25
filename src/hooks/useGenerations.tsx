@@ -27,6 +27,8 @@ export interface DbGeneration {
   user_id: string | null;
   progress: number;
   external_task_id: string | null;
+  /** User-marked sensitive: previews stay blurred until explicitly revealed. */
+  is_nsfw?: boolean;
 }
 
 // Insert type (omitting auto-generated fields)
@@ -51,6 +53,7 @@ export interface GenerationUpdate {
   rating?: number | null;
   progress?: number;
   external_task_id?: string | null;
+  is_nsfw?: boolean;
 }
 
 export function useGenerations() {

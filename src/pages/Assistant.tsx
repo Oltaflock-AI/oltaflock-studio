@@ -168,7 +168,7 @@ export default function Assistant() {
 
   return (
     <AppShell scrollableContent={false}>
-      <div className="h-full flex flex-col gap-4 px-8 py-7 min-h-0">
+      <div className="h-full flex flex-col gap-4 px-4 sm:px-8 py-7 min-h-0">
         {/* Header */}
         <header className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-0.5">

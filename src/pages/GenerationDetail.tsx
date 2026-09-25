@@ -4,18 +4,22 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import {
   AlertCircle,
+  ArrowUpRight,
   Bookmark,
   ChevronRight,
   Copy,
   Download,
   ExternalLink,
+  Film,
   ImageOff,
   Loader2,
   Maximize2,
   RefreshCw,
+  RotateCcw,
   Sparkles,
   Star,
   Trash2,
+  Wand2,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { ModelBadge } from '@/components/studio/ModelBadge';
@@ -45,6 +49,7 @@ import { ALL_MODELS, TYPE_LABELS, findModelConfig, type GenerationType } from '@
 import { formatCredits, formatUsd } from '@/config/pricing';
 import { downloadGeneration } from '@/lib/downloadGeneration';
 import { cn } from '@/lib/utils';
+import { reuseGeneration, animateImage, editImage, upscaleImage, upscaleVideo } from '@/components/studio/studioActions';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -263,6 +268,13 @@ function GenerationDetailView({ generation }: { generation: DbGeneration }) {
     // retry() selects the newly created generation on success.
     const selected = useGenerationStore.getState().selectedJobId;
     if (selected && selected !== generation.id) navigate('/');
+  };
+
+  /** Runs a studioActions helper, then jumps to the Studio console. */
+  const openInStudio = (action: () => unknown, message: string) => {
+    action();
+    toast.success(message);
+    navigate('/');
   };
 
   const handleDelete = async () => {
@@ -521,6 +533,34 @@ function GenerationDetailView({ generation }: { generation: DbGeneration }) {
               <Bookmark className="h-4 w-4 mr-2" />
               {libraryItem ? 'Save again to library' : 'Save to library'}
             </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" onClick={() => openInStudio(() => reuseGeneration(generation), 'Prompt and settings loaded')} className="h-10 rounded-[11px] text-[13px]">
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reuse settings
+              </Button>
+              {hasOutput && generation.type === 'image' && (
+                <Button variant="outline" onClick={() => openInStudio(() => animateImage(generation.output_url!), 'Ready to animate — describe the motion')} className="h-10 rounded-[11px] text-[13px]">
+                  <Film className="h-4 w-4 mr-2" />
+                  Animate
+                </Button>
+              )}
+              {hasOutput && generation.type === 'image' && (
+                <Button variant="outline" onClick={() => openInStudio(() => editImage(generation.output_url!), 'Ready to edit — describe the change')} className="h-10 rounded-[11px] text-[13px]">
+                  <Wand2 className="h-4 w-4 mr-2" />
+                  Edit image
+                </Button>
+              )}
+              {hasOutput && (
+                <Button
+                  variant="outline"
+                  onClick={() => openInStudio(() => (generation.type === 'image' ? upscaleImage : upscaleVideo)(generation.output_url!), 'Ready to upscale')}
+                  className="h-10 rounded-[11px] text-[13px]"
+                >
+                  <ArrowUpRight className="h-4 w-4 mr-2" />
+                  Upscale
+                </Button>
+              )}
+            </div>
             <Button
               variant="ghost"
               onClick={() => setDeleteOpen(true)}

@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronsUpDown, Search, Volume2 } from 'lucide-react';
 import type { ModelSpec } from '@catalog/types.ts';
 import { MODE_LABELS } from '@catalog/types.ts';
 import { getSpec, specsForMode } from '@catalog/index.ts';
 import { specCredits } from '@catalog/pricing.ts';
 import { useGenerationStore } from '@/store/generationStore';
-import { toStudioMode } from '@/types/generation';
+import { findModelConfig, toStudioMode } from '@/types/generation';
+import { useGenerations } from '@/hooks/useGenerations';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ModelBadge } from '@/components/studio/ModelBadge';
 import { formatCredits } from '@/config/pricing';
@@ -60,14 +61,39 @@ function ModelRow({ spec, active, onSelect }: { spec: ModelSpec; active: boolean
 
 /** Model selector: a summary card that opens a searchable catalog for the current mode. */
 export function ModelPicker() {
-  const { mode, selectedModel, setSelectedModel, pendingRating } = useGenerationStore();
+  const { mode, selectedModel, setSelectedModel } = useGenerationStore();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
 
+  const { generations } = useGenerations();
   const studioMode = toStudioMode(mode);
   const specs = specsForMode(studioMode);
   const selected = selectedModel ? getSpec(selectedModel) : undefined;
+
+  // Up to 4 distinct models this user generated with in the current mode, newest first.
+  const recent = useMemo(() => {
+    const ids: string[] = [];
+    for (const g of generations) {
+      const id = findModelConfig(g.model, g.model_params)?.id;
+      const spec = id ? getSpec(id) : undefined;
+      if (spec?.mode === studioMode && !ids.includes(spec.id)) ids.push(spec.id);
+      if (ids.length === 4) break;
+    }
+    return ids.map((id) => getSpec(id)!);
+  }, [generations, studioMode]);
+
+  // ⌘K / Ctrl+K opens the picker.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -99,7 +125,6 @@ export function ModelPicker() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        disabled={pendingRating}
         aria-label="Choose model"
         className={cn(
           'w-full text-left rounded-xl border border-border/70 bg-muted/40 px-3.5 py-3 transition-smooth',
@@ -123,7 +148,7 @@ export function ModelPicker() {
           </div>
         ) : (
           <div className="flex items-center justify-between">
-            <span className="text-[13.5px] text-muted-foreground">Choose a model · {specs.length} available</span>
+            <span className="text-[13.5px] text-muted-foreground">Choose a model · {specs.length} available · ⌘K</span>
             <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
         )}
@@ -134,7 +159,9 @@ export function ModelPicker() {
           <DialogHeader className="px-6 pt-5 pb-4 border-b border-border/60 space-y-3">
             <div>
               <DialogTitle className="font-serif text-[22px] font-medium">{MODE_LABELS[studioMode]} models</DialogTitle>
-              <DialogDescription className="text-[13px]">Each model lists what it does best. Prices are for default settings.</DialogDescription>
+              <DialogDescription className="text-[13px]">
+                {specs.length} models · each lists what it does best · prices are for default settings
+              </DialogDescription>
             </div>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
@@ -165,6 +192,16 @@ export function ModelPicker() {
             </div>
           </DialogHeader>
           <div className="max-h-[62vh] overflow-y-auto px-6 py-4 space-y-5">
+            {recent.length > 0 && !query && filter === 'all' && (
+              <section className="space-y-2">
+                <h3 className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Recently used</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {recent.map((s) => (
+                    <ModelRow key={s.id} spec={s} active={s.id === selectedModel} onSelect={() => choose(s.id)} />
+                  ))}
+                </div>
+              </section>
+            )}
             {grouped.length === 0 && (
               <p className="text-center text-[13px] text-muted-foreground py-10">No models match.</p>
             )}

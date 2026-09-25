@@ -21,11 +21,11 @@ export function StudioPageHeader() {
       variants={slideDown}
       initial="hidden"
       animate="visible"
-      className="flex items-center justify-between gap-4 px-6 2xl:px-8 pt-6 pb-4 shrink-0"
+      className="flex items-center justify-between gap-4 px-4 sm:px-6 2xl:px-8 pt-6 pb-4 shrink-0"
     >
       <div className="flex flex-col gap-0.5 min-w-0">
         <h1 className="font-serif font-medium text-[28px] leading-tight">Create</h1>
-        <p className="text-[13px] text-muted-foreground">
+        <p className="hidden sm:block text-[13px] text-muted-foreground">
           {IMAGE_COUNT} image and {VIDEO_COUNT} video endpoints, each with a Prompt Brain tuned for it
         </p>
       </div>

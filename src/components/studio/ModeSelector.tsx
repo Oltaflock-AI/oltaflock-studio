@@ -23,13 +23,12 @@ const outputOf = (m: StudioMode): Output => (m.endsWith('video') ? 'video' : 'im
 
 /** Two-step mode picker: what you want out (image / video), then what you start from. */
 export function ModeSelector() {
-  const { mode, setMode, pendingRating, isGenerating } = useGenerationStore();
+  const { mode, setMode } = useGenerationStore();
   const current = toStudioMode(mode);
   const output = outputOf(current);
-  const disabled = pendingRating || isGenerating;
 
   const go = (m: StudioMode) => {
-    if (disabled || m === current) return;
+    if (m === current) return;
     setMode(fromStudioMode(m));
   };
 
@@ -45,13 +44,11 @@ export function ModeSelector() {
             <button
               key={o}
               type="button"
-              disabled={disabled}
               aria-pressed={active}
               onClick={() => go(o === 'image' ? 'text-to-image' : 'text-to-video')}
               className={cn(
                 'h-9 flex items-center justify-center gap-2 rounded-lg text-[13px] transition-smooth',
                 active ? 'bg-card text-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground',
-                disabled && !active && 'opacity-50 cursor-not-allowed',
               )}
             >
               <Icon className={cn('h-4 w-4', active && 'text-primary')} />
@@ -67,7 +64,6 @@ export function ModeSelector() {
             <button
               key={m}
               type="button"
-              disabled={disabled}
               aria-pressed={active}
               onClick={() => go(m)}
               className={cn(
@@ -75,7 +71,6 @@ export function ModeSelector() {
                 active
                   ? 'border-primary/50 bg-primary/10 text-foreground font-semibold'
                   : 'border-border/60 text-muted-foreground hover:text-foreground hover:border-border',
-                disabled && !active && 'opacity-50 cursor-not-allowed',
               )}
             >
               <Icon className="h-3.5 w-3.5" />

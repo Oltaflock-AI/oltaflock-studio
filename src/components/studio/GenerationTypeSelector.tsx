@@ -10,7 +10,7 @@ import {
 import { Label } from '@/components/ui/label';
 
 export function GenerationTypeSelector() {
-  const { selectedModel, generationType, setGenerationType, pendingRating } = useGenerationStore();
+  const { selectedModel, generationType, setGenerationType } = useGenerationStore();
   
   const modelConfig = ALL_MODELS.find((m) => m.id === selectedModel);
   
@@ -24,7 +24,6 @@ export function GenerationTypeSelector() {
       <Select
         value={generationType || ''}
         onValueChange={(value) => setGenerationType(value as GenerationType)}
-        disabled={pendingRating}
       >
         <SelectTrigger className="w-full bg-input border-border">
           <SelectValue placeholder="Select type" />
