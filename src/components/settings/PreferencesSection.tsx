@@ -2,7 +2,7 @@ import { usePreferencesStore } from '@/store/preferencesStore';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sun, Moon, Monitor, Volume2, VolumeX } from 'lucide-react';
+import { Sun, Moon, Monitor, Volume2, VolumeX, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SettingsCard } from './SettingsCard';
 
@@ -13,8 +13,16 @@ const THEME_OPTIONS = [
 ] as const;
 
 export function PreferencesSection() {
-  const { theme, defaultMode, notificationSound, setTheme, setDefaultMode, setNotificationSound } =
-    usePreferencesStore();
+  const {
+    theme,
+    defaultMode,
+    notificationSound,
+    blurSensitive,
+    setTheme,
+    setDefaultMode,
+    setNotificationSound,
+    setBlurSensitive,
+  } = usePreferencesStore();
 
   return (
     <SettingsCard title="Preferences" description="Customize your studio experience">
@@ -97,6 +105,24 @@ export function PreferencesSection() {
           checked={notificationSound}
           onCheckedChange={setNotificationSound}
         />
+      </div>
+
+      <div className="h-px bg-border" />
+
+      {/* Sensitive content */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-start gap-2.5 min-w-0">
+          <EyeOff className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" aria-hidden="true" />
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <Label htmlFor="pref-blur-sensitive" className="text-[12.5px] font-medium">
+              Blur NSFW content
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Outputs you mark NSFW stay blurred until you click and choose See
+            </p>
+          </div>
+        </div>
+        <Switch id="pref-blur-sensitive" checked={blurSensitive} onCheckedChange={setBlurSensitive} />
       </div>
     </SettingsCard>
   );

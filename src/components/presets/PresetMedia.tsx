@@ -2,14 +2,17 @@ import { useState } from 'react';
 import { ImageOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isVideoUrl } from './presetUtils';
+import { SensitiveMedia } from '@/components/SensitiveMedia';
 
 interface PresetMediaProps {
   src: string | null | undefined;
   className?: string;
+  /** Marked NSFW: stays blurred on the card; the detail view handles the reveal. */
+  sensitive?: boolean;
 }
 
 /** Cover image (or muted first-frame video) for a preset, with a graceful fallback. */
-export function PresetMedia({ src, className }: PresetMediaProps) {
+export function PresetMedia({ src, className, sensitive }: PresetMediaProps) {
   const [failed, setFailed] = useState(false);
   const base = cn('absolute inset-0 h-full w-full object-cover', className);
 
@@ -18,6 +21,14 @@ export function PresetMedia({ src, className }: PresetMediaProps) {
       <div className={cn(base, 'flex items-center justify-center bg-muted')} aria-hidden="true">
         <ImageOff className="h-6 w-6 text-muted-foreground/50" strokeWidth={1.6} />
       </div>
+    );
+  }
+
+  if (sensitive) {
+    return (
+      <SensitiveMedia sensitive interactive={false} className="absolute inset-0">
+        <PresetMedia src={src} className={className} />
+      </SensitiveMedia>
     );
   }
 

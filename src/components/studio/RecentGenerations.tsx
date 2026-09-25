@@ -8,6 +8,7 @@ import { ModelBadge } from '@/components/studio/ModelBadge';
 import { resolveBadgeModelId } from '@/components/studio/resolveBadgeModelId';
 import { STUDIO_EYEBROW, STUDIO_MEDIA_CARD } from '@/components/layout/studioSurface';
 import { cn } from '@/lib/utils';
+import { SensitiveMedia } from '@/components/SensitiveMedia';
 
 const MAX_CARDS = 12;
 
@@ -62,6 +63,7 @@ function GenerationCard({
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
       )}
     >
+      <SensitiveMedia sensitive={generation.is_nsfw} className="absolute inset-0">
       {generation.output_url && generation.type === 'image' && (
         <img
           src={generation.output_url}
@@ -85,6 +87,7 @@ function GenerationCard({
           </div>
         </>
       )}
+      </SensitiveMedia>
 
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(255,255,255,0.08),transparent_55%)]" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />

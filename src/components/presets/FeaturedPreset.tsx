@@ -22,7 +22,7 @@ export function FeaturedPreset({ item, isFavorite, onToggleFavorite, onUse, onOp
       aria-label="Featured preset"
       className="relative h-[168px] overflow-hidden rounded-[20px] border border-primary/30 bg-muted shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.3)]"
     >
-      <PresetMedia src={item.thumbnail_url} />
+      <PresetMedia src={item.thumbnail_url} sensitive={item.is_nsfw} />
       <div
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_15%_20%,rgba(255,255,255,0.10),transparent_55%)]"
         aria-hidden="true"

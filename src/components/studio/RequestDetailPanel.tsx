@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Image as ImageIcon, Video, FileText, AlertCircle, Clock, Hash, Cpu, MessageSquare, Settings, Coins } from 'lucide-react';
 import { formatCredits, formatUsd } from '@/config/pricing';
+import { SensitiveMedia } from '@/components/SensitiveMedia';
 
 const statusLabels: Record<GenerationStatus, string> = {
   queued: 'Queued',
@@ -181,19 +182,21 @@ export function RequestDetailPanel() {
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Output Preview
               </label>
-              {selectedGeneration.type === 'image' ? (
-                <img 
-                  src={selectedGeneration.output_url} 
-                  alt="Generated output"
-                  className="w-full rounded-lg border border-border/50 shadow-sm"
-                />
-              ) : (
-                <video 
-                  src={selectedGeneration.output_url}
-                  controls
-                  className="w-full rounded-lg border border-border/50 shadow-sm"
-                />
-              )}
+              <SensitiveMedia key={selectedGeneration.id} sensitive={selectedGeneration.is_nsfw} className="rounded-lg">
+                {(hidden) => selectedGeneration.type === 'image' ? (
+                  <img 
+                    src={selectedGeneration.output_url!} 
+                    alt="Generated output"
+                    className="w-full rounded-lg border border-border/50 shadow-sm"
+                  />
+                ) : (
+                  <video 
+                    src={selectedGeneration.output_url!}
+                    controls={!hidden}
+                    className="w-full rounded-lg border border-border/50 shadow-sm"
+                  />
+                )}
+              </SensitiveMedia>
             </div>
           </>
         )}

@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { ModelBadge } from '@/components/studio/ModelBadge';
 import { modelDisplayName } from './modelName';
 import { LIBRARY_CATEGORIES, type LibraryItem } from '@/types/library';
+import { SensitiveMedia } from '@/components/SensitiveMedia';
 
 interface Props {
   item: LibraryItem;
@@ -50,12 +51,14 @@ export function LibraryCard({
         'hover:-translate-y-0.5 hover:shadow-lg focus-within:shadow-lg'
       )}
     >
-      <img
-        src={item.thumbnail_url}
-        alt=""
-        loading="lazy"
-        className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-      />
+      <SensitiveMedia sensitive={item.is_nsfw} interactive={false} className="absolute inset-0">
+        <img
+          src={item.thumbnail_url}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+        />
+      </SensitiveMedia>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_25%_15%,rgba(255,255,255,0.08),transparent_55%)]" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
 

@@ -16,7 +16,9 @@ import {
   Sparkles,
   Star,
   Trash2,
+  EyeOff,
 } from 'lucide-react';
+import { SensitiveMedia } from '@/components/SensitiveMedia';
 import { AppShell } from '@/components/layout/AppShell';
 import { ModelBadge } from '@/components/studio/ModelBadge';
 import { StarButton } from '@/components/library/StarButton';
@@ -225,7 +227,7 @@ function GenerationDetailContent({ id }: { id: string | undefined }) {
 
 function GenerationDetailView({ generation }: { generation: DbGeneration }) {
   const navigate = useNavigate();
-  const { deleteGeneration, updateGeneration } = useGenerations();
+  const { deleteGeneration, updateGeneration, setNsfw } = useGenerations();
   const { retry, isRetrying, canRetry } = useRetryGeneration();
   const { findByGenerationId } = usePromptLibrary();
   const { data: siblings = [] } = useGenerationSiblings(generation);
@@ -236,6 +238,9 @@ function GenerationDetailView({ generation }: { generation: DbGeneration }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [ratingSaving, setRatingSaving] = useState(false);
+  // One reveal shared by the inline view and fullscreen; resets per generation.
+  const [nsfwRevealed, setNsfwRevealed] = useState(false);
+  useEffect(() => setNsfwRevealed(false), [generation.id]);
 
   // useRetryGeneration acts on the store's selected generation, so select this
   // one while its detail page is open (Studio then also shows it on return).
@@ -291,6 +296,17 @@ function GenerationDetailView({ generation }: { generation: DbGeneration }) {
     }
   };
 
+  const handleToggleNsfw = async () => {
+    const next = !generation.is_nsfw;
+    setNsfwRevealed(false);
+    try {
+      await setNsfw(generation, next);
+      toast.success(next ? 'Marked NSFW — blurred everywhere it shows up' : 'NSFW mark removed');
+    } catch {
+      toast.error('Could not update NSFW mark');
+    }
+  };
+
   const handleRate = async (rating: number) => {
     if (ratingSaving) return;
     setRatingSaving(true);
@@ -329,10 +345,17 @@ function GenerationDetailView({ generation }: { generation: DbGeneration }) {
         <section aria-label="Output" className="w-full lg:flex-1 min-w-0 flex flex-col gap-3.5">
           {hasOutput ? (
             <div className={cn(mediaFrameClass, 'group')}>
-              {generation.type === 'video' ? (
+              <SensitiveMedia
+                sensitive={generation.is_nsfw}
+                size="lg"
+                revealed={nsfwRevealed}
+                onRevealedChange={setNsfwRevealed}
+                className="absolute inset-0"
+              >
+              {(hidden) => generation.type === 'video' ? (
                 <video
                   src={generation.output_url!}
-                  controls
+                  controls={!hidden}
                   playsInline
                   className="absolute inset-0 h-full w-full object-contain bg-black"
                 />
@@ -346,6 +369,7 @@ function GenerationDetailView({ generation }: { generation: DbGeneration }) {
                   <img src={generation.output_url!} alt={generation.user_prompt} className="h-full w-full object-contain" />
                 </button>
               )}
+              </SensitiveMedia>
 
               <div className="absolute top-3 right-3 flex items-center gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity">
                 <OverlayButton label="Copy output URL" onClick={handleCopyUrl}>
@@ -492,7 +516,28 @@ function GenerationDetailView({ generation }: { generation: DbGeneration }) {
             </div>
           )}
 
-          <div className="h-px bg-border" />
+          {hasOutput && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-muted-foreground">Sensitive content</span>
+              <button
+                type="button"
+                onClick={handleToggleNsfw}
+                aria-pressed={!!generation.is_nsfw}
+                title="NSFW outputs stay blurred in history, library and presets until you choose to see them"
+                className={cn(
+                  'h-7 px-2.5 inline-flex items-center gap-1.5 rounded-md border text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  generation.is_nsfw
+                    ? 'border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15'
+                    : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted'
+                )}
+              >
+                <EyeOff className="h-3.5 w-3.5" />
+                {generation.is_nsfw ? 'Marked NSFW' : 'Mark NSFW'}
+              </button>
+            </div>
+          )}
+
+                    <div className="h-px bg-border" />
 
           <div className="flex flex-col gap-[9px]">
             <Button
@@ -564,11 +609,19 @@ function GenerationDetailView({ generation }: { generation: DbGeneration }) {
         <Dialog open={fullscreen} onOpenChange={setFullscreen}>
           <DialogContent className="max-w-[95vw] max-h-[95vh] p-2 bg-background/95 backdrop-blur-sm">
             <DialogTitle className="sr-only">{title}</DialogTitle>
-            <img
-              src={generation.output_url!}
-              alt={generation.user_prompt}
-              className="w-full h-full max-h-[90vh] object-contain rounded-lg"
-            />
+            <SensitiveMedia
+              sensitive={generation.is_nsfw}
+              size="lg"
+              revealed={nsfwRevealed}
+              onRevealedChange={setNsfwRevealed}
+              className="rounded-lg"
+            >
+              <img
+                src={generation.output_url!}
+                alt={generation.user_prompt}
+                className="w-full h-full max-h-[90vh] object-contain rounded-lg"
+              />
+            </SensitiveMedia>
           </DialogContent>
         </Dialog>
       )}
@@ -674,11 +727,13 @@ function VariationsStrip({ siblings }: { siblings: DbGeneration[] }) {
               className="relative block w-[110px] h-[78px] rounded-[11px] overflow-hidden border border-border bg-muted transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {s.status === 'done' && s.output_url ? (
-                s.type === 'video' ? (
-                  <video src={s.output_url} muted playsInline preload="metadata" className="absolute inset-0 w-full h-full object-cover" />
-                ) : (
-                  <img src={s.output_url} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
-                )
+                <SensitiveMedia sensitive={s.is_nsfw} size="sm" className="absolute inset-0">
+                  {s.type === 'video' ? (
+                    <video src={s.output_url} muted playsInline preload="metadata" className="absolute inset-0 w-full h-full object-cover" />
+                  ) : (
+                    <img src={s.output_url} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+                  )}
+                </SensitiveMedia>
               ) : (
                 <span className="absolute inset-0 flex items-center justify-center text-muted-foreground">
                   {s.status === 'error' ? (

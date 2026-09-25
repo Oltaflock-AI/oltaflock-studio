@@ -27,6 +27,8 @@ export interface DbGeneration {
   user_id: string | null;
   progress: number;
   external_task_id: string | null;
+  /** User-marked sensitive: previews stay blurred until explicitly revealed. */
+  is_nsfw?: boolean;
 }
 
 // Insert type (omitting auto-generated fields)
@@ -51,6 +53,7 @@ export interface GenerationUpdate {
   rating?: number | null;
   progress?: number;
   external_task_id?: string | null;
+  is_nsfw?: boolean;
 }
 
 export function useGenerations() {
@@ -154,6 +157,47 @@ export function useGenerations() {
     },
   });
 
+  // Marks a generation sensitive (or not) and carries the flag to the user's
+  // library items made from it, so it's blurred wherever it's previewed.
+  const setNsfwMutation = useMutation({
+    mutationFn: async ({ generation, isNsfw }: { generation: DbGeneration; isNsfw: boolean }) => {
+      if (!user?.id) throw new Error('User not authenticated');
+      const { error } = await supabase
+        .from('generations')
+        .update({ is_nsfw: isNsfw })
+        .eq('id', generation.id)
+        .eq('user_id', user.id);
+      if (error) throw error;
+
+      const library = supabase.from('prompt_library_items' as never);
+      const matchesThis = generation.output_url
+        ? `source_generation_id.eq.${generation.id},thumbnail_url.eq."${generation.output_url}"`
+        : `source_generation_id.eq.${generation.id}`;
+      const { error: libError } = await library
+        .update({ is_nsfw: isNsfw } as never)
+        .eq('user_id', user.id)
+        .or(matchesThis);
+      if (libError) console.warn('Could not sync NSFW flag to library:', libError);
+    },
+    onMutate: async ({ generation, isNsfw }) => {
+      // Blur immediately rather than waiting for the round trip.
+      const key = ['generations', user?.id];
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<DbGeneration[]>(key);
+      queryClient.setQueryData<DbGeneration[]>(key, (gens) =>
+        gens?.map((g) => (g.id === generation.id ? { ...g, is_nsfw: isNsfw } : g)),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(['generations', user?.id], context.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['generations', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['prompt_library', user?.id] });
+    },
+  });
+
   const deleteGenerationMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -175,6 +219,8 @@ export function useGenerations() {
     createGeneration: createGenerationMutation.mutateAsync,
     updateGeneration: updateGenerationMutation.mutateAsync,
     deleteGeneration: deleteGenerationMutation.mutateAsync,
+    setNsfw: (generation: DbGeneration, isNsfw: boolean) =>
+      setNsfwMutation.mutateAsync({ generation, isNsfw }),
     refetch: generationsQuery.refetch,
   };
 }

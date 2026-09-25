@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Image as ImageIcon, Video, Download, Copy, ExternalLink, Maximize2, Sparkles, AlertCircle, RotateCcw, Bookmark } from 'lucide-react';
+import { Loader2, Image as ImageIcon, Video, Download, Copy, ExternalLink, Maximize2, Sparkles, AlertCircle, RotateCcw, Bookmark, EyeOff } from 'lucide-react';
 import { SaveToLibraryDialog } from '@/components/library/SaveToLibraryDialog';
 import { StarButton } from '@/components/library/StarButton';
 import { toast } from 'sonner';
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { GlowOrb } from '@/components/effects/GlowOrb';
 import { OutputDisplaySkeleton } from './skeletons/OutputDisplaySkeleton';
 import { ParallaxLayer } from '@/components/effects/MouseParallax';
+import { SensitiveMedia } from '@/components/SensitiveMedia';
 
 interface OutputDisplayProps {
   onRetry?: () => void;
@@ -25,9 +26,12 @@ interface OutputDisplayProps {
 
 export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
   const { selectedJobId } = useGenerationStore();
-  const { generations, isLoading } = useGenerations();
+  const { generations, isLoading, setNsfw } = useGenerations();
   const progress = useGenerationProgress(selectedJobId);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // One reveal shared by the inline view and fullscreen; resets per selection.
+  const [nsfwRevealed, setNsfwRevealed] = useState(false);
+  useEffect(() => setNsfwRevealed(false), [selectedJobId]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const { playNotification } = useNotificationSound();
   const previousStatusRef = useRef<Record<string, string>>({});
@@ -95,6 +99,18 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
     if (!selectedGeneration?.output_url) return;
     navigator.clipboard.writeText(selectedGeneration.output_url);
     toast.success('URL copied');
+  };
+
+  const handleToggleNsfw = async () => {
+    if (!selectedGeneration) return;
+    const next = !selectedGeneration.is_nsfw;
+    setNsfwRevealed(false);
+    try {
+      await setNsfw(selectedGeneration, next);
+      toast.success(next ? 'Marked NSFW — blurred everywhere it shows up' : 'NSFW mark removed');
+    } catch {
+      toast.error('Could not update NSFW mark');
+    }
   };
 
   const handleOpenInNewTab = () => {
@@ -224,8 +240,14 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
           "bg-gradient-to-b from-muted/20 to-muted/40 dark:from-muted/10 dark:to-muted/30",
           "canvas-inset"
         )}>
-          <div className="absolute inset-0 flex items-center justify-center p-6">
-            {mediaType === 'image' ? (
+          <SensitiveMedia
+            sensitive={selectedGeneration.is_nsfw}
+            size="lg"
+            revealed={nsfwRevealed}
+            onRevealedChange={setNsfwRevealed}
+            className="absolute inset-0 flex items-center justify-center p-6"
+          >
+            {(hidden) => mediaType === 'image' ? (
               <img
                 src={selectedGeneration.output_url}
                 alt="Generated output"
@@ -239,15 +261,15 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
             ) : (
               <video
                 src={selectedGeneration.output_url}
-                controls
+                controls={!hidden}
                 className="max-w-full max-h-full object-contain rounded-xl shadow-xl"
               />
             )}
-          </div>
+          </SensitiveMedia>
           
           {/* Floating action bar */}
           <div className={cn(
-            "absolute bottom-0 left-0 right-0 p-4",
+            "absolute bottom-0 left-0 right-0 z-20 p-4",
             "bg-gradient-to-t from-background/95 via-background/60 to-transparent",
             "opacity-0 group-hover:opacity-100 transition-opacity duration-200"
           )}>
@@ -276,7 +298,21 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
                 <Bookmark className="h-4 w-4 mr-2" />
                 Save to Library
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => setIsFullscreen(true)} className="h-9 w-9 p-0 rounded-lg shadow-sm ml-auto">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleToggleNsfw}
+                title={selectedGeneration.is_nsfw ? 'Marked NSFW — click to unmark' : 'Mark as NSFW (blur in history & library)'}
+                aria-label={selectedGeneration.is_nsfw ? 'Unmark NSFW' : 'Mark as NSFW'}
+                aria-pressed={!!selectedGeneration.is_nsfw}
+                className={cn(
+                  'h-9 w-9 p-0 rounded-lg shadow-sm ml-auto',
+                  selectedGeneration.is_nsfw && 'text-destructive bg-destructive/10 hover:bg-destructive/15',
+                )}
+              >
+                <EyeOff className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setIsFullscreen(true)} className="h-9 w-9 p-0 rounded-lg shadow-sm">
                 <Maximize2 className="h-4 w-4" />
               </Button>
             </div>
@@ -317,7 +353,14 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
       {/* Fullscreen Modal */}
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-2 bg-background/95 backdrop-blur-sm">
-          {mediaType === 'image' ? (
+          <SensitiveMedia
+            sensitive={selectedGeneration.is_nsfw}
+            size="lg"
+            revealed={nsfwRevealed}
+            onRevealedChange={setNsfwRevealed}
+            className="rounded-lg"
+          >
+          {(hidden) => mediaType === 'image' ? (
             <img
               src={selectedGeneration.output_url}
               alt="Generated output"
@@ -326,11 +369,12 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
           ) : (
             <video
               src={selectedGeneration.output_url}
-              controls
-              autoPlay
+              controls={!hidden}
+              autoPlay={!hidden}
               className="w-full h-full object-contain rounded-lg"
             />
           )}
+          </SensitiveMedia>
         </DialogContent>
       </Dialog>
     </>

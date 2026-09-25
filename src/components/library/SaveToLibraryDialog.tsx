@@ -22,6 +22,7 @@ import { usePromptLibrary, generateTitle } from '@/hooks/usePromptLibrary';
 import { LIBRARY_CATEGORIES, type LibraryCategory } from '@/types/library';
 import type { DbGeneration } from '@/hooks/useGenerations';
 import type { GenerationMode, GenerationType } from '@/types/generation';
+import { SensitiveMedia } from '@/components/SensitiveMedia';
 
 interface Props {
   generation: DbGeneration | null;
@@ -94,6 +95,7 @@ export function SaveToLibraryDialog({ generation, open, onOpenChange }: Props) {
         model: generation.model,
         model_params: generation.model_params ?? null,
         source_generation_id: generation.id,
+        is_nsfw: !!generation.is_nsfw,
       });
       toast.success('Saved to library');
       onOpenChange(false);
@@ -115,13 +117,13 @@ export function SaveToLibraryDialog({ generation, open, onOpenChange }: Props) {
 
         <div className="space-y-4 py-2">
           {generation?.output_url && (
-            <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+            <SensitiveMedia sensitive={generation.is_nsfw} className="aspect-video bg-muted rounded-lg">
               <img
                 src={generation.output_url}
                 alt="Preview"
                 className="w-full h-full object-cover"
               />
-            </div>
+            </SensitiveMedia>
           )}
 
           <div className="space-y-2">

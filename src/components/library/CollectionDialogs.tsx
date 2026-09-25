@@ -20,6 +20,7 @@ import {
   normalizeCollectionName,
   type LibraryItem,
 } from '@/types/library';
+import { SensitiveMedia } from '@/components/SensitiveMedia';
 
 function collectionErrorMessage(e: unknown): string {
   const msg =
@@ -158,12 +159,14 @@ export function NewCollectionDialog({ open, onOpenChange, onCreated }: NewCollec
                           isSelected ? 'border-primary' : 'border-transparent hover:border-border'
                         )}
                       >
-                        <img
-                          src={it.thumbnail_url}
-                          alt=""
-                          loading="lazy"
-                          className="absolute inset-0 h-full w-full object-cover"
-                        />
+                        <SensitiveMedia sensitive={it.is_nsfw} size="sm" className="absolute inset-0">
+                          <img
+                            src={it.thumbnail_url}
+                            alt=""
+                            loading="lazy"
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                        </SensitiveMedia>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                         <span className="absolute inset-x-1.5 bottom-1 truncate text-left text-[10px] font-medium text-white">
                           {it.title}

@@ -28,6 +28,7 @@ export function PresetCard({ item, isFavorite, onToggleFavorite, onUse, onOpen }
     >
       <PresetMedia
         src={item.thumbnail_url}
+        sensitive={item.is_nsfw}
         className="transition-transform duration-300 group-hover:scale-[1.03]"
       />
       <div

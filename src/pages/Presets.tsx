@@ -44,7 +44,7 @@ export default function Presets() {
   // Items arrive curated-first, newest-first, so the first curated item with a
   // still image is the most recent curated preset we can show as a banner.
   const featured = useMemo(
-    () => items.find((i) => i.is_curated && !!i.thumbnail_url && !isVideoUrl(i.thumbnail_url)) ?? null,
+    () => items.find((i) => i.is_curated && !i.is_nsfw && !!i.thumbnail_url && !isVideoUrl(i.thumbnail_url)) ?? null,
     [items]
   );
 

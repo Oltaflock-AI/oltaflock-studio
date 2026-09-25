@@ -42,6 +42,7 @@ export type Database = {
           external_task_id: string | null
           final_prompt: string | null
           id: string
+          is_nsfw: boolean
           model: string
           model_params: Json | null
           output_url: string | null
@@ -59,6 +60,7 @@ export type Database = {
           external_task_id?: string | null
           final_prompt?: string | null
           id?: string
+          is_nsfw?: boolean
           model: string
           model_params?: Json | null
           output_url?: string | null
@@ -76,6 +78,7 @@ export type Database = {
           external_task_id?: string | null
           final_prompt?: string | null
           id?: string
+          is_nsfw?: boolean
           model?: string
           model_params?: Json | null
           output_url?: string | null

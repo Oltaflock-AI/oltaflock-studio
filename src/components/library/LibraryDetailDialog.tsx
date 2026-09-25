@@ -9,7 +9,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Copy, Sparkles, Bookmark, Wand2, Trash2, Loader2, Folder, FolderInput } from 'lucide-react';
+import { Copy, Sparkles, Bookmark, Wand2, Trash2, Loader2, Folder, FolderInput, EyeOff } from 'lucide-react';
+import { SensitiveMedia } from '@/components/SensitiveMedia';
 import { ModelBadge } from '@/components/studio/ModelBadge';
 import { modelDisplayName } from './modelName';
 import { cn } from '@/lib/utils';
@@ -38,9 +39,11 @@ interface Props {
   onMoveToCollection?: (item: LibraryItem) => void;
 }
 
-export function LibraryDetailDialog({ item, open, onOpenChange, onMoveToCollection }: Props) {
+export function LibraryDetailDialog({ item: itemProp, open, onOpenChange, onMoveToCollection }: Props) {
   const navigate = useNavigate();
-  const { deleteFromLibrary, isDeleting, isOwnItem } = usePromptLibrary();
+  const { items, deleteFromLibrary, isDeleting, isOwnItem, setItemNsfw } = usePromptLibrary();
+  // Prefer the live row so toggles (e.g. NSFW) show without reopening.
+  const item = (itemProp && items.find((it) => it.id === itemProp.id)) ?? itemProp;
 
   if (!item) return null;
 
@@ -54,6 +57,16 @@ export function LibraryDetailDialog({ item, open, onOpenChange, onMoveToCollecti
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to remove';
       toast.error(msg);
+    }
+  };
+
+  const handleToggleNsfw = async () => {
+    const next = !item.is_nsfw;
+    try {
+      await setItemNsfw(item.id, next);
+      toast.success(next ? 'Marked NSFW — blurred in previews' : 'NSFW mark removed');
+    } catch {
+      toast.error('Could not update NSFW mark');
     }
   };
 
@@ -90,13 +103,18 @@ export function LibraryDetailDialog({ item, open, onOpenChange, onMoveToCollecti
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden rounded-[20px]">
         <div className="grid grid-cols-1 md:grid-cols-2 h-full max-h-[90vh]">
-          <div className="relative bg-muted aspect-square md:aspect-auto md:h-full">
+          <SensitiveMedia
+            key={item.id}
+            sensitive={item.is_nsfw}
+            size="lg"
+            className="bg-muted aspect-square md:aspect-auto md:h-full"
+          >
             <img
               src={item.thumbnail_url}
               alt={item.title}
               className="absolute inset-0 h-full w-full object-cover"
             />
-          </div>
+          </SensitiveMedia>
 
           <div className="flex flex-col min-h-0">
             <DialogHeader className="p-5 pb-3 shrink-0 border-b border-border/40">
@@ -115,6 +133,12 @@ export function LibraryDetailDialog({ item, open, onOpenChange, onMoveToCollecti
                 <Badge variant="outline" className="text-[10px]">
                   {categoryLabel}
                 </Badge>
+                {item.is_nsfw && (
+                  <Badge variant="destructive" className="gap-1 text-[10px] uppercase tracking-wide">
+                    <EyeOff className="h-3 w-3" />
+                    NSFW
+                  </Badge>
+                )}
                 {item.collection && (
                   <Badge variant="outline" className="gap-1 text-[10px] max-w-[160px]">
                     <Folder className="h-3 w-3 shrink-0" />
@@ -177,6 +201,20 @@ export function LibraryDetailDialog({ item, open, onOpenChange, onMoveToCollecti
             </ScrollArea>
 
             <div className="p-5 pt-3 border-t border-border/40 shrink-0 flex flex-wrap items-center gap-2">
+              {canRemove && (
+                <Button
+                  variant="outline"
+                  onClick={handleToggleNsfw}
+                  title={item.is_nsfw ? 'Marked NSFW — click to unmark' : 'Mark as NSFW (blur in previews)'}
+                  aria-pressed={!!item.is_nsfw}
+                  className={cn(
+                    'h-10 w-10 p-0 rounded-[10px]',
+                    item.is_nsfw && 'text-destructive border-destructive/40 bg-destructive/10 hover:text-destructive hover:bg-destructive/15',
+                  )}
+                >
+                  <EyeOff className="h-4 w-4" />
+                </Button>
+              )}
               {canRemove && onMoveToCollection && (
                 <Button
                   variant="outline"

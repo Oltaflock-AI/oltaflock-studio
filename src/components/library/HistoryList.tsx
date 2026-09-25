@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { ModelBadge } from '@/components/studio/ModelBadge';
 import type { DbGeneration } from '@/hooks/useGenerations';
 import { modelDisplayName } from './modelName';
+import { SensitiveMedia } from '@/components/SensitiveMedia';
 
 // Times are shown in IST (the team's timezone), regardless of the browser's zone.
 const TIME_ZONE = 'Asia/Kolkata';
@@ -195,7 +196,7 @@ function Thumb({ gen }: { gen: DbGeneration }) {
 
   if (gen.status === 'done' && gen.output_url) {
     return (
-      <div className={base}>
+      <SensitiveMedia sensitive={gen.is_nsfw} size="sm" className={base}>
         {gen.type === 'video' ? (
           <>
             <video
@@ -216,7 +217,7 @@ function Thumb({ gen }: { gen: DbGeneration }) {
             className="absolute inset-0 h-full w-full object-cover"
           />
         )}
-      </div>
+      </SensitiveMedia>
     );
   }
 

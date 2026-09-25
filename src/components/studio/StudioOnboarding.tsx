@@ -35,7 +35,7 @@ export function StudioOnboarding() {
   const { pendingRating, isGenerating } = useGenerationStore();
 
   const presets = useMemo(
-    () => items.filter((it) => it.is_curated && it.thumbnail_url).slice(0, MAX_PRESETS),
+    () => items.filter((it) => it.is_curated && it.thumbnail_url && !it.is_nsfw).slice(0, MAX_PRESETS),
     [items]
   );
 
