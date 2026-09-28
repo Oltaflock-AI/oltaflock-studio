@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { ArrowUpRight, Brain, FileText, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMemories, type Attachment, type AssistantMessage, type AssistantStatus, type BriefQuestion, type MemoryEvent, type PromptCard } from '@/hooks/useAssistant';
@@ -150,8 +150,8 @@ function Attachments({ items }: { items: Attachment[] }) {
 
 function AssistantAvatar() {
   return (
-    <span className="mt-0.5 h-7 w-7 shrink-0 rounded-full bg-foreground flex items-center justify-center">
-      <img src={logoMark} alt="" className="h-3.5 w-3.5 object-contain brightness-0 invert dark:invert-0" />
+    <span className="mt-0.5 h-8 w-8 shrink-0 rounded-full bg-foreground ring-4 ring-background flex items-center justify-center shadow-[0_2px_8px_-2px_hsl(240_10%_10%/0.35)]">
+      <img src={logoMark} alt="" className="h-4 w-4 object-contain brightness-0 invert dark:invert-0" />
     </span>
   );
 }
@@ -162,28 +162,67 @@ interface ChatThreadProps {
   pending: {
     user: { content: string; attachments: Attachment[] } | null;
     text: string;
-    card: PromptCard | null;
+    cards: PromptCard[];
     memoryEvents: MemoryEvent[];
     questions: BriefQuestion[] | null;
     status: AssistantStatus | null;
   } | null;
   isStreaming: boolean;
   error: string | null;
-  cardVersionOf: (messageId: string | null) => number;
+  /** Index into the card versions (0-based) shown in the side panel. */
   activeVersion: number;
-  onSelectVersion: (version: number) => void;
+  onSelectVersion: (index: number) => void;
   onAnswer: (answer: string) => void;
 }
 
-export function ChatThread({ messages, pending, isStreaming, error, cardVersionOf, activeVersion, onSelectVersion, onAnswer }: ChatThreadProps) {
+interface AssistantTurn {
+  kind: 'assistant';
+  id: string;
+  text: string;
+  cards: { card: PromptCard; version: number }[];
+  memoryEvents: MemoryEvent[];
+  questions: BriefQuestion[] | null;
+}
+type Turn = AssistantTurn | { kind: 'user'; id: string; content: string; attachments: Attachment[] | null };
+
+/** Folds card-only rows (extra variations saved from one reply) into the reply they belong to. */
+function toTurns(messages: AssistantMessage[]): { turns: Turn[]; cardCount: number } {
+  const turns: Turn[] = [];
+  let version = 0;
+  for (const m of messages) {
+    if (m.role === 'user') {
+      turns.push({ kind: 'user', id: m.id, content: m.content, attachments: m.attachments });
+      continue;
+    }
+    const card = m.card ? { card: m.card, version: ++version } : null;
+    const prev = turns[turns.length - 1];
+    if (card && !m.content.trim() && !m.questions?.length && prev?.kind === 'assistant') {
+      prev.cards.push(card);
+      continue;
+    }
+    turns.push({
+      kind: 'assistant',
+      id: m.id,
+      text: m.content,
+      cards: card ? [card] : [],
+      memoryEvents: m.memory_events ?? [],
+      questions: m.questions,
+    });
+  }
+  return { turns, cardCount: version };
+}
+
+export function ChatThread({ messages, pending, isStreaming, error, activeVersion, onSelectVersion, onAnswer }: ChatThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages.length, pending?.text, pending?.card, pending?.questions, pending?.status, isStreaming]);
+  }, [messages.length, pending?.text, pending?.cards.length, pending?.questions, pending?.status, isStreaming]);
+
+  const { turns, cardCount } = useMemo(() => toTurns(messages), [messages]);
 
   // Only the latest assistant turn's brief is answerable, and only until the user replies.
-  const lastMessage = messages[messages.length - 1];
-  const openBriefId = !isStreaming && lastMessage?.role === 'assistant' && lastMessage.questions?.length ? lastMessage.id : null;
+  const lastTurn = turns[turns.length - 1];
+  const openBriefId = !isStreaming && lastTurn?.kind === 'assistant' && lastTurn.questions?.length ? lastTurn.id : null;
 
   // A new brief is taller than the viewport: show it from the top, not the bottom.
   const briefRef = useRef<HTMLDivElement>(null);
@@ -191,41 +230,38 @@ export function ChatThread({ messages, pending, isStreaming, error, cardVersionO
     if (openBriefId) requestAnimationFrame(() => briefRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }, [openBriefId]);
 
-  interface Turn {
-    text: string;
-    card: PromptCard | null;
-    memoryEvents: MemoryEvent[];
-    questions: BriefQuestion[] | null;
-    status?: AssistantStatus | null;
-  }
-
-  const renderAssistant = (key: string, turn: Turn, messageId: string | null, streaming = false) => {
-    const { text, card, memoryEvents, questions, status } = turn;
-    const version = card ? cardVersionOf(messageId) : 0;
+  const renderAssistant = (turn: AssistantTurn, streaming = false, status: AssistantStatus | null = null) => {
+    const { id, text, cards, memoryEvents, questions } = turn;
     const showStatus = streaming && status && !questions;
     return (
-      <div key={key} ref={messageId && messageId === openBriefId ? briefRef : undefined} className="flex gap-3.5 scroll-mt-6">
+      <div key={id} ref={id === openBriefId ? briefRef : undefined} className="flex gap-4 scroll-mt-6">
         <AssistantAvatar />
-        <div className="min-w-0 flex-1 space-y-3 text-[15px] leading-[1.65] text-foreground">
+        <div className="min-w-0 flex-1 space-y-3.5 text-[15px] leading-[1.7] text-foreground">
           {text && <RichText text={text} />}
-          {card && <CardChip card={card} version={version} active={version - 1 === activeVersion} onClick={() => onSelectVersion(version - 1)} />}
+          {cards.length > 0 && (
+            <div className={cn('grid gap-2.5', cards.length > 1 ? 'sm:grid-cols-2' : 'max-w-[580px]')}>
+              {cards.map(({ card, version }) => (
+                <CardChip key={version} card={card} version={version} active={version - 1 === activeVersion} onClick={() => onSelectVersion(version - 1)} />
+              ))}
+            </div>
+          )}
           {questions && questions.length > 0 && (
-            <BriefForm questions={questions} locked={streaming || messageId !== openBriefId} onSubmit={onAnswer} />
+            <BriefForm questions={questions} locked={streaming || id !== openBriefId} onSubmit={onAnswer} />
           )}
           {memoryEvents.length > 0 && (
             <div className="flex flex-col items-start gap-1.5">{memoryEvents.map((e) => <MemoryChip key={e.id + e.action} event={e} />)}</div>
           )}
-          {showStatus && <div className={cn(!text && !card && 'pt-1')}><StatusLine status={status} /></div>}
+          {showStatus && <div className={cn(!text && !cards.length && 'pt-1')}><StatusLine status={status} /></div>}
         </div>
       </div>
     );
   };
 
   const renderUser = (key: string, content: string, attachments: Attachment[] | null) => (
-    <div key={key} className="flex flex-col items-end gap-1.5">
+    <div key={key} className="flex flex-col items-end gap-1.5 pl-16">
       {attachments && attachments.length > 0 && <Attachments items={attachments} />}
       {content && (
-        <div className="max-w-[80%] rounded-[18px] rounded-br-[6px] bg-secondary px-4 py-2.5 text-[15px] leading-relaxed text-foreground">
+        <div className="max-w-[640px] rounded-[20px] rounded-br-[6px] bg-secondary px-4 py-2.5 text-[15px] leading-relaxed text-foreground">
           <RichText text={content} />
         </div>
       )}
@@ -233,16 +269,23 @@ export function ChatThread({ messages, pending, isStreaming, error, cardVersionO
   );
 
   return (
-    <div className="mx-auto w-full max-w-[760px] px-6 py-8 space-y-8">
-      {messages.map((m) =>
-        m.role === 'user'
-          ? renderUser(m.id, m.content, m.attachments)
-          : renderAssistant(m.id, { text: m.content, card: m.card, memoryEvents: m.memory_events ?? [], questions: m.questions }, m.id),
-      )}
+    <div className="mx-auto w-full max-w-[900px] px-8 py-10 space-y-9">
+      {turns.map((t) => (t.kind === 'user' ? renderUser(t.id, t.content, t.attachments) : renderAssistant(t)))}
       {pending?.user && renderUser('pending-user', pending.user.content, pending.user.attachments)}
-      {isStreaming && pending && renderAssistant('pending', { ...pending, status: pending.status ?? 'thinking' }, null, true)}
+      {isStreaming && pending && renderAssistant(
+        {
+          kind: 'assistant',
+          id: 'pending',
+          text: pending.text,
+          cards: pending.cards.map((card, i) => ({ card, version: cardCount + i + 1 })),
+          memoryEvents: pending.memoryEvents,
+          questions: pending.questions,
+        },
+        true,
+        pending.status ?? 'thinking',
+      )}
       {error && (
-        <div className="rounded-[11px] border border-destructive/30 bg-destructive/5 px-4 py-3 text-[13.5px] text-destructive">{error}</div>
+        <div className="rounded-[12px] border border-destructive/30 bg-destructive/5 px-4 py-3 text-[13.5px] text-destructive">{error}</div>
       )}
       <div ref={bottomRef} />
     </div>

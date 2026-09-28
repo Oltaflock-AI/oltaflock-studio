@@ -91,8 +91,8 @@ const Assistant = () => {
 
   const versions: CardVersion[] = useMemo(() => {
     const saved = messages.filter((m) => m.card).map((m) => ({ messageId: m.id, card: m.card!, generationIds: m.generation_ids ?? [] }));
-    return isStreaming && stream.card ? [...saved, { messageId: null, card: stream.card, generationIds: [] }] : saved;
-  }, [messages, isStreaming, stream.card]);
+    return isStreaming ? [...saved, ...stream.cards.map((card) => ({ messageId: null, card, generationIds: [] }))] : saved;
+  }, [messages, isStreaming, stream.cards]);
 
   useEffect(() => setVersionIndex(Math.max(0, versions.length - 1)), [versions.length]);
 
@@ -128,7 +128,7 @@ const Assistant = () => {
   const pickerSpecs = useMemo(() => catalogFor(backend).filter((s) => s.output === output), [backend, output]);
   const isEmpty = !activeChatId && !isStreaming && !stream.pendingUser;
   const pending = isStreaming || stream.pendingUser
-    ? { user: stream.pendingUser, text: stream.text, card: stream.card, memoryEvents: stream.memoryEvents, questions: stream.questions, status: stream.status }
+    ? { user: stream.pendingUser, text: stream.text, cards: stream.cards, memoryEvents: stream.memoryEvents, questions: stream.questions, status: stream.status }
     : null;
 
   // Next-step chips: the assistant's own suggestions for the latest turn, else generic
@@ -142,7 +142,7 @@ const Assistant = () => {
       : versions.length > 0 ? QUICK[output] : [];
 
   return (
-    <AppShell scrollableContent={false}>
+    <AppShell scrollableContent={false} compactNav>
       <div className="h-full flex overflow-hidden">
         <ChatRail className="hidden xl:flex" />
         <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
@@ -153,7 +153,7 @@ const Assistant = () => {
         </Sheet>
 
         <main className="flex-1 min-w-0 flex flex-col">
-          <header className="shrink-0 flex items-center justify-between gap-4 px-6 h-16 border-b border-border">
+          <header className="shrink-0 flex items-center justify-between gap-4 px-8 h-16 border-b border-border">
             <button
               type="button"
               onClick={() => setHistoryOpen(true)}
@@ -162,7 +162,7 @@ const Assistant = () => {
             >
               <History className="h-4 w-4" />
             </button>
-            <h1 className="hidden 2xl:block min-w-0 truncate font-serif text-[24px] leading-none tracking-[-0.01em]">
+            <h1 className="hidden lg:block min-w-0 truncate font-serif text-[24px] leading-none tracking-[-0.01em]">
               {activeChat?.title ?? 'Prompt Assistant'}
             </h1>
             <div className="ml-auto flex items-center gap-2 min-w-0">
@@ -178,15 +178,6 @@ const Assistant = () => {
                 onChange={(o) => { setOutput(o); if (spec && spec.output !== o) setModelId(null); }}
                 options={[{ value: 'image', label: 'Image' }, { value: 'video', label: 'Video' }]}
               />
-              <button
-                type="button"
-                onClick={() => setPickerOpen(true)}
-                className="h-8 min-w-0 2xl:shrink-0 max-w-[240px] pl-2 pr-2.5 inline-flex items-center gap-2 rounded-[9px] border border-border bg-card text-[13px] hover:border-foreground/25 transition-smooth dark:bg-transparent"
-              >
-                {spec ? <ModelBadge modelId={spec.id} size="sm" /> : <Sparkles className="h-4 w-4 text-primary" />}
-                <span className="truncate font-medium">{spec?.name ?? 'Help me choose'}</span>
-                <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              </button>
             </div>
           </header>
 
@@ -222,7 +213,6 @@ const Assistant = () => {
                 pending={pending}
                 isStreaming={isStreaming}
                 error={error}
-                cardVersionOf={(id) => (id === null ? versions.length : versions.findIndex((v) => v.messageId === id) + 1)}
                 activeVersion={versionIndex}
                 onSelectVersion={(i) => { setVersionIndex(i); setTab('prompt'); }}
                 onAnswer={(answer) => sendMessage(answer)}
@@ -235,6 +225,18 @@ const Assistant = () => {
             onStop={stop}
             isStreaming={isStreaming}
             quickActions={quickActions}
+            toolbar={
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="h-8 min-w-0 max-w-[260px] pl-1.5 pr-2.5 inline-flex items-center gap-1.5 rounded-full border border-border text-[12.5px] hover:bg-secondary transition-smooth"
+                title="Model"
+              >
+                {spec ? <ModelBadge modelId={spec.id} size="sm" /> : <Sparkles className="ml-1 h-3.5 w-3.5 text-primary" />}
+                <span className="truncate font-medium">{spec?.name ?? 'Auto-pick model'}</span>
+                <ChevronsUpDown className="h-3 w-3 text-muted-foreground shrink-0" />
+              </button>
+            }
             placeholder={
               isEmpty
                 ? `Describe ${output === 'video' ? 'the video' : 'the creative'} you want, or ask me anything…`
@@ -243,14 +245,27 @@ const Assistant = () => {
           />
         </main>
 
-        <aside aria-label="Prompt and memory" className="hidden lg:flex w-[360px] 2xl:w-[440px] shrink-0 flex-col border-l border-border bg-card">
-          <div className="shrink-0 h-16 flex items-center px-4 border-b border-border">
-            <Segmented<'prompt' | 'memory'>
-              label="Panel"
-              value={tab}
-              onChange={setTab}
-              options={[{ value: 'prompt', label: 'Prompt' }, { value: 'memory', label: `Memory${memories.length ? ` · ${memories.length}` : ''}` }]}
-            />
+        <aside aria-label="Prompt and memory" className="hidden lg:flex w-[380px] 2xl:w-[460px] shrink-0 flex-col border-l border-border bg-card">
+          <div className="shrink-0 h-16 flex items-end gap-6 px-6 border-b border-border" role="tablist" aria-label="Panel">
+            {([['prompt', 'Prompt', versions.length], ['memory', 'Memory', memories.length]] as const).map(([value, label, count]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={tab === value}
+                onClick={() => setTab(value)}
+                className={cn(
+                  'relative h-full inline-flex items-center gap-1.5 text-[13.5px] transition-smooth',
+                  tab === value ? 'text-foreground font-semibold' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {label}
+                {count > 0 && (
+                  <span className={cn('min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full font-mono text-[10.5px]', tab === value ? 'bg-foreground text-background' : 'bg-secondary text-muted-foreground')}>{count}</span>
+                )}
+                {tab === value && <span className="absolute left-0 right-0 -bottom-px h-[2px] rounded-full bg-foreground" />}
+              </button>
+            ))}
           </div>
           <div className="flex-1 min-h-0">
             {tab === 'prompt' ? (

@@ -223,7 +223,8 @@ export interface SendOptions {
 
 export interface StreamState {
   text: string;
-  card: PromptCard | null;
+  /** Cards written this turn; several when the user asked for variations. */
+  cards: PromptCard[];
   memoryEvents: MemoryEvent[];
   questions: BriefQuestion[] | null;
   suggestions: string[] | null;
@@ -232,7 +233,7 @@ export interface StreamState {
   pendingUser: { content: string; attachments: Attachment[] } | null;
 }
 
-const EMPTY_STREAM: StreamState = { text: '', card: null, memoryEvents: [], questions: null, suggestions: null, status: null, pendingUser: null };
+const EMPTY_STREAM: StreamState = { text: '', cards: [], memoryEvents: [], questions: null, suggestions: null, status: null, pendingUser: null };
 
 /** Sends a message to prompt-chat and exposes the streaming reply. */
 export function usePromptChat(onChat: (chatId: string, title: string) => void) {
@@ -294,7 +295,7 @@ export function usePromptChat(onChat: (chatId: string, title: string) => void) {
             } else if (ev.type === 'suggestions') {
               setStream((s) => ({ ...s, suggestions: ev.suggestions }));
             } else if (ev.type === 'card') {
-              setStream((s) => ({ ...s, card: ev.card, status: 'thinking' }));
+              setStream((s) => ({ ...s, cards: [...s.cards, ev.card], status: 'thinking' }));
             } else if (ev.type === 'memory') {
               setStream((s) => ({ ...s, memoryEvents: [...s.memoryEvents, ev.event] }));
             } else if (ev.type === 'error') {

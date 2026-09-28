@@ -124,6 +124,8 @@ Skip discovery when the user gives a detailed brief, attaches references that an
 ## 2. Draft
 Once you have answers, write the prompt. Every time you write or revise a prompt, call update_prompt_card with the COMPLETE prompt. Never paste the prompt into chat text — the card shows it. In chat, say in 1–3 sentences what you went for and why ("Went with the mid-air explosion on a hot-red backdrop so the pack pops in the feed").
 - Suggest settings in the card only when they matter (aspect ratio, duration, resolution, audio). Use exact keys/values listed for the model; match the placement the user picked (story → 9:16, feed → 4:5 or 1:1, banner → 16:9).
+- For variations ("give me 3 options"), call update_prompt_card once per variation in the same turn — each becomes its own version.
+- Write your chat text once, before your tool calls; don't restate it afterwards.
 - Only ask follow-up questions (ask_questions, 1–3 questions) if something important is still unknown after the draft.
 - When the user asks to switch models, rewrite the same idea in the new model's syntax and set model_id.
 - If the user attached images, look at them: describe or build on them as the user asks. For edit / image-to-video models the image is the input — describe only the change or motion.
@@ -472,18 +474,19 @@ Deno.serve(async (req) => {
       send({ type: 'status', status: 'thinking' });
 
       let text = '';
-      let card: PromptCard | null = null;
+      const cards: PromptCard[] = [];
       let questions: BriefQuestion[] | null = null;
       let suggestions: string[] | null = null;
       const memoryEvents: MemoryEvent[] = [];
       let model = CHAT_MODEL;
 
       try {
+        let lastTurn: { content: Anthropic.ContentBlockParam[]; toolResults: Anthropic.ToolResultBlockParam[] } | null = null;
         for (let round = 0; round < 3; round++) {
           let final: Anthropic.Message;
           try {
             const s = anthropic.messages.stream({
-              model, max_tokens: 2000, tools,
+              model, max_tokens: 6000, tools,
               system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
               messages,
             });
@@ -512,7 +515,7 @@ Deno.serve(async (req) => {
             const input = block.input as Record<string, unknown>;
             if (block.name === 'update_prompt_card') {
               const c = toCard(input, spec, backend);
-              if (c) { card = c; send({ type: 'card', card: c }); }
+              if (c) { cards.push(c); send({ type: 'card', card: c, index: cards.length - 1 }); }
               toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: c ? 'Card shown to the user.' : 'Card rejected: prompt was empty.' });
             } else if (block.name === 'ask_questions') {
               const qs = toQuestions(input);
@@ -535,22 +538,62 @@ Deno.serve(async (req) => {
               toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: 'Unavailable.' });
             }
           }
+          console.log(`[prompt-chat] round ${round} stop=${final.stop_reason} tools=${final.content.filter((b) => b.type === 'tool_use').map((b) => (b as Anthropic.ToolUseBlock).name).join(',') || '-'} out=${final.usage.output_tokens}`);
+          if (final.stop_reason === 'max_tokens') console.warn('[prompt-chat] hit max_tokens; tool input may be truncated');
+          lastTurn = { content: final.content as Anthropic.ContentBlockParam[], toolResults };
           if (final.stop_reason !== 'tool_use' || !toolResults.length) break;
-          // Questions and suggestions close the turn; no need for another model round.
-          if (questions || suggestions) break;
+          // Every tool is display-only, so once the reply text exists another round would only
+          // repeat it. Questions and suggestions always close the turn.
+          if (questions || suggestions || text.trim()) break;
           messages.push({ role: 'assistant', content: final.content as Anthropic.ContentBlockParam[] });
           messages.push({ role: 'user', content: toolResults });
           // Separate text from before and after the tool call.
           if (text && !text.endsWith('\n')) { text += '\n\n'; send({ type: 'text', delta: '\n\n' }); }
         }
 
+        // Next-step chips. The reply loop stops as soon as the text is written, so ask for them
+        // with one short forced call when the model didn't offer any itself.
+        if (!questions && !suggestions && lastTurn && (text.trim() || cards.length)) {
+          try {
+            const followUp: Anthropic.MessageParam[] = [
+              ...messages,
+              { role: 'assistant', content: lastTurn.content },
+              lastTurn.toolResults.length
+                ? { role: 'user', content: lastTurn.toolResults }
+                : { role: 'user', content: '(Offer next steps.)' },
+            ];
+            const res = await anthropic.messages.create({
+              model, max_tokens: 300, tools, tool_choice: { type: 'tool', name: SUGGEST_TOOL.name },
+              system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+              messages: followUp,
+            });
+            const block = res.content.find((b) => b.type === 'tool_use') as Anthropic.ToolUseBlock | undefined;
+            const replies = ((block?.input as { replies?: unknown })?.replies ?? []) as unknown[];
+            const clean = replies.filter((r): r is string => typeof r === 'string' && !!r.trim()).map((r) => r.trim().slice(0, 60)).slice(0, 4);
+            if (clean.length) { suggestions = clean; send({ type: 'suggestions', suggestions: clean }); }
+          } catch (e) {
+            console.warn('[prompt-chat] suggestions failed', e);
+          }
+        }
+
+        // One row per card, so each variation is its own version with its own results.
+        // The reply text, memory events and suggestions sit on the first row.
+        const card = cards[0] ?? null;
         const { data: saved } = await supabase.from('assistant_messages').insert({
-          chat_id: chatId, user_id: userId, role: 'assistant', content: text.trim(), card, questions, suggestions,
+          chat_id: chatId, user_id: userId, role: 'assistant', content: text.trim(), card, questions,
+          suggestions: cards.length > 1 ? null : suggestions,
           memory_events: memoryEvents.length ? memoryEvents : null,
         }).select('id').single();
+        for (const [i, extra] of cards.slice(1).entries()) {
+          await supabase.from('assistant_messages').insert({
+            chat_id: chatId, user_id: userId, role: 'assistant', content: '', card: extra,
+            suggestions: i === cards.length - 2 ? suggestions : null,
+          });
+        }
 
         const chatUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() };
-        if (card?.model_id) chatUpdate.model_id = card.model_id;
+        const lastCard = cards[cards.length - 1];
+        if (lastCard?.model_id) chatUpdate.model_id = lastCard.model_id;
         if (card && await hasPlaceholderTitle(saved?.id)) { chatUpdate.title = card.title; send({ type: 'chat', chatId, title: card.title }); }
         await supabase.from('assistant_chats').update(chatUpdate).eq('id', chatId);
 
