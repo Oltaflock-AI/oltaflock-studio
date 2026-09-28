@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronLeft, FolderTree, LayoutGrid, Search } from 'lucide-react';
+import { ChevronLeft, FolderTree, LayoutGrid, Minus, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useGenerations } from '@/hooks/useGenerations';
 import { useFolders } from '@/hooks/useFolders';
 import { usePromptLibrary } from '@/hooks/usePromptLibrary';
-import { GridView, type Density } from '@/components/library/GridView';
+import { GridView, DEFAULT_COLUMNS, MAX_COLUMNS, MIN_COLUMNS } from '@/components/library/GridView';
+import { Slider } from '@/components/ui/slider';
 import { OrganizeView } from '@/components/library/OrganizeView';
 import { LibraryViewer } from '@/components/library/LibraryViewer';
 import { SelectionBar } from '@/components/library/SelectionBar';
@@ -18,8 +19,10 @@ import { cn } from '@/lib/utils';
 
 type View = 'grid' | 'organize';
 
-function readDensity(): Density {
-  try { const v = localStorage.getItem('library-density'); return v === 's' || v === 'l' ? v : 'm'; } catch { return 'm'; }
+const clampColumns = (n: number) => Math.min(MAX_COLUMNS, Math.max(MIN_COLUMNS, Math.round(n)));
+
+function readColumns(): number {
+  try { const v = Number(localStorage.getItem('library-columns')); return v ? clampColumns(v) : DEFAULT_COLUMNS; } catch { return DEFAULT_COLUMNS; }
 }
 
 /** Your generations: browse them as a grid, or organise them into folders. */
@@ -35,9 +38,9 @@ export default function Library() {
   const [type, setType] = useState<TypeFilter>('all');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('newest');
-  const [density, setDensityState] = useState<Density>(readDensity);
+  const [columns, setColumnsState] = useState<number>(readColumns);
   const [openId, setOpenId] = useState<string | null>(null);
-  const setDensity = (d: Density) => { setDensityState(d); try { localStorage.setItem('library-density', d); } catch { /* per-device nicety only */ } };
+  const setColumns = (n: number) => { const c = clampColumns(n); setColumnsState(c); try { localStorage.setItem('library-columns', String(c)); } catch { /* per-device nicety only */ } };
 
   const isStarred = useCallback((id: string) => !!findByGenerationId(id), [findByGenerationId]);
   const scopedFolder = scope.kind === 'folder' ? folders.find((f) => f.id === scope.id) : undefined;
@@ -137,12 +140,24 @@ export default function Library() {
                 </SelectContent>
               </Select>
               {view === 'grid' && (
-                <div className="inline-flex rounded-[10px] border border-border bg-card p-0.5" role="group" aria-label="Thumbnail size">
-                  {(['s', 'm', 'l'] as const).map((d) => (
-                    <button key={d} type="button" aria-pressed={density === d} onClick={() => setDensity(d)} className={cn('h-8 w-8 rounded-[8px] text-[12px] font-medium uppercase transition-smooth', density === d ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-                      {d}
-                    </button>
-                  ))}
+                <div className="flex h-9 items-center gap-2 rounded-[10px] border border-border bg-card px-2" title="Images per row">
+                  <button type="button" aria-label="Smaller images" onClick={() => setColumns(columns + 1)} disabled={columns >= MAX_COLUMNS} className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40">
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <Slider
+                    aria-label="Images per row"
+                    className="w-[120px]"
+                    min={MIN_COLUMNS}
+                    max={MAX_COLUMNS}
+                    step={1}
+                    inverted
+                    value={[columns]}
+                    onValueChange={([v]) => setColumns(v)}
+                  />
+                  <button type="button" aria-label="Bigger images" onClick={() => setColumns(columns - 1)} disabled={columns <= MIN_COLUMNS} className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40">
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="w-[52px] text-right font-mono text-[11.5px] tabular-nums text-muted-foreground">{columns}/row</span>
                 </div>
               )}
             </div>
@@ -150,11 +165,11 @@ export default function Library() {
 
           <div className="min-h-0 flex-1 overflow-y-auto" onClick={(e) => view === 'grid' && e.target === e.currentTarget && selection.clear()}>
             {isLoading ? (
-              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
-                {Array.from({ length: 12 }).map((_, i) => <div key={i} className="aspect-square animate-pulse rounded-[14px] bg-muted" />)}
+              <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+                {Array.from({ length: columns * 3 }).map((_, i) => <div key={i} className="aspect-square animate-pulse rounded-[8px] bg-muted" />)}
               </div>
             ) : view === 'grid' ? (
-              <GridView items={items} scope={scope} sort={sort} density={density} selection={selection} isStarred={isStarred} onOpen={setOpenId} onScope={setScope} onMove={move} />
+              <GridView items={items} scope={scope} columns={columns} selection={selection} isStarred={isStarred} onOpen={setOpenId} onScope={setScope} onMove={move} />
             ) : (
               <div className="h-full pb-6">
                 <OrganizeView items={items} scope={scope} onScope={setScope} counts={counts} selection={selection} isStarred={isStarred} onOpen={setOpenId} />

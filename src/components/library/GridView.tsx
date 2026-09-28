@@ -4,17 +4,19 @@ import type { DbGeneration } from '@/hooks/useGenerations';
 import { useFolders } from '@/hooks/useFolders';
 import { ModelBadge } from '@/components/studio/ModelBadge';
 import { ProgressRing } from '@/components/studio/stage/GenerationTile';
-import { displayTitle, groupByDay } from '@/components/studio/stage/generationMeta';
+import { displayTitle } from '@/components/studio/stage/generationMeta';
 import { cn } from '@/lib/utils';
 import { DRAG_TYPE, FolderDialog, FolderDot, readDraggedIds } from './folders';
-import type { Scope, SortKey } from './libraryState';
+import type { Scope } from './libraryState';
 
-export type Density = 's' | 'm' | 'l';
-const MIN_WIDTH: Record<Density, number> = { s: 150, m: 220, l: 320 };
+/** Images per row: the Library's zoom slider range. */
+export const MIN_COLUMNS = 2;
+export const MAX_COLUMNS = 12;
+export const DEFAULT_COLUMNS = 6;
 
 interface Selection { has: (id: string) => boolean; count: number; ids: string[]; click: (id: string, e?: React.MouseEvent) => void; toggle: (id: string) => void }
 
-function Tile({ g, selection, starred, onOpen }: { g: DbGeneration; selection: Selection; starred: boolean; onOpen: () => void }) {
+function Tile({ g, selection, starred, compact, onOpen }: { g: DbGeneration; selection: Selection; starred: boolean; compact: boolean; onOpen: () => void }) {
   const selected = selection.has(g.id);
   const selecting = selection.count > 0;
   const active = g.status === 'queued' || g.status === 'running';
@@ -35,8 +37,9 @@ function Tile({ g, selection, starred, onOpen }: { g: DbGeneration; selection: S
       onClick={(e) => (selecting || e.metaKey || e.ctrlKey || e.shiftKey ? selection.click(g.id, e) : onOpen())}
       onKeyDown={(e) => { if (e.key === 'Enter') onOpen(); if (e.key === ' ') { e.preventDefault(); selection.toggle(g.id); } }}
       className={cn(
-        'group relative aspect-square cursor-pointer overflow-hidden rounded-[14px] bg-muted transition-[box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        selected ? 'ring-[3px] ring-primary ring-offset-2 ring-offset-background' : 'hover:shadow-[0_12px_30px_-12px_rgba(0,0,0,0.45)]',
+        'group relative aspect-square cursor-pointer overflow-hidden bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+        compact ? 'rounded-[4px]' : 'rounded-[8px]',
+        selected && 'ring-[3px] ring-primary ring-offset-1 ring-offset-background',
       )}
     >
       {g.status === 'done' && g.output_url && (
@@ -63,12 +66,12 @@ function Tile({ g, selection, starred, onOpen }: { g: DbGeneration; selection: S
         </span>
       )}
 
-      <span className="absolute inset-x-0 bottom-0 flex translate-y-1 flex-col gap-1 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2.5 pt-10 opacity-0 transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100">
+      {!compact && <span className="absolute inset-x-0 bottom-0 flex translate-y-1 flex-col gap-1 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2.5 pt-10 opacity-0 transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100">
         <span className="truncate text-[13px] font-semibold text-white">{name}</span>
         <span className="flex items-center gap-1.5 text-[11.5px] text-white/75">
           <ModelBadge modelId={g.model} size="sm" className="ring-1 ring-black/20" /> <span className="truncate">{g.model}</span>
         </span>
-      </span>
+      </span>}
 
       <button
         type="button"
@@ -131,15 +134,14 @@ function FolderCard({ id, name, color, count, cover, coverType, onOpen, onDropId
 
 /** Visual grid of generations, with folder covers on top when browsing everything. */
 export function GridView({
-  items, scope, sort, density, selection, isStarred, onOpen, onScope, onMove,
+  items, scope, columns, selection, isStarred, onOpen, onScope, onMove,
 }: {
-  items: DbGeneration[]; scope: Scope; sort: SortKey; density: Density; selection: Selection;
+  items: DbGeneration[]; scope: Scope; columns: number; selection: Selection;
   isStarred: (id: string) => boolean; onOpen: (id: string) => void; onScope: (s: Scope) => void; onMove: (ids: string[], folderId: string, name: string) => void;
 }) {
   const { folders } = useFolders();
   const [newOpen, setNewOpen] = useState(false);
-  const groups = sort === 'model' ? [{ label: 'By model', rows: items }] : groupByDay(items);
-  const cols = { gridTemplateColumns: `repeat(auto-fill, minmax(${MIN_WIDTH[density]}px, 1fr))` };
+  const compact = columns >= 9;
 
   return (
     <div className="space-y-7 pb-28">
@@ -170,18 +172,13 @@ export function GridView({
         </div>
       )}
 
-      {groups.map((group) => (
-        <section key={group.label} className="space-y-3">
-          <h2 className="sticky top-0 z-10 -mx-1 flex items-baseline gap-2 bg-background/90 px-1 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground backdrop-blur">
-            {group.label}<span className="font-mono font-normal tabular-nums">{group.rows.length}</span>
-          </h2>
-          <div className="grid gap-3" style={cols}>
-            {group.rows.map((g) => (
-              <Tile key={g.id} g={g} selection={selection} starred={isStarred(g.id)} onOpen={() => onOpen(g.id)} />
-            ))}
-          </div>
-        </section>
-      ))}
+      {items.length > 0 && (
+        <div className={cn('grid', compact ? 'gap-[3px]' : 'gap-1')} style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+          {items.map((g) => (
+            <Tile key={g.id} g={g} selection={selection} starred={isStarred(g.id)} compact={compact} onOpen={() => onOpen(g.id)} />
+          ))}
+        </div>
+      )}
 
       <FolderDialog open={newOpen} onOpenChange={setNewOpen} onCreated={(id) => onScope({ kind: 'folder', id })} />
     </div>
