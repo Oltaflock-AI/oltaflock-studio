@@ -1,369 +1,263 @@
-import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowUp, RotateCcw } from 'lucide-react';
-import { toast } from 'sonner';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronsUpDown, Brain, Sparkles, History } from 'lucide-react';
+import { catalogFor, getSpec } from '@catalog/index.ts';
+import { BACKEND_LABELS, type Backend } from '@catalog/types.ts';
 import { AppShell } from '@/components/layout/AppShell';
+import { SEGMENT_TRACK, segmentItem } from '@/components/layout/studioSurface';
+import { ModelCatalogDialog } from '@/components/studio/ModelPicker';
 import { ModelBadge } from '@/components/studio/ModelBadge';
-import { getModelIdentity } from '@/config/models';
-import { familyLeads } from '@catalog/index.ts';
-import { creditRange, formatCredits } from '@/config/pricing';
-import { supabase } from '@/integrations/supabase/client';
-import { useGenerationStore } from '@/store/generationStore';
-import { ALL_MODELS, TYPE_LABELS, fromStudioMode, type Model, type ModelConfig } from '@/types/generation';
+import { ChatRail } from '@/components/assistant/ChatRail';
+import { ChatThread } from '@/components/assistant/ChatThread';
+import { Composer } from '@/components/assistant/Composer';
+import { MemoryPanel } from '@/components/assistant/MemoryPanel';
+import { PromptCardPanel, type CardVersion } from '@/components/assistant/PromptCardPanel';
+import { useAssistantChats, useChatMessages, useMemories, usePromptChat, type Attachment } from '@/hooks/useAssistant';
+import { useAssistantStore } from '@/store/assistantStore';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import logoMark from '@/assets/logo-mark.png';
 
-// ─── Static copy ─────────────────────────────────────────────────────────────
-
-const GREETING = "Hi — tell me what you're shooting and I'll point you at the right model and mode.";
-
-const SUGGESTIONS = [
-  'Best model for portraits',
-  'Cheapest option for a quick test',
-  'Compare Kling vs Seedance',
-  'Animate a product photo',
-];
-
-const KIND_LABELS: Record<ModelConfig['mode'], string> = {
-  image: 'Image',
-  video: 'Video',
-  'image-to-image': 'Edit',
-  'image-to-video': 'Video',
-  'video-to-video': 'Video edit',
+const STARTERS: Record<'image' | 'video', string[]> = {
+  image: [
+    'Hero product shot for a skincare serum, soft daylight',
+    'Moody editorial portrait for an Instagram carousel',
+    'Poster for a coffee pop-up with bold readable text',
+    'Flat-lay of a summer outfit on linen',
+  ],
+  video: [
+    '15-second perfume ad: rain, neon, slow push-in',
+    'UGC-style review of wireless earbuds, vertical',
+    'Cinematic drone reveal of a mountain cabin at dawn',
+    'Animate my product photo into a subtle hero loop',
+  ],
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+const QUICK: Record<'image' | 'video', string[]> = {
+  image: ['More cinematic', 'Different lighting', 'Simplify it', 'Change the background', 'Give me 3 variations'],
+  video: ['More cinematic', 'Add a camera move', 'Make it shorter', 'Different mood', 'Give me 3 variations'],
+};
 
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  recommend?: ModelConfig;
-}
-
-const RECOMMEND_LINE = /^[ \t]*\**RECOMMEND:\**[ \t]*`?([a-z0-9.-]+)`?[ \t]*$/gim;
-
-/** Strips every "RECOMMEND: <id>" line from a reply and returns the last valid recommended model. */
-function parseReply(raw: string): { text: string; recommend?: ModelConfig } {
-  let recommendId: string | undefined;
-  const text = raw
-    .replace(RECOMMEND_LINE, (_match, id: string) => {
-      recommendId = id.toLowerCase();
-      return '';
-    })
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-  const recommend = recommendId ? ALL_MODELS.find((m) => m.id === recommendId) : undefined;
-  return { text, recommend };
-}
-
-/** Lowest credit cost for a model id, and whether it varies by tier/resolution. */
-const getCreditEstimate = creditRange;
-
-/** Renders **bold** spans inside plain text; newlines are preserved by the container's whitespace-pre-wrap. */
-function renderInline(text: string): ReactNode {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-    part.startsWith('**') && part.endsWith('**') && part.length > 4 ? (
-      <strong key={i} className="font-semibold">
-        {part.slice(2, -2)}
-      </strong>
-    ) : (
-      <Fragment key={i}>{part}</Fragment>
-    )
+function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ value: T; label: string }>; onChange: (v: T) => void; label: string }) {
+  return (
+    <div className={cn(SEGMENT_TRACK, 'grid-flow-col p-[2px] rounded-[9px]')} role="radiogroup" aria-label={label}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={cn('h-7 px-3 rounded-[7px] text-[12.5px] transition-smooth', segmentItem(value === o.value))}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
-let idCounter = 0;
-const nextId = () => `m${Date.now()}_${idCounter++}`;
+const Assistant = () => {
+  const { backend, output, modelId, activeChatId, learn, setBackend, setOutput, setModelId, setActiveChatId } = useAssistantStore();
+  const { chats } = useAssistantChats();
+  const { memories } = useMemories();
+  const { data: messages = [] } = useChatMessages(activeChatId);
+  const onChat = useCallback((id: string) => setActiveChatId(id), [setActiveChatId]);
+  const { send, stop, stream, isStreaming, error } = usePromptChat(onChat);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // Close the history drawer once a chat is picked.
+  useEffect(() => setHistoryOpen(false), [activeChatId]);
+  const [tab, setTab] = useState<'prompt' | 'memory'>('prompt');
+  const [versionIndex, setVersionIndex] = useState(0);
 
-// ─── Page ────────────────────────────────────────────────────────────────────
+  const spec = modelId ? getSpec(modelId) : undefined;
+  const activeChat = chats.find((c) => c.id === activeChatId);
 
-export default function Assistant() {
-  const navigate = useNavigate();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [failedHistory, setFailedHistory] = useState<ChatMessage[] | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  // Keep the newest message in view.
+  // Opening a saved chat restores the model it was working on.
+  const restoredFor = useRef<string | null>(null);
   useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  }, [messages, isLoading, failedHistory]);
+    if (!activeChat || restoredFor.current === activeChat.id) return;
+    restoredFor.current = activeChat.id;
+    const s = activeChat.model_id ? getSpec(activeChat.model_id) : undefined;
+    useAssistantStore.setState({ backend: activeChat.backend, modelId: s?.id ?? null, ...(s ? { output: s.output } : {}) });
+  }, [activeChat]);
 
-  // Auto-grow the composer up to its max height.
+  const versions: CardVersion[] = useMemo(() => {
+    const saved = messages.filter((m) => m.card).map((m) => ({ messageId: m.id, card: m.card!, generationIds: m.generation_ids ?? [] }));
+    return isStreaming && stream.card ? [...saved, { messageId: null, card: stream.card, generationIds: [] }] : saved;
+  }, [messages, isStreaming, stream.card]);
+
+  useEffect(() => setVersionIndex(Math.max(0, versions.length - 1)), [versions.length]);
+
+  // Adopt the model the assistant picked when the user asked it to choose.
+  const latestCard = versions[versions.length - 1]?.card;
   useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
-  }, [input]);
+    if (!modelId && latestCard?.model_id) {
+      const s = getSpec(latestCard.model_id);
+      if (s) useAssistantStore.setState({ modelId: s.id, output: s.output });
+    }
+  }, [latestCard?.model_id, modelId]);
 
-  const requestReply = async (history: ChatMessage[]) => {
-    setIsLoading(true);
-    setFailedHistory(null);
-    try {
-      const { data, error } = await supabase.functions.invoke<{ reply?: string; error?: string }>('model-assistant', {
-        body: { messages: history.map(({ role, content }) => ({ role, content })) },
-      });
-      if (error) throw error;
-      if (!data?.reply) throw new Error(data?.error || 'The assistant returned an empty reply');
+  const attachments: Attachment[] = useMemo(() => {
+    const all = messages.flatMap((m) => m.attachments ?? []);
+    return [...(stream.pendingUser?.attachments ?? []), ...all.reverse()];
+  }, [messages, stream.pendingUser]);
 
-      const { text, recommend } = parseReply(data.reply);
-      setMessages((prev) => [
-        ...prev,
-        { id: nextId(), role: 'assistant', content: text || 'Here’s my pick.', recommend },
-      ]);
-    } catch (err) {
-      console.error('model-assistant error:', err);
-      toast.error('Assistant unavailable', {
-        description: err instanceof Error ? err.message : 'Something went wrong. Please try again.',
-      });
-      setFailedHistory(history);
-    } finally {
-      setIsLoading(false);
+  const sendMessage = (text: string, files: Attachment[] = []) => {
+    setTab('prompt');
+    send({ chatId: activeChatId, message: text, attachments: files, modelId, backend, output, learn });
+  };
+
+  const chooseModel = (id: string) => {
+    const s = getSpec(id);
+    if (!s) return;
+    const changed = id !== modelId;
+    useAssistantStore.setState({ modelId: s.id, output: s.output });
+    if (changed && versions.length > 0 && !isStreaming) {
+      send({ chatId: activeChatId, message: `Switch to ${s.name} and rewrite the prompt for it.`, attachments: [], modelId: s.id, backend, output: s.output, learn });
     }
   };
 
-  const send = (raw: string) => {
-    const content = raw.trim();
-    if (!content || isLoading) return;
-    const history = [...messages, { id: nextId(), role: 'user' as const, content }];
-    setMessages(history);
-    setInput('');
-    void requestReply(history);
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      send(input);
-    }
-  };
-
-  const handleReset = () => {
-    setMessages([]);
-    setFailedHistory(null);
-    setInput('');
-    inputRef.current?.focus();
-  };
-
-  const tryInStudio = (model: ModelConfig) => {
-    const store = useGenerationStore.getState();
-    store.setMode(model.mode);
-    store.setGenerationType(model.generationTypes[0]);
-    store.setSelectedModel(model.id as Model);
-    toast.success(`${model.displayName} selected in Studio`);
-    navigate('/');
-  };
-
-  const cheatSheet = familyLeads('kie').map((spec) => ({
-    id: spec.id,
-    label: getModelIdentity(spec.id).label,
-    kind: KIND_LABELS[fromStudioMode(spec.mode)],
-    strength: spec.bestFor,
-  }));
+  const pickerSpecs = useMemo(() => catalogFor(backend).filter((s) => s.output === output), [backend, output]);
+  const isEmpty = !activeChatId && !isStreaming && !stream.pendingUser;
+  const pending = isStreaming || stream.pendingUser
+    ? { user: stream.pendingUser, text: stream.text, card: stream.card, memoryEvents: stream.memoryEvents }
+    : null;
 
   return (
     <AppShell scrollableContent={false}>
-      <div className="h-full flex flex-col gap-4 px-8 py-7 min-h-0">
-        {/* Header */}
-        <header className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-0.5">
-            <h1 className="font-serif text-[28px] font-medium leading-tight">Assistant</h1>
-            <p className="text-[13px] text-muted-foreground">
-              Ask which model fits your shot — it knows every one in Studio
-            </p>
-          </div>
-          {messages.length > 0 && (
+      <div className="h-full flex overflow-hidden">
+        <ChatRail className="hidden xl:flex" />
+        <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+          <SheetContent side="left" className="w-[280px] p-0 xl:hidden [&>button]:hidden">
+            <SheetTitle className="sr-only">Chat history</SheetTitle>
+            <ChatRail className="w-full 2xl:w-full h-full border-r-0" />
+          </SheetContent>
+        </Sheet>
+
+        <main className="flex-1 min-w-0 flex flex-col">
+          <header className="shrink-0 flex items-center justify-between gap-4 px-6 h-16 border-b border-border">
             <button
               type="button"
-              onClick={handleReset}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground px-3 py-2 rounded-[10px] border border-border bg-card hover:bg-muted/60 hover:text-foreground transition-smooth disabled:opacity-50"
+              onClick={() => setHistoryOpen(true)}
+              aria-label="Chat history"
+              className="xl:hidden -ml-2 p-2 rounded-[9px] text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-smooth"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              New chat
+              <History className="h-4 w-4" />
             </button>
-          )}
-        </header>
-
-        <div className="flex gap-6 flex-1 min-h-0">
-          {/* Chat column */}
-          <section
-            aria-label="Chat with the model assistant"
-            className="flex-1 min-w-0 flex flex-col gap-3.5 rounded-[20px] p-5 bg-card border border-border shadow-sm"
-          >
-            <div
-              ref={scrollRef}
-              className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-1"
-              role="log"
-              aria-live="polite"
-              aria-busy={isLoading}
-            >
-              <AssistantBubble>{GREETING}</AssistantBubble>
-
-              {messages.map((m) =>
-                m.role === 'user' ? (
-                  <div key={m.id} className="flex justify-end">
-                    <div className="max-w-[70%] rounded-[14px_4px_14px_14px] px-3.5 py-[11px] text-[13px] leading-[1.55] bg-primary text-primary-foreground whitespace-pre-wrap break-words">
-                      {m.content}
-                    </div>
-                  </div>
-                ) : (
-                  <AssistantBubble key={m.id}>
-                    <span className="whitespace-pre-wrap break-words">{renderInline(m.content)}</span>
-                    {m.recommend && <Recommendation model={m.recommend} onTry={tryInStudio} />}
-                  </AssistantBubble>
-                )
-              )}
-
-              {isLoading && (
-                <AssistantBubble>
-                  <span className="flex items-center gap-1 h-5" aria-label="Assistant is typing">
-                    {[0, 150, 300].map((delay) => (
-                      <span
-                        key={delay}
-                        className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-pulse"
-                        style={{ animationDelay: `${delay}ms` }}
-                      />
-                    ))}
-                  </span>
-                </AssistantBubble>
-              )}
-
-              {failedHistory && !isLoading && (
-                <div className="flex items-center gap-2 pl-8 text-xs text-destructive">
-                  <span>Couldn't get a reply.</span>
-                  <button
-                    type="button"
-                    onClick={() => void requestReply(failedHistory)}
-                    className="font-medium underline underline-offset-2 hover:no-underline"
-                  >
-                    Retry
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Suggestions */}
-            <div className="flex gap-2 flex-wrap">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => send(s)}
-                  disabled={isLoading}
-                  className="text-[11.5px] text-muted-foreground px-3 py-[7px] rounded-full bg-muted border border-border hover:text-foreground hover:border-primary/40 transition-smooth disabled:opacity-50 disabled:pointer-events-none"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-
-            {/* Composer */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                send(input);
-              }}
-              className="flex gap-2.5 items-end rounded-[13px] py-1.5 pr-1.5 pl-3.5 bg-background border border-border focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15 transition-smooth"
-            >
-              <label htmlFor="assistant-input" className="sr-only">
-                Message the assistant
-              </label>
-              <textarea
-                id="assistant-input"
-                ref={inputRef}
-                rows={1}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask about a model, a look, or a technique…"
-                className="flex-1 resize-none bg-transparent text-[13px] leading-[1.5] py-[7px] max-h-40 outline-none placeholder:text-muted-foreground"
+            <h1 className="hidden 2xl:block min-w-0 truncate font-serif text-[24px] leading-none tracking-[-0.01em]">
+              {activeChat?.title ?? 'Prompt Assistant'}
+            </h1>
+            <div className="ml-auto flex items-center gap-2 min-w-0">
+              <Segmented<Backend>
+                label="Provider"
+                value={backend}
+                onChange={(b) => setBackend(b)}
+                options={[{ value: 'kie', label: BACKEND_LABELS.kie }, { value: 'higgsfield', label: BACKEND_LABELS.higgsfield }]}
+              />
+              <Segmented<'image' | 'video'>
+                label="Output"
+                value={output}
+                onChange={(o) => { setOutput(o); if (spec && spec.output !== o) setModelId(null); }}
+                options={[{ value: 'image', label: 'Image' }, { value: 'video', label: 'Video' }]}
               />
               <button
-                type="submit"
-                aria-label="Send message"
-                disabled={isLoading || !input.trim()}
-                className="w-[34px] h-[34px] shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:brightness-110 active:scale-[0.97] transition-smooth disabled:opacity-40 disabled:pointer-events-none"
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="h-8 min-w-0 2xl:shrink-0 max-w-[240px] pl-2 pr-2.5 inline-flex items-center gap-2 rounded-[9px] border border-border bg-card text-[13px] hover:border-foreground/25 transition-smooth dark:bg-transparent"
               >
-                <ArrowUp className="w-4 h-4" strokeWidth={2.25} />
+                {spec ? <ModelBadge modelId={spec.id} size="sm" /> : <Sparkles className="h-4 w-4 text-primary" />}
+                <span className="truncate font-medium">{spec?.name ?? 'Help me choose'}</span>
+                <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               </button>
-            </form>
-          </section>
+            </div>
+          </header>
 
-          {/* Cheat sheet */}
-          <aside aria-labelledby="cheat-sheet-title" className="hidden lg:flex w-[336px] shrink-0 flex-col gap-3 min-h-0">
-            <h2 id="cheat-sheet-title" className="text-[11.5px] tracking-[0.06em] uppercase text-muted-foreground">
-              Model cheat sheet
-            </h2>
-            <ul className="flex flex-col gap-2.5 overflow-y-auto min-h-0 pb-1 pr-1">
-              {cheatSheet.map((m) => (
-                <li key={m.id}>
-                  <button
-                    type="button"
-                    onClick={() => send(`When should I use ${m.label}?`)}
-                    disabled={isLoading}
-                    className="w-full text-left rounded-[14px] px-3.5 py-[13px] flex flex-col gap-1.5 bg-card border border-border shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30 transition-smooth disabled:pointer-events-none"
-                    aria-label={`Ask about ${m.label}`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <ModelBadge modelId={m.id} size="sm" />
-                      <span className="text-[12.5px] font-semibold">{m.label}</span>
-                      {m.kind && <span className="text-[9.5px] text-muted-foreground ml-auto">{m.kind}</span>}
-                    </span>
-                    <span className="text-[11.5px] text-muted-foreground leading-[1.45]">{m.strength}</span>
+          <div className="flex-1 overflow-y-auto">
+            {isEmpty ? (
+              <div className="mx-auto w-full max-w-[760px] px-6 pt-[12vh] pb-10">
+                <h2 className="font-serif text-[46px] leading-[1.02] tracking-[-0.02em]">What are we making?</h2>
+                <p className="mt-3 text-[15px] text-muted-foreground max-w-[520px] leading-relaxed">
+                  Describe it loosely. I&apos;ll ask what matters, write the prompt for {spec ? spec.name : 'the right model'}, and generate it right here.
+                </p>
+                {memories.length > 0 && (
+                  <button type="button" onClick={() => setTab('memory')} className="mt-4 inline-flex items-center gap-2 text-[13px] text-foreground/80 hover:text-foreground">
+                    <Brain className="h-4 w-4 text-primary" />
+                    I remember {memories.length} thing{memories.length === 1 ? '' : 's'} about your work
                   </button>
-                </li>
-              ))}
-            </ul>
-          </aside>
-        </div>
+                )}
+                <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {STARTERS[output].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => sendMessage(s)}
+                      className="text-left rounded-[12px] border border-border bg-card px-4 py-3.5 text-[14px] text-foreground/85 hover:border-foreground/25 hover:text-foreground transition-smooth dark:bg-transparent"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <ChatThread
+                messages={messages}
+                pending={pending}
+                isStreaming={isStreaming}
+                error={error}
+                cardVersionOf={(id) => (id === null ? versions.length : versions.findIndex((v) => v.messageId === id) + 1)}
+                activeVersion={versionIndex}
+                onSelectVersion={(i) => { setVersionIndex(i); setTab('prompt'); }}
+              />
+            )}
+          </div>
+
+          <Composer
+            onSend={sendMessage}
+            onStop={stop}
+            isStreaming={isStreaming}
+            quickActions={versions.length > 0 ? QUICK[output] : []}
+            placeholder={isEmpty ? `Describe ${output === 'video' ? 'the shot' : 'the image'} you want…` : 'Reply, or ask for a change…'}
+          />
+        </main>
+
+        <aside aria-label="Prompt and memory" className="hidden lg:flex w-[360px] 2xl:w-[440px] shrink-0 flex-col border-l border-border bg-card">
+          <div className="shrink-0 h-16 flex items-center px-4 border-b border-border">
+            <Segmented<'prompt' | 'memory'>
+              label="Panel"
+              value={tab}
+              onChange={setTab}
+              options={[{ value: 'prompt', label: 'Prompt' }, { value: 'memory', label: `Memory${memories.length ? ` · ${memories.length}` : ''}` }]}
+            />
+          </div>
+          <div className="flex-1 min-h-0">
+            {tab === 'prompt' ? (
+              <PromptCardPanel
+                versions={versions}
+                index={versionIndex}
+                onIndexChange={setVersionIndex}
+                attachments={attachments}
+                isStreaming={isStreaming}
+                onPickModel={() => setPickerOpen(true)}
+              />
+            ) : (
+              <MemoryPanel />
+            )}
+          </div>
+        </aside>
       </div>
+
+      <ModelCatalogDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        specs={pickerSpecs}
+        selectedId={modelId}
+        onSelect={chooseModel}
+        title={output === 'video' ? 'Video models' : 'Image models'}
+        backend={backend}
+        showMode
+      />
     </AppShell>
   );
-}
+};
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
-function AssistantBubble({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex gap-2.5 max-w-[82%]">
-      <img src={logoMark} alt="" className="w-[22px] h-[22px] object-contain shrink-0 mt-1" />
-      <div className="rounded-[4px_14px_14px_14px] px-3.5 py-3 text-[13px] leading-[1.6] bg-muted text-foreground flex flex-col gap-2.5 min-w-0">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Recommendation({ model, onTry }: { model: ModelConfig; onTry: (model: ModelConfig) => void }) {
-  const estimate = getCreditEstimate(model.id);
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground border border-border rounded-full pl-1 pr-2.5 py-[3px] bg-card">
-        <ModelBadge modelId={model.id} size="sm" className="rounded-full" />
-        <span className="font-medium text-foreground">{model.displayName}</span>
-        <span aria-hidden="true">·</span>
-        <span>{TYPE_LABELS[model.generationTypes[0]]}</span>
-      </span>
-      <button
-        type="button"
-        onClick={() => onTry(model)}
-        className="flex items-center gap-1 bg-primary text-primary-foreground font-semibold text-[11.5px] px-3 py-[7px] rounded-full hover:brightness-110 active:scale-[0.98] transition-smooth"
-      >
-        Try in Studio
-        <ArrowRight className="w-3 h-3" strokeWidth={2.5} />
-      </button>
-      {estimate && (
-        <span className="text-[11px] text-muted-foreground">
-          Est. {estimate.tiered ? 'from ' : ''}
-          {formatCredits(estimate.credits)} credits
-        </span>
-      )}
-    </div>
-  );
-}
+export default Assistant;

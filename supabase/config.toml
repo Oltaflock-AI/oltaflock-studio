@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.higgsfield]
 verify_jwt = false
+
+[functions.prompt-chat]
+verify_jwt = false
