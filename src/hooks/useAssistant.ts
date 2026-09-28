@@ -263,7 +263,8 @@ export function usePromptChat(onChat: (chatId: string, title: string) => void) {
             Authorization: `Bearer ${session.session?.access_token ?? ''}`,
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
           },
-          body: JSON.stringify({ ...opts }),
+          // flow 'chat': one question per turn instead of the multi-question brief form.
+          body: JSON.stringify({ ...opts, flow: 'chat' }),
         });
         if (!res.ok || !res.body) {
           const body = await res.json().catch(() => ({}));

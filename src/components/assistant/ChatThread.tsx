@@ -119,7 +119,7 @@ function CardChip({ card, version, active, onClick }: { card: PromptCard; versio
 
 const STATUS_LABEL: Record<AssistantStatus, string> = {
   thinking: 'Thinking',
-  asking: 'Putting together a few questions',
+  asking: 'Thinking of a question',
   writing: 'Writing the prompt',
   remembering: 'Updating memory',
 };
@@ -271,7 +271,7 @@ export function ChatThread({ messages, pending, isStreaming, error, activeVersio
   );
 
   return (
-    <div className="mx-auto w-full max-w-[900px] px-8 py-10 space-y-9">
+    <div className="mx-auto w-full max-w-[1120px] px-6 py-10 space-y-9">
       {turns.map((t) => (t.kind === 'user' ? renderUser(t.id, t.content, t.attachments) : renderAssistant(t)))}
       {pending?.user && renderUser('pending-user', pending.user.content, pending.user.attachments)}
       {isStreaming && pending && renderAssistant(

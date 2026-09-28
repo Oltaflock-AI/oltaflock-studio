@@ -63,3 +63,70 @@ export function applyStylePreset(id: string | null) {
     store.setControl('aspect_ratio', style.aspect as never);
   }
 }
+
+/**
+ * Add a past generation's output as reference media for the next generation.
+ * Uses the current model if it has a free slot of the right kind; otherwise
+ * switches to a model that takes references, preferring the same family
+ * (Nano Banana Pro → Nano Banana Pro Edit) and the current provider.
+ */
+export function referenceGeneration(g: DbGeneration) {
+  if (!g.output_url || g.status !== 'done') return;
+  const kind = g.type === 'video' ? 'video' : 'image';
+  const store = useGenerationStore.getState();
+  const current = store.selectedModel ? getSpec(store.selectedModel) : undefined;
+
+  const addTo = (spec: NonNullable<typeof current>): boolean => {
+    const controls = useGenerationStore.getState().controls;
+    for (const slot of spec.media.filter((m) => m.kind === kind)) {
+      const key = `media.${slot.key}`;
+      const urls = Array.isArray(controls[key]) ? (controls[key] as string[]) : [];
+      if (urls.includes(g.output_url!)) {
+        toast.info('Already added as a reference');
+        return true;
+      }
+      if (urls.length < slot.max) {
+        useGenerationStore.getState().setControl(key, [...urls, g.output_url!] as never);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  if (current && addTo(current)) {
+    toast.success(`Added as a reference for ${current.name}`, studioAction());
+    return;
+  }
+
+  const backend = usePreferencesStore.getState().studioBackend;
+  const output = current ? (current.mode.endsWith('video') ? 'video' : 'image') : 'image';
+  const mode = kind === 'video' ? 'video-to-video' : output === 'video' ? 'image-to-video' : 'image-to-image';
+  const candidates = specsForMode(mode, backend).filter((s) => s.media.some((m) => m.kind === kind));
+  const target =
+    candidates.find((s) => current && s.name === `${current.name} Edit`) ??
+    candidates.find((s) => current && s.family === current.family) ??
+    candidates[0];
+  if (!target) {
+    toast.error(`No model for this provider takes a reference ${kind}`);
+    return;
+  }
+  store.setMode(fromStudioMode(mode));
+  store.setSelectedModel(target.id as never);
+  addTo(target);
+  document.getElementById('studio-prompt')?.focus();
+  toast.success(`Switched to ${target.name} with this ${kind} as a reference`, studioAction());
+}
+
+/** Outside the Studio, offer a jump back to it (client-side, keeping the composer state). */
+function studioAction() {
+  if (window.location.pathname === '/') return undefined;
+  return {
+    action: {
+      label: 'Open Studio',
+      onClick: () => {
+        window.history.pushState({}, '', '/');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      },
+    },
+  };
+}

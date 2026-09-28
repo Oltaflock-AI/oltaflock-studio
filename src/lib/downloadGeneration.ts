@@ -1,44 +1,78 @@
 import { toast } from 'sonner';
 import type { DbGeneration } from '@/hooks/useGenerations';
+import { supabase } from '@/integrations/supabase/client';
 import { fileSlug } from '@/components/studio/stage/generationMeta';
 
+const EXT_BY_TYPE: Record<string, string> = {
+  'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif',
+  'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov',
+};
+
+/** Straight from the file's host; fails when the host sends no CORS headers. */
+async function fetchDirect(url: string): Promise<Blob> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.blob();
+}
+
+/** Through the `download` edge function, which streams the user's own output. */
+async function fetchViaProxy(generationId: string): Promise<Blob> {
+  const { data } = await supabase.auth.getSession();
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/download`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${data.session?.access_token ?? ''}`,
+    },
+    body: JSON.stringify({ generationId }),
+  });
+  if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
+  return res.blob();
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(href); a.remove(); }, 1000);
+}
+
 /**
- * Downloads a generation's output named after its title (or a name derived
- * from the prompt), falling back to opening the file in a new tab when the
- * fetch is blocked. `quiet` skips the toasts, for bulk downloads.
+ * Saves a generation's output to disk, named after its title (or a name from
+ * the prompt). Never navigates away: if the file can't be fetched, it says so
+ * and offers to open it. `quiet` skips the toasts, for bulk downloads.
  */
 export async function downloadGeneration(
-  generation: Pick<DbGeneration, 'output_url' | 'user_prompt' | 'type' | 'title'>,
+  generation: Pick<DbGeneration, 'id' | 'output_url' | 'user_prompt' | 'type' | 'title'>,
   { quiet = false }: { quiet?: boolean } = {},
 ) {
   const url = generation.output_url;
   if (!url) return;
+  const toastId = quiet ? undefined : toast.loading('Downloading…');
 
-  const ext = generation.type === 'video' ? 'mp4' : 'png';
-  const filename = `${fileSlug(generation as DbGeneration)}.${ext}`;
-
+  let blob: Blob;
   try {
-    if (!quiet) toast.info('Downloading...');
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const originalBlob = await response.blob();
-    const mimeType = ext === 'png' ? 'image/png' : 'video/mp4';
-    const blob = new Blob([originalBlob], { type: mimeType });
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = blobUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      URL.revokeObjectURL(blobUrl);
-      document.body.removeChild(a);
-    }, 1000);
-    if (!quiet) toast.success(`Saved as ${filename}`);
+    blob = await fetchDirect(url).catch(() => fetchViaProxy(generation.id));
   } catch (e) {
     console.error('Download failed:', e);
-    window.open(url, '_blank', 'noopener,noreferrer');
-    toast.info('Opened in new tab');
+    if (!quiet) {
+      toast.error('Could not download this file', {
+        id: toastId,
+        description: 'The provider link may have expired.',
+        action: { label: 'Open file', onClick: () => window.open(url, '_blank', 'noopener,noreferrer') },
+      });
+    }
+    return;
   }
+
+  const fallbackExt = generation.type === 'video' ? 'mp4' : 'png';
+  const ext = EXT_BY_TYPE[blob.type.split(';')[0]] ?? fallbackExt;
+  const filename = `${fileSlug(generation as DbGeneration)}.${ext}`;
+  saveBlob(blob, filename);
+  if (!quiet) toast.success(`Saved as ${filename}`, { id: toastId });
 }

@@ -135,6 +135,8 @@ const Assistant = () => {
   // refinements once there's a draft. Hidden while a brief is waiting for answers.
   const lastMessage = messages[messages.length - 1];
   const briefOpen = lastMessage?.role === 'assistant' && !!lastMessage.questions?.length;
+  // The side panel earns its space once there's a prompt, or while Memory is open.
+  const showPanel = versions.length > 0 || tab === 'memory';
   const quickActions = briefOpen
     ? []
     : lastMessage?.role === 'assistant' && lastMessage.suggestions?.length
@@ -153,7 +155,7 @@ const Assistant = () => {
         </Sheet>
 
         <main className="flex-1 min-w-0 flex flex-col">
-          <header className="shrink-0 flex items-center justify-between gap-4 px-8 h-16 border-b border-border">
+          <header className="shrink-0 flex items-center justify-between gap-4 px-6 h-16 border-b border-border">
             <button
               type="button"
               onClick={() => setHistoryOpen(true)}
@@ -166,6 +168,18 @@ const Assistant = () => {
               {activeChat?.title ?? 'Prompt Assistant'}
             </h1>
             <div className="ml-auto flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => setTab(tab === 'memory' ? 'prompt' : 'memory')}
+                aria-pressed={tab === 'memory'}
+                className={cn(
+                  'hidden lg:inline-flex h-9 items-center gap-1.5 rounded-[10px] px-3 text-[13px] transition-smooth',
+                  tab === 'memory' ? 'bg-secondary font-medium text-foreground' : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground',
+                )}
+              >
+                <Brain className="h-4 w-4" /> Memory
+                {memories.length > 0 && <span className="font-mono text-[11px] text-muted-foreground">{memories.length}</span>}
+              </button>
               <Segmented<Backend>
                 label="Provider"
                 value={backend}
@@ -183,7 +197,7 @@ const Assistant = () => {
 
           <div className="flex-1 overflow-y-auto">
             {isEmpty ? (
-              <div className="mx-auto w-full max-w-[760px] px-6 pt-[12vh] pb-10">
+              <div className="mx-auto w-full max-w-[1080px] px-6 pt-[12vh] pb-10">
                 <h2 className="font-serif text-[46px] leading-[1.02] tracking-[-0.02em]">What are we making?</h2>
                 <p className="mt-3 text-[15px] text-muted-foreground max-w-[520px] leading-relaxed">
                   Describe it loosely. I&apos;ll ask what matters, write the prompt for {spec ? spec.name : 'the right model'}, and generate it right here.
@@ -240,12 +254,12 @@ const Assistant = () => {
             placeholder={
               isEmpty
                 ? `Describe ${output === 'video' ? 'the video' : 'the creative'} you want, or ask me anything…`
-                : briefOpen ? 'Answer above, or just type what you have in mind…' : 'Reply, ask a question, or request a change…'
+                : briefOpen ? 'Tap an answer above, or type your own…' : 'Reply, ask a question, or request a change…'
             }
           />
         </main>
 
-        <aside aria-label="Prompt and memory" className="hidden lg:flex w-[380px] 2xl:w-[460px] shrink-0 flex-col border-l border-border bg-card">
+        <aside aria-label="Prompt and memory" className={cn(showPanel ? 'hidden lg:flex' : 'hidden', 'w-[380px] 2xl:w-[460px] shrink-0 flex-col border-l border-border bg-card animate-in fade-in-0 slide-in-from-right-4 duration-300')}>
           <div className="shrink-0 h-16 flex items-end gap-6 px-6 border-b border-border" role="tablist" aria-label="Panel">
             {([['prompt', 'Prompt', versions.length], ['memory', 'Memory', memories.length]] as const).map(([value, label, count]) => (
               <button

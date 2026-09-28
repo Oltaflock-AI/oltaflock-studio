@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react';
 import { format, formatDistanceToNowStrict, isToday, isYesterday, isAfter, subDays } from 'date-fns';
-import { SquarePen, Pencil, Trash2, Check, X, Search, MessagesSquare } from 'lucide-react';
+import { SquarePen, Pencil, Trash2, Check, X, Search, MessagesSquare, Brain, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAssistantChats, type AssistantChat } from '@/hooks/useAssistant';
 import { useAssistantStore } from '@/store/assistantStore';
 import { ModelBadge } from '@/components/studio/ModelBadge';
+import {
+  AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
 function groupLabel(date: Date): string {
@@ -24,6 +27,8 @@ function ChatRow({ chat, active }: { chat: AssistantChat; active: boolean }) {
   const { deleteChat, renameChat } = useAssistantChats();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(chat.title);
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const save = async () => {
     const next = title.trim();
@@ -32,10 +37,52 @@ function ChatRow({ chat, active }: { chat: AssistantChat; active: boolean }) {
   };
 
   const remove = async () => {
-    if (!window.confirm(`Delete "${chat.title}"? Memories learned from it are kept.`)) return;
-    await deleteChat(chat.id).catch(() => toast.error('Could not delete'));
-    if (active) setActiveChatId(null);
+    setDeleting(true);
+    try {
+      await deleteChat(chat.id);
+      if (active) setActiveChatId(null);
+      setConfirming(false);
+      toast.success('Chat deleted');
+    } catch {
+      toast.error('Could not delete the chat');
+    } finally {
+      setDeleting(false);
+    }
   };
+
+  const confirmDialog = (
+    <AlertDialog open={confirming} onOpenChange={(o) => !deleting && setConfirming(o)}>
+      <AlertDialogContent className="max-w-[420px] gap-0 rounded-[20px] p-0 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 pt-6 pb-5">
+          <span className="mb-4 grid h-11 w-11 place-items-center rounded-full bg-destructive/10 text-destructive">
+            <Trash2 className="h-5 w-5" />
+          </span>
+          <AlertDialogHeader className="space-y-1.5 text-left">
+            <AlertDialogTitle className="text-[18px] font-semibold leading-snug">Delete this chat?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[13.5px] leading-relaxed">
+              <span className="font-medium text-foreground">“{chat.title}”</span> and its prompt drafts will be removed. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <p className="mt-4 flex items-start gap-2 rounded-[12px] bg-secondary/70 px-3 py-2.5 text-[12.5px] leading-snug text-muted-foreground">
+            <Brain className="mt-px h-3.5 w-3.5 shrink-0 text-primary" />
+            What the assistant learned about you here stays in Memory. Your generations stay in the Library.
+          </p>
+        </div>
+        <AlertDialogFooter className="gap-2 border-t border-border bg-secondary/30 px-6 py-3.5 sm:space-x-0">
+          <AlertDialogCancel disabled={deleting} className="mt-0 h-10 rounded-[11px] px-4">Cancel</AlertDialogCancel>
+          <button
+            type="button"
+            onClick={remove}
+            disabled={deleting}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-[11px] bg-destructive px-4 text-[13.5px] font-semibold text-destructive-foreground transition-smooth hover:bg-destructive/90 disabled:opacity-70"
+          >
+            {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {deleting ? 'Deleting…' : 'Delete chat'}
+          </button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 
   if (editing) {
     return (
@@ -84,10 +131,11 @@ function ChatRow({ chat, active }: { chat: AssistantChat; active: boolean }) {
         <button type="button" onClick={(e) => { e.stopPropagation(); setEditing(true); }} aria-label="Rename chat" className="p-1 rounded-md text-muted-foreground hover:text-foreground">
           <Pencil className="h-3.5 w-3.5" />
         </button>
-        <button type="button" onClick={(e) => { e.stopPropagation(); remove(); }} aria-label="Delete chat" className="p-1 rounded-md text-muted-foreground hover:text-destructive">
+        <button type="button" onClick={(e) => { e.stopPropagation(); setConfirming(true); }} aria-label="Delete chat" className="p-1 rounded-md text-muted-foreground hover:text-destructive">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </span>
+      {confirmDialog}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { AlertCircle, ChevronLeft, ChevronRight, Copy, Download, Maximize2, RotateCcw, Sparkles, Loader2 } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, Copy, Download, ImagePlus, Maximize2, RotateCcw, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGenerations, type DbGeneration } from '@/hooks/useGenerations';
 import { useGenerationProgress } from '@/hooks/useGenerationProgress';
@@ -9,7 +9,7 @@ import { StarButton } from '@/components/library/StarButton';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useGenerate } from '@/hooks/useGenerate';
 import { cn } from '@/lib/utils';
-import { animateGeneration } from './generationActions';
+import { animateGeneration, referenceGeneration } from './generationActions';
 import { downloadGeneration } from '@/lib/downloadGeneration';
 import { ProgressRing } from './GenerationTile';
 
@@ -28,6 +28,7 @@ function ActionBar({ g, onFullscreen }: { g: DbGeneration; onFullscreen: () => v
       <button type="button" className={GLASS_BTN} onClick={() => { navigator.clipboard.writeText(g.output_url ?? '').then(() => toast.success('Link copied')); }}>
         <Copy className="h-3.5 w-3.5" /> Copy link
       </button>
+      <button type="button" className={GLASS_BTN} onClick={() => referenceGeneration(g)} title="Use as a reference in your next generation"><ImagePlus className="h-3.5 w-3.5" /> Reference</button>
       {g.type === 'image' && (
         <button type="button" className={GLASS_BTN} onClick={() => animateGeneration(g)}><Sparkles className="h-3.5 w-3.5" /> Animate</button>
       )}

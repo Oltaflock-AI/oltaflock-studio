@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ChevronDown, Copy, Download, RotateCcw, Trash2 } from 'lucide-react';
+import { ChevronDown, Copy, Download, RotateCcw, Trash2, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DbGeneration, GenerationStatus } from '@/hooks/useGenerations';
 import { useGenerations } from '@/hooks/useGenerations';
 import { ModelBadge } from '@/components/studio/ModelBadge';
 import { StarButton } from '@/components/library/StarButton';
 import { cn } from '@/lib/utils';
-import { reuseGeneration } from './generationActions';
+import { reuseGeneration, referenceGeneration } from './generationActions';
 import { downloadGeneration } from '@/lib/downloadGeneration';
 import { GenerationTitle } from './GenerationTitle';
 import { useFolders } from '@/hooks/useFolders';
@@ -187,6 +187,11 @@ export function DetailsPanel({ g }: { g: DbGeneration }) {
         )}
         <StarButton generation={g} size="md" className="h-9 w-9 rounded-[10px] border border-border" />
       </div>
+      {g.status === 'done' && g.output_url && (
+        <button type="button" onClick={() => referenceGeneration(g)} className="-mt-2 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[10px] border border-border text-[13px] font-medium hover:bg-secondary">
+          <ImagePlus className="h-3.5 w-3.5" /> Use as reference
+        </button>
+      )}
 
       <div className="flex items-center justify-between border-t border-border/70 pt-3 text-[11.5px] text-muted-foreground">
         <button type="button" onClick={() => copy(g.request_id, 'Request ID')} className="truncate font-mono hover:text-foreground" title="Copy request ID">

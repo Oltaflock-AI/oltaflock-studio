@@ -21,7 +21,75 @@ interface BriefFormProps {
   onSubmit: (answer: string) => void;
 }
 
+/**
+ * One question asked in the flow of the chat: tap an option to answer
+ * straight away (or pick several, then send), or type your own below.
+ */
+function QuickQuestion({ q, locked, onSubmit }: { q: BriefQuestion; locked: boolean; onSubmit: (answer: string) => void }) {
+  const [picked, setPicked] = useState<string[]>(q.multi ? q.defaults : []);
+  if (locked) return null;
+
+  const tap = (label: string) => {
+    if (!q.multi) return onSubmit(label);
+    setPicked((p) => (p.includes(label) ? p.filter((l) => l !== label) : [...p, label]));
+  };
+
+  return (
+    <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-bottom-1 duration-300">
+      <p className="text-[15px] font-medium leading-snug text-foreground">
+        {q.question}
+        {q.multi && <span className="ml-1.5 text-[12px] font-normal text-muted-foreground">pick any</span>}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {q.options.map((o) => {
+          const on = picked.includes(o.label);
+          return (
+            <button
+              key={o.label}
+              type="button"
+              onClick={() => tap(o.label)}
+              title={o.description}
+              aria-pressed={q.multi ? on : undefined}
+              className={cn(
+                'inline-flex items-center gap-1.5 min-h-9 px-3.5 py-2 rounded-full border text-left text-[13.5px] leading-snug transition-smooth',
+                on
+                  ? 'border-primary bg-accent text-accent-foreground font-medium'
+                  : 'border-border bg-card text-foreground/85 hover:border-foreground/30 hover:text-foreground hover:-translate-y-px shadow-[0_1px_2px_hsl(240_10%_10%/0.04)] dark:bg-transparent',
+              )}
+            >
+              {on && <Check className="h-3.5 w-3.5 shrink-0" />}
+              {o.label}
+            </button>
+          );
+        })}
+        {q.multi && picked.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onSubmit(picked.join(', '))}
+            className="inline-flex items-center gap-1.5 min-h-9 pl-4 pr-3 rounded-full bg-foreground text-background text-[13.5px] font-medium hover:bg-foreground/90"
+          >
+            Send <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => onSubmit('Just draft it — make the calls yourself.')}
+        className="inline-flex items-center gap-1.5 text-[12.5px] text-muted-foreground hover:text-foreground transition-smooth"
+      >
+        <Wand2 className="h-3.5 w-3.5" /> Skip the questions, just draft it
+      </button>
+    </div>
+  );
+}
+
 export function BriefForm({ questions, locked, onSubmit }: BriefFormProps) {
+  if (questions.length === 1) return <QuickQuestion q={questions[0]} locked={locked} onSubmit={onSubmit} />;
+  return <FullBrief questions={questions} locked={locked} onSubmit={onSubmit} />;
+}
+
+/** Older chats: several questions at once, answered together. */
+function FullBrief({ questions, locked, onSubmit }: BriefFormProps) {
   const [picks, setPicks] = useState<Record<string, string[]>>(() =>
     Object.fromEntries(questions.map((q) => [q.id, q.multi ? q.defaults : q.defaults.slice(0, 1)])),
   );

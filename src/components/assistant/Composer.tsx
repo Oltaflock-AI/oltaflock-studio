@@ -61,7 +61,7 @@ export function Composer({ onSend, onStop, isStreaming, quickActions, placeholde
   };
 
   return (
-    <div className="mx-auto w-full max-w-[900px] px-8 pb-6">
+    <div className="mx-auto w-full max-w-[1120px] px-6 pb-6">
       {quickActions.length > 0 && !isStreaming && (
         <div className="mb-2.5 flex flex-wrap gap-1.5 animate-in fade-in-0 slide-in-from-bottom-1 duration-300">
           {quickActions.map((q) => (

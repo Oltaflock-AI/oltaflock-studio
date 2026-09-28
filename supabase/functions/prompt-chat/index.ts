@@ -93,6 +93,16 @@ Help the user pick one. When you draft a prompt, set model_id on the card to the
 ${lines.join('\n')}`;
 }
 
+/** Discovery for the conversational flow: a short back-and-forth, one question per turn. */
+const CHAT_DISCOVERY = `## 1. Discovery — a quick conversation, then draft
+Talk like a creative director in a chat, not a form. When the user starts a new idea and it is thin (e.g. "make a creative for a chips brand"), ask ONE question per turn: one short friendly line, then call ask_questions with exactly ONE question and 3–4 concrete, vivid options ("Chips bursting out of the bag mid-air"), never vague labels. Ask the question that changes the result most first (usually the concept or hook, then where it runs, then mood/setting).
+- Ask at most 3 questions in total across the conversation, fewer when the idea is already clear. After the user's answers, draft — don't keep interviewing.
+- React briefly to each answer ("Mid-air burst it is.") before the next question, so it feels like a conversation.
+- Never ask what memory, the conversation or attached references already answer; just use it.
+- Skip questions entirely when the user gives a detailed brief, attaches references that answer it, or says "just draft it" / "surprise me" — draft straight away and make sensible choices.
+
+`;
+
 function systemPrompt(opts: {
   spec?: ModelSpec;
   backend: Backend;
@@ -100,15 +110,17 @@ function systemPrompt(opts: {
   memories: Memory[];
   examples: string;
   learn: boolean;
+  /** Conversational discovery: one question per turn instead of a brief form. */
+  chat?: boolean;
 }): string {
-  const { spec, backend, output, memories, examples, learn } = opts;
+  const { spec, backend, output, memories, examples, learn, chat } = opts;
   return [
     `You are the Oltaflock Prompt Assistant: a sharp creative director who writes prompts for AI image and video models, chatting with the user inside Oltaflock Studio. Generations run on their ${backend === 'kie' ? 'Kie.ai' : 'Higgsfield'} account.
 
 # How you work
 You are a collaborator who runs a real creative process: understand the brief, then write, then refine.
 
-## 1. Discovery — ask before you draft
+${chat ? CHAT_DISCOVERY : `## 1. Discovery — ask before you draft
 When the user starts a new idea and the brief is thin (e.g. "make a creative for a chips brand", "a video for my cafe"), do NOT draft yet. Write one short, friendly line, then call ask_questions with the 4–7 questions a senior creative director would ask for THIS brief. Tailor them to the category and medium — never a generic form. Pick from what actually changes the result:
 - the brand and product specifics (name, flavour/variant, pack colours, logo or pack shot to include)
 - the goal and where it runs (Instagram feed, story/reel, billboard, e-commerce, pitch deck) → this drives the format
@@ -121,13 +133,13 @@ When the user starts a new idea and the brief is thin (e.g. "make a creative for
 Every question needs 3–5 options that are concrete and vivid enough to be ideas in themselves ("Chips exploding out of the bag mid-air, ingredients flying"), not vague labels ("Dynamic"). Use multi:true where several can apply (e.g. props). When memory or the conversation already implies an answer, pre-select it in defaults; skip a question entirely when memory fully answers it and say so in your intro line ("I kept your usual 9:16 and brand palette").
 Skip discovery when the user gives a detailed brief, attaches references that answer it, or says "just draft it" / "surprise me" — then draft straight away and make sensible choices.
 
-## 2. Draft
+`}## 2. Draft
 Once you have answers, write the prompt. Every time you write or revise a prompt, call update_prompt_card with the COMPLETE prompt. Never paste the prompt into chat text — the card shows it. In chat, say in 1–3 sentences what you went for and why ("Went with the mid-air explosion on a hot-red backdrop so the pack pops in the feed").
 - Suggest settings in the card only when they matter (aspect ratio, duration, resolution, audio). Use exact keys/values listed for the model; match the placement the user picked (story → 9:16, feed → 4:5 or 1:1, banner → 16:9).
 - For variations ("give me 3 options"), call update_prompt_card once per variation in the same turn — each becomes its own version.
 - Write your chat text once, before your tool calls; don't restate it afterwards.
 - Never write a prompt or a "[Prompt card …]" into chat text — prompts only ever go through update_prompt_card.
-- Only ask follow-up questions (ask_questions, 1–3 questions) if something important is still unknown after the draft.
+- ${chat ? 'Only ask a follow-up (ask_questions, one question) if something important is still unknown after the draft.' : 'Only ask follow-up questions (ask_questions, 1–3 questions) if something important is still unknown after the draft.'}
 - When the user asks to switch models, rewrite the same idea in the new model's syntax and set model_id.
 - If the user attached images, look at them: describe or build on them as the user asks. For edit / image-to-video models the image is the input — describe only the change or motion.
 
@@ -439,6 +451,7 @@ Deno.serve(async (req) => {
   const backend: Backend = body.backend === 'higgsfield' ? 'higgsfield' : 'kie';
   const output = body.output === 'video' || body.output === 'image' ? body.output : undefined;
   const learn = body.learn !== false;
+  const chatFlow = body.flow === 'chat';
   let spec = typeof body.modelId === 'string' ? getSpec(body.modelId) : undefined;
   if (spec && specBackend(spec) !== backend) spec = undefined;
   if (!message && !attachments.length) return json({ error: 'Empty message' }, 400);
@@ -489,7 +502,7 @@ Deno.serve(async (req) => {
     spec ? fetchRatedExamples(supabase, userId, spec) : Promise.resolve(''),
   ]);
   const messages = toMessages(((history ?? []) as Row[]).reverse());
-  const system = systemPrompt({ spec, backend, output, memories, examples, learn });
+  const system = systemPrompt({ spec, backend, output, memories, examples, learn, chat: chatFlow });
   const tools = learn ? [CARD_TOOL, ASK_TOOL, SUGGEST_TOOL, REMEMBER_TOOL] : [CARD_TOOL, ASK_TOOL, SUGGEST_TOOL];
   const TOOL_STATUS: Record<string, string> = { update_prompt_card: 'writing', ask_questions: 'asking', remember: 'remembering' };
   const anthropic = new Anthropic({ apiKey });
@@ -546,7 +559,7 @@ Deno.serve(async (req) => {
               if (c) { cards.push(c); send({ type: 'card', card: c, index: cards.length - 1 }); }
               toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: c ? 'Card shown to the user.' : 'Card rejected: prompt was empty.' });
             } else if (block.name === 'ask_questions') {
-              const qs = toQuestions(input);
+              const qs = toQuestions(input).slice(0, chatFlow ? 1 : 7);
               if (qs.length) { questions = qs; send({ type: 'questions', questions: qs }); }
               toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: qs.length ? 'Shown to the user. Stop and wait for their answers.' : 'Rejected: each question needs at least 2 options.' });
             } else if (block.name === 'suggest_replies') {

@@ -69,6 +69,11 @@ function QuickSetting({ field }: { field: FieldSpec }) {
   );
 }
 
+/** Don't close a popover because a dialog opened from inside it took focus or a click. */
+function keepOpenForDialogs(e: { target: EventTarget | null; preventDefault: () => void }) {
+  if ((e.target as HTMLElement | null)?.closest?.('[role="dialog"]')) e.preventDefault();
+}
+
 /** Uploaded reference media as small removable thumbnails above the prompt. */
 function AttachedMedia() {
   const { controls, setControl } = useGenerationStore();
@@ -188,7 +193,13 @@ export function PromptDock() {
             >
               <Paperclip className="h-4 w-4" />
             </PopoverTrigger>
-            <PopoverContent side="top" align="start" className="w-[360px] rounded-[16px] p-4">
+            <PopoverContent
+              side="top"
+              align="start"
+              className="max-h-[70vh] w-[380px] overflow-y-auto rounded-[16px] p-4"
+              onInteractOutside={keepOpenForDialogs}
+              onFocusOutside={keepOpenForDialogs}
+            >
               {spec && <MediaInputs spec={spec} />}
             </PopoverContent>
           </Popover>

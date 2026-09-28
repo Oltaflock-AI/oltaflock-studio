@@ -3,6 +3,7 @@ import { mediaValue, visibleMedia } from '@catalog/adapters.ts';
 import { useGenerationStore } from '@/store/generationStore';
 import { MediaUpload } from '@/components/studio/MediaUpload';
 import { ControlLabel } from './SchemaControls';
+import { ReferencePicker } from './ReferencePicker';
 
 /** Upload slots (start frame, end frame, references…) declared by a model spec. */
 export function MediaInputs({ spec }: { spec: ModelSpec }) {
@@ -29,6 +30,9 @@ export function MediaInputs({ spec }: { spec: ModelSpec }) {
               disabled={pendingRating}
               maxSizeMB={slot.kind === 'image' ? 10 : 50}
             />
+            {!pendingRating && (
+              <ReferencePicker kind={slot.kind} value={urls} max={slot.max} onChange={(next) => setControl(`media.${slot.key}`, next)} />
+            )}
           </div>
         );
       })}
