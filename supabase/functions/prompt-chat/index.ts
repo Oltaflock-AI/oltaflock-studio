@@ -126,6 +126,7 @@ Once you have answers, write the prompt. Every time you write or revise a prompt
 - Suggest settings in the card only when they matter (aspect ratio, duration, resolution, audio). Use exact keys/values listed for the model; match the placement the user picked (story → 9:16, feed → 4:5 or 1:1, banner → 16:9).
 - For variations ("give me 3 options"), call update_prompt_card once per variation in the same turn — each becomes its own version.
 - Write your chat text once, before your tool calls; don't restate it afterwards.
+- Never write a prompt or a "[Prompt card …]" into chat text — prompts only ever go through update_prompt_card.
 - Only ask follow-up questions (ask_questions, 1–3 questions) if something important is still unknown after the draft.
 - When the user asks to switch models, rewrite the same idea in the new model's syntax and set model_id.
 - If the user attached images, look at them: describe or build on them as the user asks. For edit / image-to-video models the image is the input — describe only the change or motion.
@@ -310,31 +311,58 @@ interface Row {
   questions: BriefQuestion[] | null;
 }
 
+// Past cards and briefs are replayed as the tool calls that produced them. Writing them into
+// the reply text instead teaches the model to type "[Prompt card …]" rather than call the tool.
 function toMessages(rows: Row[]): Anthropic.MessageParam[] {
   const msgs: Anthropic.MessageParam[] = [];
-  for (const r of rows) {
+  let pendingResults: Anthropic.ToolResultBlockParam[] = [];
+  rows.forEach((r, i) => {
     const blocks: Anthropic.ContentBlockParam[] = [];
     if (r.role === 'user') {
+      blocks.push(...pendingResults);
+      pendingResults = [];
       for (const a of r.attachments ?? []) {
         if (a.kind === 'image') blocks.push({ type: 'image', source: { type: 'url', url: a.url } });
         else blocks.push({ type: 'text', text: `[User attached a ${a.kind}: ${a.url}]` });
       }
+      if (r.content.trim()) blocks.push({ type: 'text', text: r.content.trim() });
+    } else {
+      if (r.content.trim()) blocks.push({ type: 'text', text: r.content.trim() });
+      const calls: [string, Record<string, unknown>, string][] = [];
+      if (r.card) calls.push([CARD_TOOL.name, r.card as unknown as Record<string, unknown>, 'Card shown to the user.']);
+      if (r.questions?.length) calls.push([ASK_TOOL.name, { questions: r.questions }, 'Shown to the user.']);
+      calls.forEach(([name, input, result], j) => {
+        const id = `toolu_hist_${i}_${j}`;
+        blocks.push({ type: 'tool_use', id, name, input });
+        pendingResults.push({ type: 'tool_result', tool_use_id: id, content: result });
+      });
     }
-    let text = r.content.trim();
-    if (r.role === 'assistant' && r.card) {
-      text += `\n\n[Prompt card "${r.card.title}" for ${r.card.model_id ?? 'no model'}: ${r.card.prompt}${Object.keys(r.card.settings ?? {}).length ? ` | settings ${JSON.stringify(r.card.settings)}` : ''}]`;
-    }
-    if (r.role === 'assistant' && r.questions?.length) {
-      text += `\n\n[Asked the user: ${r.questions.map((q) => `${q.label}: ${q.question} (${q.options.map((o) => o.label).join(' / ')})`).join('; ')}]`;
-    }
-    if (text) blocks.push({ type: 'text', text });
-    if (!blocks.length) continue;
+    if (!blocks.length) return;
     const last = msgs[msgs.length - 1];
     if (last && last.role === r.role) (last.content as Anthropic.ContentBlockParam[]).push(...blocks);
     else msgs.push({ role: r.role, content: blocks });
-  }
+  });
+  // History may start mid-conversation: drop leading assistant turns and their orphaned results.
   while (msgs.length && msgs[0].role !== 'user') msgs.shift();
+  if (msgs.length) {
+    const first = msgs[0].content as Anthropic.ContentBlockParam[];
+    const kept = first.filter((b) => b.type !== 'tool_result');
+    msgs[0] = { role: 'user', content: kept.length ? kept : [{ type: 'text', text: '(continued)' }] };
+  }
   return msgs;
+}
+
+/** Safety net: turns any "[Prompt card "…" for …: … | settings {…}]" the model typed into real cards. */
+const TYPED_CARD = /\[Prompt card "([^"]+)" for ([^:\]]+): ([\s\S]*?)(?: \| settings (\{[^\]]*\}))?\]/g;
+function extractTypedCards(text: string): { text: string; found: Record<string, unknown>[] } {
+  const found: Record<string, unknown>[] = [];
+  const cleaned = text.replace(TYPED_CARD, (_m, title: string, model: string, prompt: string, settings?: string) => {
+    let parsed: unknown = {};
+    try { parsed = settings ? JSON.parse(settings) : {}; } catch { /* keep empty */ }
+    found.push({ title, prompt: prompt.trim(), model_id: model.trim() === 'no model' ? undefined : model.trim(), settings: parsed });
+    return '';
+  });
+  return { text: cleaned.replace(/\n{3,}/g, '\n\n').trim(), found };
 }
 
 // ─── Reflection: consolidate memory from recent chat + ratings ──────────────
@@ -549,6 +577,16 @@ Deno.serve(async (req) => {
           messages.push({ role: 'user', content: toolResults });
           // Separate text from before and after the tool call.
           if (text && !text.endsWith('\n')) { text += '\n\n'; send({ type: 'text', delta: '\n\n' }); }
+        }
+
+        const typed = extractTypedCards(text);
+        if (typed.found.length) {
+          console.warn(`[prompt-chat] model typed ${typed.found.length} card(s) as text; converting`);
+          text = typed.text;
+          for (const input of typed.found) {
+            const c = toCard(input, spec, backend);
+            if (c) { cards.push(c); send({ type: 'card', card: c, index: cards.length - 1 }); }
+          }
         }
 
         // Next-step chips. The reply loop stops as soon as the text is written, so ask for them

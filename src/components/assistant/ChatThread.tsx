@@ -233,11 +233,13 @@ export function ChatThread({ messages, pending, isStreaming, error, activeVersio
   const renderAssistant = (turn: AssistantTurn, streaming = false, status: AssistantStatus | null = null) => {
     const { id, text, cards, memoryEvents, questions } = turn;
     const showStatus = streaming && status && !questions;
+    // The server turns typed "[Prompt card …]" text into real cards; hide it while streaming.
+    const shownText = text.replace(/\[Prompt card "[\s\S]*?(\]|$)/g, '').trim();
     return (
       <div key={id} ref={id === openBriefId ? briefRef : undefined} className="flex gap-4 scroll-mt-6">
         <AssistantAvatar />
         <div className="min-w-0 flex-1 space-y-3.5 text-[15px] leading-[1.7] text-foreground">
-          {text && <RichText text={text} />}
+          {shownText && <RichText text={shownText} />}
           {cards.length > 0 && (
             <div className={cn('grid gap-2.5', cards.length > 1 ? 'sm:grid-cols-2' : 'max-w-[580px]')}>
               {cards.map(({ card, version }) => (
@@ -251,7 +253,7 @@ export function ChatThread({ messages, pending, isStreaming, error, activeVersio
           {memoryEvents.length > 0 && (
             <div className="flex flex-col items-start gap-1.5">{memoryEvents.map((e) => <MemoryChip key={e.id + e.action} event={e} />)}</div>
           )}
-          {showStatus && <div className={cn(!text && !cards.length && 'pt-1')}><StatusLine status={status} /></div>}
+          {showStatus && <div className={cn(!shownText && !cards.length && 'pt-1')}><StatusLine status={status} /></div>}
         </div>
       </div>
     );
