@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Sparkles, LayoutGrid, Layers, Clock, MessageCircle, Settings as SettingsIcon, Coins, LogOut } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ThemeToggle } from '@/components/studio/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -30,14 +31,27 @@ interface AppShellProps {
   children: ReactNode;
   /** Set false for pages (like Studio) that manage their own scroll/height internally. */
   scrollableContent?: boolean;
+  /** Icon-only rail, for pages (like Assistant) that need the horizontal space. */
+  compactNav?: boolean;
 }
+
+function RailTip({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Tooltip delayDuration={150}>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={10} className="text-[12.5px]">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+const compactNumber = (n: number) => new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
 
 /**
  * Persistent left navigation rail + top-level chrome shared by every
  * authenticated page. Each page renders its own content inside this shell;
  * Studio keeps its existing internal 4-pane layout unchanged.
  */
-export function AppShell({ children, scrollableContent = true }: AppShellProps) {
+export function AppShell({ children, scrollableContent = true, compactNav = false }: AppShellProps) {
   const location = useLocation();
   const { displayName, initials, avatarUrl } = useProfile();
   const { balance, balanceError } = useUserCredits();
@@ -54,6 +68,72 @@ export function AppShell({ children, scrollableContent = true }: AppShellProps) 
     toast.success('Signed out successfully');
   };
 
+  const isActive = (item: NavItem) =>
+    item.label === 'History' ? onHistory
+    : item.label === 'Library' ? location.pathname === '/library' && !onHistory
+    : location.pathname === item.to;
+
+  if (compactNav) {
+    return (
+      <div className="h-screen w-screen flex overflow-hidden bg-background text-foreground">
+        <aside className="w-[68px] shrink-0 flex flex-col items-center gap-6 py-5 bg-sidebar border-r border-sidebar-border">
+          <RailTip label="Oltaflock Studio">
+            <NavLink to="/" className="h-9 w-9 flex items-center justify-center">
+              <img src={logoMark} alt="Oltaflock" className="w-[24px] h-[24px] object-contain" />
+            </NavLink>
+          </RailTip>
+          <nav className="flex flex-col items-center gap-1.5">
+            {NAV_ITEMS.map((item) => {
+              const active = isActive(item);
+              const Icon = item.icon;
+              return (
+                <RailTip key={item.label} label={item.label}>
+                  <NavLink
+                    to={item.to}
+                    aria-label={item.label}
+                    className={cn(
+                      'relative h-10 w-10 flex items-center justify-center rounded-[12px] transition-smooth',
+                      active
+                        ? 'bg-card text-primary shadow-[0_1px_2px_hsl(240_10%_10%/0.08),0_0_0_1px_hsl(var(--border))] dark:bg-secondary dark:shadow-none'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-secondary/70',
+                    )}
+                  >
+                    {active && <span className="absolute -left-[14px] top-2 bottom-2 w-[3px] rounded-r-full bg-primary" />}
+                    <Icon className="w-[18px] h-[18px]" strokeWidth={active ? 2 : 1.75} />
+                  </NavLink>
+                </RailTip>
+              );
+            })}
+          </nav>
+          <div className="flex-1" />
+          <div className="flex flex-col items-center gap-2">
+            <RailTip label={balance != null ? `Kie.ai balance · ${balance.toLocaleString(undefined, { maximumFractionDigits: 1 })} credits` : 'Kie.ai balance'}>
+              <div className="w-12 py-1.5 rounded-[10px] border border-border bg-card flex flex-col items-center gap-0.5 dark:bg-secondary/60">
+                <Coins className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={2} />
+                <span className="font-mono text-[11px] font-medium tabular-nums">{balance != null ? compactNumber(balance) : balanceError ? '—' : '…'}</span>
+              </div>
+            </RailTip>
+            <ThemeToggle />
+            <RailTip label={`${displayName} · Settings`}>
+              <NavLink to="/settings" className="p-1 rounded-full hover:bg-secondary/70 transition-smooth">
+                <Avatar className="h-[30px] w-[30px]">
+                  {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
+                  <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-medium">{initials}</AvatarFallback>
+                </Avatar>
+              </NavLink>
+            </RailTip>
+            <RailTip label="Sign out">
+              <button type="button" onClick={handleSignOut} aria-label="Sign out" className="h-8 w-8 flex items-center justify-center rounded-[10px] text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-smooth">
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </RailTip>
+          </div>
+        </aside>
+        <main className={cn('flex-1 min-w-0', scrollableContent && 'overflow-y-auto')}>{children}</main>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-screen flex overflow-hidden bg-background text-foreground">
       <aside className="w-[232px] shrink-0 flex flex-col gap-7 px-3.5 py-5 bg-sidebar border-r border-sidebar-border">
@@ -67,10 +147,7 @@ export function AppShell({ children, scrollableContent = true }: AppShellProps) 
 
         <nav className="flex flex-col gap-0.5">
           {NAV_ITEMS.map((item) => {
-            const isActive =
-              item.label === 'History' ? onHistory
-              : item.label === 'Library' ? location.pathname === '/library' && !onHistory
-              : location.pathname === item.to;
+            const active = isActive(item);
             const Icon = item.icon;
             return (
               <NavLink
@@ -78,12 +155,12 @@ export function AppShell({ children, scrollableContent = true }: AppShellProps) 
                 to={item.to}
                 className={cn(
                   'flex items-center gap-3 px-3 h-9 rounded-[10px] text-[14px] transition-smooth',
-                  isActive
+                  active
                     ? 'bg-card text-foreground font-medium shadow-[0_1px_2px_hsl(240_10%_10%/0.06),0_0_0_1px_hsl(var(--border))] dark:bg-secondary dark:shadow-none'
                     : 'text-muted-foreground hover:text-foreground hover:bg-secondary/70'
                 )}
               >
-                <Icon className={cn('w-[17px] h-[17px]', isActive && 'text-primary')} strokeWidth={isActive ? 2 : 1.75} />
+                <Icon className={cn('w-[17px] h-[17px]', active && 'text-primary')} strokeWidth={active ? 2 : 1.75} />
                 {item.label}
               </NavLink>
             );

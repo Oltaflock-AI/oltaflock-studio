@@ -32,6 +32,19 @@ export interface Attachment {
   kind: 'image' | 'video' | 'audio';
 }
 
+/** One question of the interactive brief the assistant asks before drafting. */
+export interface BriefQuestion {
+  id: string;
+  label: string;
+  question: string;
+  hint?: string;
+  options: { label: string; description?: string }[];
+  multi: boolean;
+  defaults: string[];
+}
+
+export type AssistantStatus = 'thinking' | 'asking' | 'writing' | 'remembering';
+
 export interface AssistantChat {
   id: string;
   title: string;
@@ -47,6 +60,8 @@ export interface AssistantMessage {
   card: PromptCard | null;
   memory_events: MemoryEvent[] | null;
   attachments: Attachment[] | null;
+  questions: BriefQuestion[] | null;
+  suggestions: string[] | null;
   generation_ids: string[];
   created_at: string;
 }
@@ -121,7 +136,7 @@ export function useChatMessages(chatId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from(MESSAGES)
-        .select('id, role, content, card, memory_events, attachments, generation_ids, created_at')
+        .select('id, role, content, card, memory_events, attachments, questions, suggestions, generation_ids, created_at')
         .eq('chat_id', chatId!)
         .order('created_at', { ascending: true });
       if (error) throw error;
@@ -208,13 +223,17 @@ export interface SendOptions {
 
 export interface StreamState {
   text: string;
-  card: PromptCard | null;
+  /** Cards written this turn; several when the user asked for variations. */
+  cards: PromptCard[];
   memoryEvents: MemoryEvent[];
+  questions: BriefQuestion[] | null;
+  suggestions: string[] | null;
+  status: AssistantStatus | null;
   /** The user turn being answered, shown optimistically until the thread reloads. */
   pendingUser: { content: string; attachments: Attachment[] } | null;
 }
 
-const EMPTY_STREAM: StreamState = { text: '', card: null, memoryEvents: [], pendingUser: null };
+const EMPTY_STREAM: StreamState = { text: '', cards: [], memoryEvents: [], questions: null, suggestions: null, status: null, pendingUser: null };
 
 /** Sends a message to prompt-chat and exposes the streaming reply. */
 export function usePromptChat(onChat: (chatId: string, title: string) => void) {
@@ -267,10 +286,16 @@ export function usePromptChat(onChat: (chatId: string, title: string) => void) {
             if (ev.type === 'chat') {
               chatId = ev.chatId;
               onChat(ev.chatId, ev.title);
+            } else if (ev.type === 'status') {
+              setStream((s) => ({ ...s, status: ev.status }));
             } else if (ev.type === 'text') {
               setStream((s) => ({ ...s, text: s.text + ev.delta }));
+            } else if (ev.type === 'questions') {
+              setStream((s) => ({ ...s, questions: ev.questions, status: null }));
+            } else if (ev.type === 'suggestions') {
+              setStream((s) => ({ ...s, suggestions: ev.suggestions }));
             } else if (ev.type === 'card') {
-              setStream((s) => ({ ...s, card: ev.card }));
+              setStream((s) => ({ ...s, cards: [...s.cards, ev.card], status: 'thinking' }));
             } else if (ev.type === 'memory') {
               setStream((s) => ({ ...s, memoryEvents: [...s.memoryEvents, ev.event] }));
             } else if (ev.type === 'error') {
