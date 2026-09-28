@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { slideDown } from '@/lib/motion';
-import { MODEL_CATALOG } from '@catalog/index.ts';
+import { KIE_CATALOG as MODEL_CATALOG } from '@catalog/index.ts';
 import { UserMenu } from '@/components/studio/UserMenu';
 import { usePreferencesStore } from '@/store/preferencesStore';
 

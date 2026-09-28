@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { Backend } from '@catalog/types.ts';
 
 type Theme = 'light' | 'dark' | 'system';
 type DefaultMode = 'image' | 'video' | 'image-to-image';
@@ -14,6 +15,9 @@ interface PreferencesState {
   /** Blur outputs marked NSFW until they're explicitly revealed. */
   blurSensitive: boolean;
   setBlurSensitive: (enabled: boolean) => void;
+  /** Which API account the Studio generates with. */
+  studioBackend: Backend;
+  setStudioBackend: (backend: Backend) => void;
   setTheme: (theme: Theme) => void;
   setDefaultMode: (mode: DefaultMode) => void;
   setNotificationSound: (enabled: boolean) => void;
@@ -29,6 +33,8 @@ export const usePreferencesStore = create<PreferencesState>()(
       setShowStudioSidebar: (showStudioSidebar) => set({ showStudioSidebar }),
       blurSensitive: true,
       setBlurSensitive: (blurSensitive) => set({ blurSensitive }),
+      studioBackend: 'kie',
+      setStudioBackend: (studioBackend) => set({ studioBackend }),
       setTheme: (theme) => {
         localStorage.setItem('theme', theme);
         const root = document.documentElement;
@@ -52,6 +58,7 @@ export const usePreferencesStore = create<PreferencesState>()(
         notificationSound: state.notificationSound,
         showStudioSidebar: state.showStudioSidebar,
         blurSensitive: state.blurSensitive,
+        studioBackend: state.studioBackend,
       }),
     }
   )

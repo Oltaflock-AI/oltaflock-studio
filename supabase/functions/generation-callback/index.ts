@@ -1,7 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { persistOutput } from '../_shared/persist-output.ts';
 import { apiForGeneration } from '../_shared/catalog/index.ts';
-import { parseCallback } from '../_shared/catalog/adapters.ts';
+import { parseCallback, parseHiggsfield } from '../_shared/catalog/adapters.ts';
+import { higgsfieldStatus } from '../_shared/higgsfield.ts';
 
 // Kie.ai sends callbacks when tasks complete
 // Format: { taskId, state, resultJson, failMsg, ... }
@@ -25,7 +26,8 @@ Deno.serve(async (req) => {
     console.log('[callback] Received:', JSON.stringify(body).slice(0, 500));
 
     // Callback shapes differ per kie.ai API; the task id is always near the top.
-    const taskId = body.taskId || body.task_id || body.data?.taskId || body.data?.task_id;
+    // Higgsfield webhooks carry `request_id`.
+    const taskId = body.taskId || body.task_id || body.data?.taskId || body.data?.task_id || body.request_id;
     const state = body.state || body.status || body.data?.state || body.code;
 
     if (!taskId) {
@@ -91,7 +93,21 @@ async function processCallback(
     );
   }
 
-  const { status } = parseCallback(apiForGeneration(generation), body);
+  const api = apiForGeneration(generation);
+  let status;
+  if (api === 'higgsfield') {
+    // Don't trust the webhook body: confirm the result with our own credentials.
+    const requestId = (body as { request_id?: string })?.request_id ?? '';
+    const res = await higgsfieldStatus(requestId);
+    if (!res.ok || !res.data) {
+      console.error(`[callback] Higgsfield status check failed: ${res.error}`);
+      // 5xx so Higgsfield retries the delivery; poll-tasks is the fallback.
+      return new Response(JSON.stringify({ error: 'status check failed' }), { status: 502, headers: { 'Content-Type': 'application/json' } });
+    }
+    status = parseHiggsfield(res.data).status;
+  } else {
+    status = parseCallback(api, body).status;
+  }
   if (status.state === 'running') {
     // Progress callbacks (e.g. Veo/GPT-4o) — polling will pick up the final state.
     return new Response(JSON.stringify({ ok: true, pending: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });

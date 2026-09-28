@@ -2,7 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.91.0";
 import { persistOutput } from "../_shared/persist-output.ts";
 import { apiForGeneration } from "../_shared/catalog/index.ts";
-import { API_ENDPOINTS, KIE_BASE, parseTaskStatus } from "../_shared/catalog/adapters.ts";
+import { API_ENDPOINTS, KIE_BASE, parseHiggsfield, parseTaskStatus } from "../_shared/catalog/adapters.ts";
+import { higgsfieldAuth, higgsfieldStatus } from "../_shared/higgsfield.ts";
+import type { TaskStatus } from "../_shared/catalog/adapters.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '*',
@@ -44,7 +46,9 @@ serve(async (req) => {
 
     for (const task of pendingTasks) {
       try {
-        if (!KIE_AI_API_KEY) {
+        const api = apiForGeneration(task);
+
+        if (!KIE_AI_API_KEY && api !== 'higgsfield') {
           // Mock: auto-complete
           await supabase.from('generations').update({
             status: 'done',
@@ -56,27 +60,38 @@ serve(async (req) => {
           continue;
         }
 
-        const api = apiForGeneration(task);
-        const statusUrl = `${KIE_BASE}${API_ENDPOINTS[api].status}?taskId=${encodeURIComponent(task.external_task_id)}`;
-        const response = await fetch(statusUrl, {
-          headers: { 'Authorization': `Bearer ${KIE_AI_API_KEY}` },
-        });
+        let status: TaskStatus;
+        if (api === 'higgsfield') {
+          if (!higgsfieldAuth()) { stillRunning++; continue; }
+          const res = await higgsfieldStatus(task.external_task_id);
+          if (!res.ok || !res.data) {
+            console.error(`[poll] Higgsfield status failed: ${res.error}`);
+            stillRunning++;
+            continue;
+          }
+          status = parseHiggsfield(res.data).status;
+        } else {
+          const statusUrl = `${KIE_BASE}${API_ENDPOINTS[api].status}?taskId=${encodeURIComponent(task.external_task_id)}`;
+          const response = await fetch(statusUrl, {
+            headers: { 'Authorization': `Bearer ${KIE_AI_API_KEY}` },
+          });
 
-        if (!response.ok) {
-          console.error(`[poll] Status check failed: ${response.status}`);
-          stillRunning++;
-          continue;
+          if (!response.ok) {
+            console.error(`[poll] Status check failed: ${response.status}`);
+            stillRunning++;
+            continue;
+          }
+
+          const kieData = await response.json();
+
+          if (kieData.code !== 200 || !kieData.data) {
+            console.error(`[poll] Kie.ai error: ${kieData.msg}`);
+            stillRunning++;
+            continue;
+          }
+
+          status = parseTaskStatus(api, kieData.data);
         }
-
-        const kieData = await response.json();
-
-        if (kieData.code !== 200 || !kieData.data) {
-          console.error(`[poll] Kie.ai error: ${kieData.msg}`);
-          stillRunning++;
-          continue;
-        }
-
-        const status = parseTaskStatus(api, kieData.data);
 
         if (status.state === 'success') {
           const outputUrl = status.urls[0] ?? '';

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { staggerContainer, staggerItem } from '@/lib/motion';
 import { getSpec } from '@catalog/index.ts';
 import { ModeSelector } from '@/components/studio/ModeSelector';
+import { BackendToggle } from '@/components/studio/BackendToggle';
 import { ModelPicker } from '@/components/studio/ModelPicker';
 import { PromptInput } from '@/components/studio/PromptInput';
 import { MediaInputs } from '@/components/studio/MediaInputs';
@@ -37,6 +38,10 @@ export function ControlsPanel() {
       className={cn(STUDIO_PANEL, 'w-[380px] 2xl:w-[420px] flex flex-col overflow-hidden shrink-0')}
     >
       <motion.div variants={staggerItem} className="flex-1 overflow-y-auto min-h-0 px-5 py-5 space-y-6">
+        <Section title="Provider">
+          <BackendToggle />
+        </Section>
+
         <ModeSelector />
 
         <Section title="Prompt">

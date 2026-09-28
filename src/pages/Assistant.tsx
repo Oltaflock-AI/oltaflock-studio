@@ -159,7 +159,7 @@ export default function Assistant() {
     navigate('/');
   };
 
-  const cheatSheet = familyLeads().map((spec) => ({
+  const cheatSheet = familyLeads('kie').map((spec) => ({
     id: spec.id,
     label: getModelIdentity(spec.id).label,
     kind: KIND_LABELS[fromStudioMode(spec.mode)],

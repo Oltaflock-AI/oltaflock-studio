@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Sparkles, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useHiggsfieldEstimate } from '@/hooks/useHiggsfield';
 import { cn } from '@/lib/utils';
 import { calculateCost } from '@/config/pricing';
 
@@ -41,6 +42,7 @@ export function GenerateButton() {
   const modelConfig = ALL_MODELS.find((m) => m.id === selectedModel);
 
   const spec = selectedModel ? getSpec(selectedModel) : undefined;
+  const { data: hfEstimate } = useHiggsfieldEstimate(spec, rawPrompt, controls);
   const isMultiShot = controls.multi_shots === true;
 
   // Note: No global isGenerating check - allows multiple concurrent generations
@@ -97,7 +99,9 @@ export function GenerateButton() {
           model_id: selectedModel,
           use_case: useGenerationStore.getState().brainUseCase,
           cost_credits: cost.credits,
-          cost_usd: cost.usd,
+          cost_usd: spec.api === 'higgsfield' ? (hfEstimate?.usd ?? null) : cost.usd,
+          backend: spec.backend ?? 'kie',
+          ...(spec.api === 'higgsfield' && hfEstimate ? { hf_credits: hfEstimate.credits } : {}),
         },
       });
       

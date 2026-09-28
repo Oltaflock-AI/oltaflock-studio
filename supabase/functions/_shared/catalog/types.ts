@@ -16,7 +16,19 @@ export type ApiKind =
   | 'gpt4o'    // POST /gpt4o-image/generate → GET /gpt4o-image/record-info
   | 'kontext'  // POST /flux/kontext/generate → GET /flux/kontext/record-info
   | 'runway'   // POST /runway/generate  → GET /runway/record-detail
-  | 'aleph';   // POST /aleph/generate   → GET /aleph/record-info
+  | 'aleph'    // POST /aleph/generate   → GET /aleph/record-info
+  | 'higgsfield'; // POST api.higgsfield.ai/<endpoint> → GET /requests/{id}/status
+
+/** kie.ai API families (everything except Higgsfield). */
+export type KieApiKind = Exclude<ApiKind, 'higgsfield'>;
+
+/** Which account pays for and runs a model. */
+export type Backend = 'kie' | 'higgsfield';
+
+export const BACKEND_LABELS: Record<Backend, string> = {
+  kie: 'Kie.ai',
+  higgsfield: 'Higgsfield',
+};
 
 export interface FieldOption {
   value: string | number | boolean;
@@ -83,6 +95,10 @@ export interface ModelSpec {
   bestFor: string;
   tags?: string[];
   api: ApiKind;
+  /** Account that runs the model. Defaults to kie. */
+  backend?: Backend;
+  /** Higgsfield endpoint id, e.g. "bytedance/seedance-2.0/text-to-video". */
+  endpoint?: string;
   /** `model` field for market / variant for other APIs. */
   kieModel?: string;
   output: 'image' | 'video';

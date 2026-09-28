@@ -9,7 +9,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Anthropic from 'npm:@anthropic-ai/sdk';
-import { MODEL_CATALOG } from '../_shared/catalog/index.ts';
+import { KIE_CATALOG as MODEL_CATALOG } from '../_shared/catalog/index.ts';
 import { specPriceText } from '../_shared/catalog/pricing.ts';
 import { MODE_LABELS, type ModelSpec, type StudioMode } from '../_shared/catalog/types.ts';
 

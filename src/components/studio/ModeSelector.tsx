@@ -2,6 +2,7 @@ import { Image as ImageIcon, Video, Type, ImagePlus, Film } from 'lucide-react';
 import type { StudioMode } from '@catalog/types.ts';
 import { specsForMode } from '@catalog/index.ts';
 import { useGenerationStore } from '@/store/generationStore';
+import { usePreferencesStore } from '@/store/preferencesStore';
 import { fromStudioMode, toStudioMode } from '@/types/generation';
 import { cn } from '@/lib/utils';
 
@@ -27,13 +28,14 @@ export function ModeSelector() {
   const current = toStudioMode(mode);
   const output = outputOf(current);
   const disabled = pendingRating || isGenerating;
+  const backend = usePreferencesStore((s) => s.studioBackend);
 
   const go = (m: StudioMode) => {
     if (disabled || m === current) return;
     setMode(fromStudioMode(m));
   };
 
-  const inputs = INPUTS[output].filter((i) => specsForMode(i.mode).length > 0);
+  const inputs = INPUTS[output].filter((i) => specsForMode(i.mode, backend).length > 0);
 
   return (
     <div className="space-y-2" role="group" aria-label="Generation mode">

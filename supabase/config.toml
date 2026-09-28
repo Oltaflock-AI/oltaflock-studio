@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.model-assistant]
 verify_jwt = false
+
+[functions.higgsfield]
+verify_jwt = false

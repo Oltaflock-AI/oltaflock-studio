@@ -3,6 +3,8 @@ import { Check, ChevronsUpDown, Search, Volume2 } from 'lucide-react';
 import type { ModelSpec } from '@catalog/types.ts';
 import { MODE_LABELS } from '@catalog/types.ts';
 import { getSpec, specsForMode } from '@catalog/index.ts';
+import { BACKEND_LABELS } from '@catalog/types.ts';
+import { usePreferencesStore } from '@/store/preferencesStore';
 import { specCredits } from '@catalog/pricing.ts';
 import { useGenerationStore } from '@/store/generationStore';
 import { toStudioMode } from '@/types/generation';
@@ -41,7 +43,7 @@ function ModelRow({ spec, active, onSelect }: { spec: ModelSpec; active: boolean
           {spec.isNew && <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-px rounded bg-primary/15 text-primary">New</span>}
           {spec.audio && <Volume2 className="h-3.5 w-3.5 text-muted-foreground" aria-label="Native audio" />}
           <span className="ml-auto text-[11.5px] tabular-nums text-muted-foreground shrink-0">
-            {formatCredits(startingCredits(spec))} cr
+            {spec.api === 'higgsfield' ? 'live price' : `${formatCredits(startingCredits(spec))} cr`}
           </span>
         </div>
         <p className="text-[12.5px] leading-snug text-muted-foreground line-clamp-2">{spec.bestFor}</p>
@@ -61,12 +63,13 @@ function ModelRow({ spec, active, onSelect }: { spec: ModelSpec; active: boolean
 /** Model selector: a summary card that opens a searchable catalog for the current mode. */
 export function ModelPicker() {
   const { mode, selectedModel, setSelectedModel, pendingRating } = useGenerationStore();
+  const backend = usePreferencesStore((s) => s.studioBackend);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
 
   const studioMode = toStudioMode(mode);
-  const specs = specsForMode(studioMode);
+  const specs = specsForMode(studioMode, backend);
   const selected = selectedModel ? getSpec(selectedModel) : undefined;
 
   const visible = useMemo(() => {
@@ -81,6 +84,7 @@ export function ModelPicker() {
       return [s.name, s.provider, s.bestFor, ...(s.tags ?? [])].join(' ').toLowerCase().includes(q);
     });
   }, [specs, query, filter]);
+  const filters = backend === 'higgsfield' ? FILTERS.filter((f) => f.id !== 'budget') : FILTERS;
 
   const grouped = useMemo(() => {
     const map = new Map<string, ModelSpec[]>();
@@ -133,8 +137,14 @@ export function ModelPicker() {
         <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden rounded-2xl">
           <DialogHeader className="px-6 pt-5 pb-4 border-b border-border/60 space-y-3">
             <div>
-              <DialogTitle className="font-serif text-[22px] font-medium">{MODE_LABELS[studioMode]} models</DialogTitle>
-              <DialogDescription className="text-[13px]">Each model lists what it does best. Prices are for default settings.</DialogDescription>
+              <DialogTitle className="font-serif text-[22px] font-medium">
+                {MODE_LABELS[studioMode]} models <span className="text-muted-foreground">· {BACKEND_LABELS[backend]}</span>
+              </DialogTitle>
+              <DialogDescription className="text-[13px]">
+                {backend === 'higgsfield'
+                  ? 'Each model lists what it does best. Higgsfield prices are quoted live for your exact settings.'
+                  : 'Each model lists what it does best. Prices are for default settings.'}
+              </DialogDescription>
             </div>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
@@ -148,7 +158,7 @@ export function ModelPicker() {
                 />
               </div>
               <div className="flex p-0.5 rounded-lg bg-muted/70 border border-border/50">
-                {FILTERS.map((f) => (
+                {filters.map((f) => (
                   <button
                     key={f.id}
                     type="button"

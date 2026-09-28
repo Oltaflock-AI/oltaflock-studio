@@ -1,9 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSpec } from '../_shared/catalog/index.ts';
-import { API_ENDPOINTS, KIE_BASE, buildRequestBody, validateSpecInput } from '../_shared/catalog/adapters.ts';
+import { API_ENDPOINTS, KIE_BASE, buildInput, buildRequestBody, validateSpecInput } from '../_shared/catalog/adapters.ts';
 import type { ModelSpec } from '../_shared/catalog/types.ts';
 import { optimizePrompt } from '../_shared/brain/index.ts';
 import { fetchKieCredits } from '../_shared/kie-credits.ts';
+import { higgsfieldAuth, submitHiggsfield } from '../_shared/higgsfield.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -82,9 +83,15 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[gen] user=${userId} model=${model} api=${spec.api} id=${generationId}`);
 
+    const isHiggsfield = spec.api === 'higgsfield';
+    if (isHiggsfield && !higgsfieldAuth()) {
+      return await fail('Higgsfield API key is not configured on the server', 503);
+    }
+
     // 3. Credits — checked against the live kie.ai balance that actually pays for the job.
+    // Higgsfield reserves credits itself and rejects the submit if the account is short.
     const costCredits = Number(controls.cost_credits) || 0;
-    const balance = await fetchKieCredits();
+    const balance = isHiggsfield ? null : await fetchKieCredits();
     if (balance !== null && costCredits > 0 && balance < costCredits) {
       return Response.json(
         { error: `Insufficient credits. Have ${balance}, need ${costCredits}.` },
@@ -108,10 +115,26 @@ Deno.serve(async (req: Request) => {
       final_prompt: finalPrompt,
     }).eq('id', generationId);
 
-    // 6. Build request
     const callbackUrl = `${supabaseUrl}/functions/v1/generation-callback`;
+
+    // 6a. Higgsfield: submit, then the webhook (or poll-tasks) delivers the result.
+    if (isHiggsfield) {
+      const input = buildInput(spec, finalPrompt, controls);
+      console.log(`[gen] higgsfield endpoint=${spec.endpoint} payload=${JSON.stringify(input).slice(0, 600)}`);
+      const res = await submitHiggsfield(spec.endpoint!, input, callbackUrl);
+      if (!res.ok || !res.data?.request_id) {
+        return await fail(res.error || 'Higgsfield did not return a request id', 502);
+      }
+      await adminClient.from('generations').update({
+        status: 'running', external_task_id: res.data.request_id, progress: 25,
+      }).eq('id', generationId);
+      console.log(`[gen] Higgsfield request: ${res.data.request_id}`);
+      return Response.json({ task_id: res.data.request_id, enhanced_prompt: finalPrompt }, { headers: corsHeaders });
+    }
+
+    // 6b. kie.ai: build request
     const kiePayload = buildRequestBody(spec, finalPrompt, controls, callbackUrl);
-    const endpoint = `${KIE_BASE}${API_ENDPOINTS[spec.api].create}`;
+    const endpoint = `${KIE_BASE}${API_ENDPOINTS[spec.api as Exclude<typeof spec.api, 'higgsfield'>].create}`;
 
     console.log(`[gen] endpoint=${endpoint}`);
     console.log(`[gen] payload=${JSON.stringify(kiePayload).slice(0, 600)}`);

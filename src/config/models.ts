@@ -47,6 +47,13 @@ const FAMILY_COLORS: Record<string, { bg: string; text?: string; initials?: stri
   aleph: { bg: '#3A3A3A', initials: 'AL' },
   'flux-kontext': { bg: '#A8441F', initials: 'FK' },
   'wan-image': { bg: '#6E3BD8', initials: 'WN' },
+  // Higgsfield-only families
+  soul: { bg: '#9BC53D', text: DARK, initials: 'SL' },
+  'cinema-studio': { bg: '#1E1E24', initials: 'CS' },
+  genjutsu: { bg: '#5E2CA5', initials: 'GJ' },
+  'marketing-studio': { bg: '#D6336C', initials: 'MS' },
+  ltx: { bg: '#0F6FFF', initials: 'LTX' },
+  minimax: { bg: '#E0457B', initials: 'MM' },
 };
 
 function hashHue(s: string): number {
@@ -65,7 +72,7 @@ function familyColor(family: string) {
 
 function familyLabel(family: string): string {
   const lead = familyLeads().find((s) => s.family === family);
-  return lead ? lead.name.replace(/\s+(Edit|Image to Video|Text to Video|I2V|T2V)$/i, '') : family;
+  return lead ? lead.name.replace(/\s+·\s.*$/, '').replace(/\s+(Edit|Image to Video|Text to Video|I2V|T2V)$/i, '') : family;
 }
 
 function buildIdentity(family: string): ModelIdentity {

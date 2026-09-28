@@ -1,7 +1,7 @@
 // Turns a ModelSpec + studio controls into a kie.ai request, and normalizes
 // every kie.ai status response shape into one TaskStatus.
 
-import type { ApiKind, FieldSpec, MediaSlot, ModelSpec } from './types.ts';
+import type { ApiKind, FieldSpec, KieApiKind, MediaSlot, ModelSpec } from './types.ts';
 
 export const KIE_BASE = 'https://api.kie.ai/api/v1';
 
@@ -10,7 +10,7 @@ interface ApiEndpoints {
   status: string;
 }
 
-export const API_ENDPOINTS: Record<ApiKind, ApiEndpoints> = {
+export const API_ENDPOINTS: Record<KieApiKind, ApiEndpoints> = {
   market: { create: '/jobs/createTask', status: '/jobs/recordInfo' },
   veo: { create: '/veo/generate', status: '/veo/record-info' },
   'veo-extend': { create: '/veo/extend', status: '/veo/record-info' },
@@ -225,4 +225,29 @@ export function parseCallback(api: ApiKind, body: KieData): { taskId?: string; s
   if (body?.code === 200 && urls.length > 0) return { taskId, status: { state: 'success', urls } };
   if (body?.code && body.code !== 200) return { taskId, status: { state: 'fail', urls: [], error: body.msg || 'Generation failed' } };
   return { taskId, status: parseTaskStatus(api, data) };
+}
+
+// ─── Higgsfield ──────────────────────────────────────────────────────────────
+
+/**
+ * Normalizes a Higgsfield status response or webhook delivery. Status responses
+ * carry `images` / `video` at the top level; webhooks nest them under `payload`.
+ */
+export function parseHiggsfield(body: KieData): { requestId?: string; status: TaskStatus } {
+  const requestId = body?.request_id;
+  const out = body?.payload ?? body ?? {};
+  const state = String(body?.status ?? '');
+  if (state === 'completed') {
+    const urls = collectUrls(out.images, out.video, out.audio, out.audios);
+    return urls.length > 0
+      ? { requestId, status: { state: 'success', urls } }
+      : { requestId, status: { state: 'fail', urls: [], error: 'Finished without an output URL' } };
+  }
+  if (state === 'nsfw') {
+    return { requestId, status: { state: 'fail', urls: [], error: 'Blocked by Higgsfield content moderation (not charged)' } };
+  }
+  if (state === 'failed' || state === 'canceled') {
+    return { requestId, status: { state: 'fail', urls: [], error: body?.error || `Generation ${state}` } };
+  }
+  return { requestId, status: { state: 'running', urls: [], progress: state === 'in_progress' ? 50 : undefined } };
 }
