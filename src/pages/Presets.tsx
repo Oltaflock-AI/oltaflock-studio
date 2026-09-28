@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Layers, Plus, Search, Star, X, AlertCircle, RefreshCw } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
@@ -18,6 +18,7 @@ import {
 import { usePromptLibrary } from '@/hooks/usePromptLibrary';
 import { LIBRARY_CATEGORIES, type LibraryCategory, type LibraryItem } from '@/types/library';
 import { cn } from '@/lib/utils';
+import { StylesTab } from '@/components/presets/StylesTab';
 
 type CategoryFilter = 'all' | 'favorites' | LibraryCategory;
 type SourceFilter = 'all' | 'curated' | 'saved';
@@ -28,7 +29,7 @@ const SOURCE_OPTIONS: { value: SourceFilter; label: string }[] = [
   { value: 'saved', label: 'Saved by you' },
 ];
 
-export default function Presets() {
+function PromptTemplates() {
   const navigate = useNavigate();
   const { items, isLoading, error, refetch } = usePromptLibrary();
   const { favorites, toggleFavorite } = usePresetFavorites();
@@ -101,14 +102,9 @@ export default function Presets() {
   ];
 
   return (
-    <AppShell>
-      <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4 px-4 py-7 sm:px-8">
-        {/* Header */}
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-col gap-0.5">
-            <h1 className="font-serif text-[28px] font-medium leading-tight">Presets</h1>
-            <p className="text-[13px] text-muted-foreground">Curated looks and your saved combinations</p>
-          </div>
+    <>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <p className="text-[13px] text-muted-foreground">Curated prompts and your saved combinations</p>
           <div className="flex items-center gap-2.5">
             <div className="relative w-[220px]">
               <Search
@@ -142,7 +138,7 @@ export default function Presets() {
               Create preset
             </Button>
           </div>
-        </header>
+        </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -264,7 +260,6 @@ export default function Presets() {
             ) : null}
           </>
         )}
-      </div>
 
       <LibraryDetailDialog
         item={detailItem}
@@ -273,6 +268,45 @@ export default function Presets() {
           if (!open) setDetailItem(null);
         }}
       />
+    </>
+  );
+}
+
+type PresetTab = 'styles' | 'templates';
+
+export default function Presets() {
+  const [params, setParams] = useSearchParams();
+  const tab: PresetTab = params.get('tab') === 'templates' ? 'templates' : 'styles';
+  const setTab = (t: PresetTab) => setParams(t === 'styles' ? {} : { tab: t }, { replace: true });
+
+  return (
+    <AppShell>
+      <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4 px-4 py-7 sm:px-8">
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-col gap-0.5">
+            <h1 className="font-serif text-[28px] font-medium leading-tight">Presets</h1>
+            <p className="text-[13px] text-muted-foreground">Pick a look, then write whatever you like in it</p>
+          </div>
+          <div className="inline-flex rounded-[10px] border border-border bg-card p-0.5" role="tablist" aria-label="Preset type">
+            {([['styles', 'Styles'], ['templates', 'Prompt templates']] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={tab === value}
+                onClick={() => setTab(value)}
+                className={cn(
+                  'rounded-[8px] px-3.5 py-1.5 text-[12.5px] transition-colors',
+                  tab === value ? 'bg-muted font-semibold text-foreground' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </header>
+        {tab === 'styles' ? <StylesTab /> : <PromptTemplates />}
+      </div>
     </AppShell>
   );
 }

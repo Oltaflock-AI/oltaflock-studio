@@ -74,6 +74,10 @@ interface GenerationState {
   brainUseCase: string;
   setBrainUseCase: (id: string) => void;
 
+  /** Active style preset (see config/stylePresets). Kept across mode changes. */
+  stylePresetId: string | null;
+  setStylePreset: (id: string | null) => void;
+
   // Pending Rating
   pendingRating: boolean;
   setPendingRating: (pending: boolean) => void;
@@ -213,6 +217,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   setEnhancePromptEnabled: (enabled) => set({ enhancePromptEnabled: enabled }),
   brainUseCase: 'auto',
   setBrainUseCase: (id) => set({ brainUseCase: id }),
+  stylePresetId: null,
+  setStylePreset: (id) => set({ stylePresetId: id }),
 
   // Pending Rating
   pendingRating: false,
@@ -305,5 +311,6 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     pendingRating: false,
     jobs: [],
     selectedJobId: null,
+    stylePresetId: null,
   }),
 }));

@@ -1,59 +1,84 @@
-import { motion, AnimatePresence } from 'framer-motion';
-import { staggerItem } from '@/lib/motion';
+import { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Info, X } from 'lucide-react';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { AppShell } from '@/components/layout/AppShell';
-import { StudioLayout } from '@/components/layout/StudioLayout';
-import { StudioPageHeader } from '@/components/layout/StudioPageHeader';
-import { ControlsPanel } from '@/components/layout/ControlsPanel';
-import { RightSidebar } from '@/components/layout/RightSidebar';
-import { STUDIO_PANEL } from '@/components/layout/studioSurface';
-import { OutputDisplay } from '@/components/studio/OutputDisplay';
 import { RatingPanel } from '@/components/studio/RatingPanel';
-import { RecentGenerations } from '@/components/studio/RecentGenerations';
 import { StudioOnboarding } from '@/components/studio/StudioOnboarding';
 import { AssistantFab } from '@/components/studio/AssistantFab';
-import { useRetryGeneration } from '@/hooks/useRetryGeneration';
+import { HistoryRail } from '@/components/studio/stage/HistoryRail';
+import { StudioCanvas } from '@/components/studio/stage/StudioCanvas';
+import { PromptDock } from '@/components/studio/stage/PromptDock';
+import { DetailsPanel } from '@/components/studio/stage/DetailsCard';
 import { useGenerations } from '@/hooks/useGenerations';
-import { cn } from '@/lib/utils';
+import { useGenerationStore } from '@/store/generationStore';
 
+/**
+ * Studio: history rail, full-height canvas with a floating prompt dock, and
+ * the selected generation's details in a drawer over the canvas.
+ */
 const Index = () => {
-  const { retry, isRetrying } = useRetryGeneration();
   const { generations, isLoading } = useGenerations();
+  const { selectedJobId, setSelectedJobId } = useGenerationStore();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const selected = generations.find((g) => g.id === selectedJobId);
   const isFirstRun = !isLoading && generations.length === 0;
+
+  // Returning users land on their newest output.
+  useEffect(() => {
+    if (!selectedJobId && generations[0]) setSelectedJobId(generations[0].id);
+  }, [generations, selectedJobId, setSelectedJobId]);
 
   return (
     <AppShell scrollableContent={false}>
       <AnimatedPage className="h-full w-full">
-        <StudioLayout
-          header={<StudioPageHeader />}
-          controlsPanel={<ControlsPanel />}
-          mainContent={
-            <motion.section
-              aria-label="Canvas"
-              variants={staggerItem}
-              initial="hidden"
-              animate="visible"
-              className="flex-1 flex flex-col gap-3.5 overflow-hidden min-w-[360px]"
-            >
-              {isFirstRun ? (
-                <div className={cn(STUDIO_PANEL, 'flex-1 min-h-0 overflow-y-auto')}>
+        <div className="flex h-full gap-4 p-4 2xl:p-5">
+          <HistoryRail />
+
+          <StudioCanvas className="min-w-0 flex-1 rounded-[20px]" bottomInset={150} topInset={40}>
+            <h1 className="pointer-events-none absolute left-5 top-4 z-20 font-serif text-[28px] leading-none text-stage-foreground">Create</h1>
+
+            {isFirstRun && (
+              <div className="absolute inset-x-0 top-14 bottom-[170px] z-10 flex items-center justify-center px-6">
+                <div className="max-h-full w-full max-w-[720px] overflow-y-auto rounded-[20px] bg-card text-foreground shadow-2xl">
                   <StudioOnboarding />
                 </div>
-              ) : (
-                <>
-                  <div className={cn(STUDIO_PANEL, 'flex-1 min-h-0 overflow-hidden p-2')}>
-                    <OutputDisplay onRetry={retry} isRetrying={isRetrying} />
-                  </div>
-                  <AnimatePresence>
-                    <RatingPanel />
-                  </AnimatePresence>
-                  <RecentGenerations />
-                </>
+              </div>
+            )}
+
+            {selected && (
+              <button
+                type="button"
+                onClick={() => setDetailsOpen(!detailsOpen)}
+                aria-expanded={detailsOpen}
+                className="absolute right-4 top-4 z-30 inline-flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-3.5 text-[12.5px] font-medium text-white/90 backdrop-blur-md transition-smooth hover:text-white"
+              >
+                {detailsOpen ? <X className="h-3.5 w-3.5" /> : <Info className="h-3.5 w-3.5" />} Details
+              </button>
+            )}
+
+            <AnimatePresence>
+              {detailsOpen && selected && (
+                <motion.div
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 16 }}
+                  transition={{ duration: 0.18 }}
+                  className="absolute bottom-[184px] right-4 top-16 z-30 w-[360px] overflow-y-auto rounded-[18px] border border-border/60 bg-card/95 p-4 text-foreground shadow-[0_24px_70px_-20px_rgba(0,0,0,0.7)] backdrop-blur-xl"
+                >
+                  <DetailsPanel g={selected} />
+                </motion.div>
               )}
-            </motion.section>
-          }
-          rightSidebar={<RightSidebar />}
-        />
+            </AnimatePresence>
+
+            <div className="absolute bottom-5 left-1/2 z-30 w-[min(900px,calc(100%-40px))] -translate-x-1/2 space-y-2">
+              <AnimatePresence>
+                <RatingPanel />
+              </AnimatePresence>
+              <PromptDock />
+            </div>
+          </StudioCanvas>
+        </div>
       </AnimatedPage>
       <AssistantFab />
     </AppShell>

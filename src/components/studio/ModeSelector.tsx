@@ -7,9 +7,9 @@ import { fromStudioMode, toStudioMode } from '@/types/generation';
 import { cn } from '@/lib/utils';
 import { SEGMENT_TRACK, segmentItem, chipItem } from '@/components/layout/studioSurface';
 
-type Output = 'image' | 'video';
+export type Output = 'image' | 'video';
 
-const INPUTS: Record<Output, Array<{ mode: StudioMode; label: string; icon: typeof Type }>> = {
+export const INPUTS: Record<Output, Array<{ mode: StudioMode; label: string; icon: typeof Type }>> = {
   image: [
     { mode: 'text-to-image', label: 'From text', icon: Type },
     { mode: 'image-to-image', label: 'Edit image', icon: ImagePlus },
@@ -21,7 +21,7 @@ const INPUTS: Record<Output, Array<{ mode: StudioMode; label: string; icon: type
   ],
 };
 
-const outputOf = (m: StudioMode): Output => (m.endsWith('video') ? 'video' : 'image');
+export const outputOf = (m: StudioMode): Output => (m.endsWith('video') ? 'video' : 'image');
 
 /** Two-step mode picker: what you want out (image / video), then what you start from. */
 export function ModeSelector() {

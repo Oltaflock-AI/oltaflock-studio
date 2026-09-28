@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Sparkles, LayoutGrid, Layers, Clock, MessageCircle, Settings as SettingsIcon, Coins, LogOut } from 'lucide-react';
+import { Sparkles, LayoutGrid, Layers, MessageCircle, Settings as SettingsIcon, Coins, LogOut } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ThemeToggle } from '@/components/studio/ThemeToggle';
@@ -23,7 +23,6 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Studio', icon: Sparkles },
   { to: '/library', label: 'Library', icon: LayoutGrid },
   { to: '/presets', label: 'Presets', icon: Layers },
-  { to: '/library?tab=history', label: 'History', icon: Clock },
   { to: '/assistant', label: 'Assistant', icon: MessageCircle },
 ];
 
@@ -48,8 +47,7 @@ const compactNumber = (n: number) => new Intl.NumberFormat(undefined, { notation
 
 /**
  * Persistent left navigation rail + top-level chrome shared by every
- * authenticated page. Each page renders its own content inside this shell;
- * Studio keeps its existing internal 4-pane layout unchanged.
+ * authenticated page. Each page renders its own content inside this shell.
  */
 export function AppShell({ children, scrollableContent = true, compactNav = false }: AppShellProps) {
   const location = useLocation();
@@ -58,20 +56,16 @@ export function AppShell({ children, scrollableContent = true, compactNav = fals
   const { signOut } = useAuth();
   const queryClient = useQueryClient();
   const { clearAll } = useGenerationStore();
-  const onHistory = location.pathname === '/library' && new URLSearchParams(location.search).get('tab') === 'history';
 
   const handleSignOut = async () => {
-    // Same order as UserMenu: drop cached user data before the session goes.
+    // Drop cached user data before the session goes.
     clearAll();
     queryClient.clear();
     await signOut();
     toast.success('Signed out successfully');
   };
 
-  const isActive = (item: NavItem) =>
-    item.label === 'History' ? onHistory
-    : item.label === 'Library' ? location.pathname === '/library' && !onHistory
-    : location.pathname === item.to;
+  const isActive = (item: NavItem) => location.pathname === item.to;
 
   if (compactNav) {
     return (
