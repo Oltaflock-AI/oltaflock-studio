@@ -57,9 +57,9 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
 
 const Assistant = () => {
   const { backend, output, modelId, activeChatId, learn, setBackend, setOutput, setModelId, setActiveChatId } = useAssistantStore();
-  const { chats } = useAssistantChats();
+  const { chats, isSettled: chatsSettled } = useAssistantChats();
   const { memories } = useMemories();
-  const { data: messages = [] } = useChatMessages(activeChatId);
+  const { data: messages = [], isSuccess: messagesLoaded } = useChatMessages(activeChatId);
   const onChat = useCallback((id: string) => setActiveChatId(id), [setActiveChatId]);
   const { send, stop, stream, isStreaming, error } = usePromptChat(onChat);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -71,6 +71,14 @@ const Assistant = () => {
 
   const spec = modelId ? getSpec(modelId) : undefined;
   const activeChat = chats.find((c) => c.id === activeChatId);
+
+  // The remembered chat can disappear (deleted here or on another device). Fall back to the
+  // start screen instead of an empty thread. A chat created mid-stream has messages, so it's kept.
+  useEffect(() => {
+    if (activeChatId && !activeChat && chatsSettled && messagesLoaded && messages.length === 0 && !isStreaming && !stream.pendingUser) {
+      setActiveChatId(null);
+    }
+  }, [activeChatId, activeChat, chatsSettled, messagesLoaded, messages.length, isStreaming, stream.pendingUser, setActiveChatId]);
 
   // Opening a saved chat restores the model it was working on.
   const restoredFor = useRef<string | null>(null);

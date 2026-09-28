@@ -108,6 +108,8 @@ export function useAssistantChats() {
   return {
     chats: chats.data ?? [],
     isLoading: chats.isLoading,
+    /** True once the list has loaded and no refetch is in flight. */
+    isSettled: chats.isSuccess && !chats.isFetching,
     deleteChat: remove.mutateAsync,
     renameChat: (id: string, title: string) => rename.mutateAsync({ id, title }),
   };
