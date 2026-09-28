@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronsUpDown, Brain, Sparkles, History } from 'lucide-react';
+import { ChevronsUpDown, Brain, Sparkles, History, ArrowUpRight, Shuffle } from 'lucide-react';
 import { catalogFor, getSpec } from '@catalog/index.ts';
 import { BACKEND_LABELS, type Backend } from '@catalog/types.ts';
 import { AppShell } from '@/components/layout/AppShell';
@@ -16,18 +16,26 @@ import { useAssistantStore } from '@/store/assistantStore';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
-const STARTERS: Record<'image' | 'video', string[]> = {
+const STARTERS: Record<'image' | 'video', { title: string; category: string; idea: string }[]> = {
   image: [
-    'Make a creative for a chips brand',
-    'Hero product shot for a skincare serum, soft daylight',
-    'Moody editorial portrait for an Instagram carousel',
-    'Flat-lay of a summer outfit on linen',
+    { title: 'The midnight noodle moon', category: 'Food × fantasy', idea: 'A tiny ramen shop on a crescent moon, with noodles dangling into the clouds and warm steam lighting up the night. Make it feel like a film still from a world you wish existed.' },
+    { title: 'Perfume with a weather system', category: 'Surreal campaign', idea: 'A perfume bottle containing its own thunderstorm, one lightning bolt illuminating the glass from within. Wet obsidian surface, extreme close-up, the tension of a luxury campaign just before the rain.' },
+    { title: 'Couture at the laundromat', category: 'Fashion with a twist', idea: 'An extravagant sculptural silver gown in a fluorescent-lit, coin-operated laundromat at 2 a.m. One red sock on the floor. Shoot it like an irreverent fashion editorial on direct flash.' },
+    { title: 'The last orange on Earth', category: 'Unexpected product story', idea: 'One imperfect orange treated like a priceless museum artefact: suspended inside a glass vault, tiny conservators polishing its peel, a single dramatic spotlight. A citrus campaign with absurdly high stakes.' },
+    { title: 'A city made of breakfast', category: 'Miniature world', idea: 'Build a bustling miniature city from a half-eaten breakfast: toast apartment blocks, a coffee canal, fried-egg plazas and sesame-seed commuters. Morning sunlight, tilt-shift photography, every detail edible.' },
+    { title: 'Portrait of a disappearing summer', category: 'Experimental portrait', idea: 'A sunlit portrait where the subject’s shadow is filled with a swimming pool, diving board and tiny swimmers. Bleached terracotta walls, hard noon light, nostalgic colour, an impossible detail made believable.' },
+    { title: 'Sneakers after the apocalypse', category: 'Future archaeology', idea: 'An archaeological dig in the year 3026 uncovers a pristine sneaker inside a fossil. Gloved hands, red desert dust, scientific specimen photography with the confidence of a streetwear launch.' },
+    { title: 'The ocean checks in', category: 'Dreamlike interiors', idea: 'An empty seaside hotel room with a perfectly still ocean rising halfway up the walls. A bedside lamp glows underwater, curtains float, a breakfast tray stays dry on the bed. Quiet, cinematic and strangely inviting.' },
   ],
   video: [
-    'Make a launch video for my sneaker brand',
-    '15-second perfume ad: rain, neon, slow push-in',
-    'UGC-style review of wireless earbuds, vertical',
-    'Animate my product photo into a subtle hero loop',
+    { title: 'A rainstorm in reverse', category: 'Impossible product reveal', idea: 'A 6-second locked-off shot: rain rises from a midnight street and gathers into a floating perfume bottle. The final drop becomes its cap. Wet neon reflections, one continuous transformation, no cuts.' },
+    { title: 'The shadow clocks out', category: 'Surreal micro-story', idea: 'An 8-second static wide shot of a tired office worker waiting at a crossing. Their shadow peels off the pavement and walks away while they stay still. Late-afternoon light, deadpan humour, a beautifully ordinary city.' },
+    { title: 'A match cut through centuries', category: 'Fashion film', idea: 'A short fashion film in three matched shots: the same dancer turns in a candlelit ballroom, a 1970s disco and a stark future club. Match the pose and framing at every cut; let fabric and lighting tell the story.' },
+    { title: 'Clouds, poured fresh', category: 'Tactile fantasy loop', idea: 'A seamless 5-second macro loop of a ceramic cup pouring a soft cloud into another cup. The cloud curls into a tiny storm, then settles back into the pour. Warm kitchen light, handmade textures, satisfyingly slow motion.' },
+    { title: 'The vending machine florist', category: 'Unexpected reveal', idea: 'A 7-second shot of a lonely vending machine at night. Someone presses a button; instead of a drink, flowers grow through every slot until it becomes a glowing garden. Keep the camera still and the street completely quiet.' },
+    { title: 'One room, four seasons', category: 'Living set design', idea: 'A 6-second locked-off shot of a breakfast table as spring blossoms, summer sunlight, autumn leaves and soft snow sweep across it. The coffee keeps steaming throughout. End where it began for a seamless loop.' },
+    { title: 'Gravity takes a coffee break', category: 'Playful product film', idea: 'A 5-second close-up in a sleepy diner: coffee lifts out of a mug as a perfect amber sphere, hangs for a beat, then drops back without spilling. A spoon quietly floats past. Morning light, practical-effects realism.' },
+    { title: 'A pocket-sized escape', category: 'Cinematic reveal', idea: 'An 8-second slow push-in toward a coat pocket. Inside is a tiny windswept coastline with moving waves and a working lighthouse. Begin as tactile fashion photography and end immersed in the miniature landscape.' },
   ],
 };
 
@@ -63,6 +71,7 @@ const Assistant = () => {
   const onChat = useCallback((id: string) => setActiveChatId(id), [setActiveChatId]);
   const { send, stop, stream, isStreaming, error } = usePromptChat(onChat);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [starterPage, setStarterPage] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
   // Close the history drawer once a chat is picked.
   useEffect(() => setHistoryOpen(false), [activeChatId]);
@@ -200,7 +209,7 @@ const Assistant = () => {
               <div className="mx-auto w-full max-w-[1080px] px-6 pt-[12vh] pb-10">
                 <h2 className="font-serif text-[46px] leading-[1.02] tracking-[-0.02em]">What are we making?</h2>
                 <p className="mt-3 text-[15px] text-muted-foreground max-w-[520px] leading-relaxed">
-                  Describe it loosely. I&apos;ll ask what matters, write the prompt for {spec ? spec.name : 'the right model'}, and generate it right here.
+                  Start with a strange thought, an impossible scene, or one of these. We&apos;ll turn it into a prompt for {spec ? spec.name : 'the right model'} and make it real.
                 </p>
                 {memories.length > 0 && (
                   <button type="button" onClick={() => setTab('memory')} className="mt-4 inline-flex items-center gap-2 text-[13px] text-foreground/80 hover:text-foreground">
@@ -208,15 +217,25 @@ const Assistant = () => {
                     I remember {memories.length} thing{memories.length === 1 ? '' : 's'} about your work
                   </button>
                 )}
-                <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {STARTERS[output].map((s) => (
+                <div className="mt-8 flex items-center justify-between gap-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">A few unexpected starting points</p>
+                  <button type="button" onClick={() => setStarterPage((page) => (page + 1) % 2)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <Shuffle className="h-3.5 w-3.5" /> More ideas
+                  </button>
+                </div>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {STARTERS[output].slice(starterPage * 4, starterPage * 4 + 4).map((s) => (
                     <button
-                      key={s}
+                      key={s.title}
                       type="button"
-                      onClick={() => sendMessage(s)}
-                      className="text-left rounded-[12px] border border-border bg-card px-4 py-3.5 text-[14px] text-foreground/85 hover:border-foreground/25 hover:text-foreground transition-smooth dark:bg-transparent"
+                      onClick={() => sendMessage(s.idea)}
+                      className="group flex flex-col items-start rounded-[14px] border border-border bg-card p-5 text-left transition-smooth hover:border-foreground/25 hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-transparent"
                     >
-                      {s}
+                      <span className="text-[10.5px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{s.category}</span>
+                      <span className="mt-2 flex w-full items-center justify-between gap-3 text-[16px] font-medium text-foreground">
+                        {s.title}<ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                      </span>
+                      <span className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{s.idea}</span>
                     </button>
                   ))}
                 </div>

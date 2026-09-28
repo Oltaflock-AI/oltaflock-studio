@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { AlertCircle, Check, EyeOff, FolderPlus, Play, Star } from 'lucide-react';
+import { AlertCircle, Check, EyeOff, Play, Star } from 'lucide-react';
 import type { DbGeneration } from '@/hooks/useGenerations';
 import { useFolders } from '@/hooks/useFolders';
 import { ModelBadge } from '@/components/studio/ModelBadge';
 import { ProgressRing } from '@/components/studio/stage/GenerationTile';
 import { displayTitle } from '@/components/studio/stage/generationMeta';
 import { cn } from '@/lib/utils';
-import { DRAG_TYPE, FolderDialog, FolderDot, readDraggedIds } from './folders';
+import { DRAG_TYPE, FolderDot, readDraggedIds } from './folders';
 import type { Scope } from './libraryState';
 
 /** Thumbnail width in px: the Library's zoom slider range. */
@@ -140,25 +140,17 @@ export function GridView({
   isStarred: (id: string) => boolean; onOpen: (id: string) => void; onScope: (s: Scope) => void; onMove: (ids: string[], folderId: string, name: string) => void;
 }) {
   const { folders } = useFolders();
-  const [newOpen, setNewOpen] = useState(false);
   const compact = tileSize < 140;
 
   return (
     <div className="space-y-7 pb-28">
-      {scope.kind === 'all' && (
+      {scope.kind === 'all' && folders.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Folders</h2>
           <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
             {folders.map((f) => (
               <FolderCard key={f.id} {...f} onOpen={() => onScope({ kind: 'folder', id: f.id })} onDropIds={(ids) => onMove(ids, f.id, f.name)} />
             ))}
-            <button
-              type="button"
-              onClick={() => setNewOpen(true)}
-              className="flex h-[140px] w-[200px] shrink-0 flex-col items-center justify-center gap-2 rounded-[16px] border border-dashed border-border text-[13px] text-muted-foreground transition-smooth hover:border-foreground/30 hover:text-foreground"
-            >
-              <FolderPlus className="h-5 w-5" /> New folder
-            </button>
           </div>
         </section>
       )}
@@ -180,7 +172,6 @@ export function GridView({
         </div>
       )}
 
-      <FolderDialog open={newOpen} onOpenChange={setNewOpen} onCreated={(id) => onScope({ kind: 'folder', id })} />
     </div>
   );
 }

@@ -203,7 +203,7 @@ export default function Library() {
           </div>
         </div>
 
-        <SelectionBar selected={selected} total={items.length} onSelectAll={selection.selectAll} onClear={selection.clear} />
+        <SelectionBar allowCreateFolder={view === 'organize'} selected={selected} total={items.length} onSelectAll={selection.selectAll} onClear={selection.clear} />
         <LibraryViewer items={items} openId={openId} onOpenId={setOpenId} />
       </AnimatedPage>
     </AppShell>

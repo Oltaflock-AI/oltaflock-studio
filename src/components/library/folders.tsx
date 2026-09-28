@@ -106,13 +106,14 @@ export function FolderDialog({
 
 /** Dropdown that files `ids` into a folder, back to unfiled, or into a new folder. */
 export function MoveToFolderMenu({
-  ids, children, align = 'start', side = 'bottom', currentFolderId,
+  ids, children, align = 'start', side = 'bottom', currentFolderId, allowCreate = false,
 }: {
   ids: string[];
   children: ReactNode;
   align?: 'start' | 'end' | 'center';
   side?: 'top' | 'bottom';
   currentFolderId?: string | null;
+  allowCreate?: boolean;
 }) {
   const { folders } = useFolders();
   const { moveToFolder } = useGenerations();
@@ -142,9 +143,9 @@ export function MoveToFolderMenu({
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setNewOpen(true)} className="gap-2 text-[13px]">
+          {allowCreate && <DropdownMenuItem onSelect={() => setNewOpen(true)} className="gap-2 text-[13px]">
             <FolderPlus className="h-4 w-4" /> New folder…
-          </DropdownMenuItem>
+          </DropdownMenuItem>}
           {currentFolderId !== undefined && currentFolderId !== null && (
             <DropdownMenuItem onSelect={() => move(null, '')} className="gap-2 text-[13px] text-muted-foreground">
               <FolderMinus className="h-4 w-4" /> Remove from folder
@@ -152,7 +153,7 @@ export function MoveToFolderMenu({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      <FolderDialog open={newOpen} onOpenChange={setNewOpen} moveIds={ids} />
+      {allowCreate && <FolderDialog open={newOpen} onOpenChange={setNewOpen} moveIds={ids} />}
     </>
   );
 }

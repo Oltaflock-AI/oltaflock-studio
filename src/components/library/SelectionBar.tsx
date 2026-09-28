@@ -13,7 +13,7 @@ import { MoveToFolderMenu } from './folders';
 const BTN = 'inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 text-[13px] font-medium text-background/90 transition-smooth hover:bg-background/15 hover:text-background disabled:opacity-50';
 
 /** Floating actions for the current multi-selection. */
-export function SelectionBar({ selected, total, onSelectAll, onClear }: { selected: DbGeneration[]; total: number; onSelectAll: () => void; onClear: () => void }) {
+export function SelectionBar({ selected, total, onSelectAll, onClear, allowCreateFolder = false }: { selected: DbGeneration[]; allowCreateFolder?: boolean; total: number; onSelectAll: () => void; onClear: () => void }) {
   const { deleteGenerations } = useGenerations();
   const { autoNameMany } = useGenerationTitles();
   const [confirm, setConfirm] = useState(false);
@@ -52,7 +52,7 @@ export function SelectionBar({ selected, total, onSelectAll, onClear }: { select
               <button type="button" onClick={onSelectAll} className="mr-1 text-[12.5px] text-background/60 underline-offset-2 hover:text-background hover:underline">Select all {total}</button>
             )}
             <span className="mx-1 h-5 w-px bg-background/20" />
-            <MoveToFolderMenu ids={ids} side="top" align="center">
+            <MoveToFolderMenu allowCreate={allowCreateFolder} ids={ids} side="top" align="center">
               <button type="button" className={BTN}><FolderInput className="h-4 w-4" /> Move to</button>
             </MoveToFolderMenu>
             {untitled > 0 && (
