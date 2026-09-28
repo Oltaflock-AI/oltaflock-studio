@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { ArrowUp, Paperclip, Square, X, Loader2 } from 'lucide-react';
+import { ArrowUp, Paperclip, Square, X, Loader2, CornerDownRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { uploadFile } from '@/lib/storage';
 import { useAuth } from '@/hooks/useAuth';
@@ -61,14 +61,15 @@ export function Composer({ onSend, onStop, isStreaming, quickActions, placeholde
   return (
     <div className="mx-auto w-full max-w-[760px] px-6 pb-5">
       {quickActions.length > 0 && !isStreaming && (
-        <div className="mb-2.5 flex flex-wrap gap-1.5">
+        <div className="mb-2.5 flex flex-wrap gap-1.5 animate-in fade-in-0 slide-in-from-bottom-1 duration-300">
           {quickActions.map((q) => (
             <button
               key={q}
               type="button"
               onClick={() => submit(q)}
-              className="h-8 px-3 rounded-full border border-border bg-card text-[12.5px] text-foreground/80 hover:border-foreground/30 hover:text-foreground transition-smooth dark:bg-transparent"
+              className="group h-8 pl-2.5 pr-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-card text-[12.5px] text-foreground/80 hover:border-primary/50 hover:text-foreground transition-smooth dark:bg-transparent"
             >
+              <CornerDownRight className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-smooth" />
               {q}
             </button>
           ))}

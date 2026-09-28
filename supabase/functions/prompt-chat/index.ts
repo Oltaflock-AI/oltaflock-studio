@@ -6,7 +6,10 @@
 // → text/event-stream of JSON events:
 //   { type: 'chat', chatId, title }       chat created / resolved
 //   { type: 'text', delta }               streamed reply text
+//   { type: 'status', status }            'thinking' | 'asking' | 'writing' | 'remembering'
 //   { type: 'card', card }                validated prompt card
+//   { type: 'questions', questions }      interactive brief the user answers in the UI
+//   { type: 'suggestions', suggestions }  next-step replies shown as chips
 //   { type: 'memory', event }             memory added / updated / forgotten
 //   { type: 'done', messageId }           assistant message persisted
 //   { type: 'error', error }
@@ -40,6 +43,16 @@ export interface PromptCard {
   settings: Record<string, string | number | boolean>;
   notes: string[];
   model_id: string | null;
+}
+
+export interface BriefQuestion {
+  id: string;
+  label: string;
+  question: string;
+  hint?: string;
+  options: { label: string; description?: string }[];
+  multi: boolean;
+  defaults: string[];
 }
 
 // ─── Prompt construction ─────────────────────────────────────────────────────
@@ -93,13 +106,36 @@ function systemPrompt(opts: {
     `You are the Oltaflock Prompt Assistant: a sharp creative director who writes prompts for AI image and video models, chatting with the user inside Oltaflock Studio. Generations run on their ${backend === 'kie' ? 'Kie.ai' : 'Higgsfield'} account.
 
 # How you work
-- Be a collaborator, not a form. Keep chat replies short (usually under 70 words), warm and specific.
-- Draft early. Ask at most one or two clarifying questions, and only when the answer would materially change the prompt (e.g. format, product, dialogue). Otherwise write a draft and offer 2–3 directions to push it.
-- Every time you write or revise a prompt, call update_prompt_card with the COMPLETE prompt. Never paste the prompt into chat text — the card shows it. Refer to it ("I tightened the camera move…").
-- Suggest settings in the card only when they matter for the idea (aspect ratio, duration, resolution, audio). Use exact keys/values listed for the model.
+You are a collaborator who runs a real creative process: understand the brief, then write, then refine.
+
+## 1. Discovery — ask before you draft
+When the user starts a new idea and the brief is thin (e.g. "make a creative for a chips brand", "a video for my cafe"), do NOT draft yet. Write one short, friendly line, then call ask_questions with the 4–7 questions a senior creative director would ask for THIS brief. Tailor them to the category and medium — never a generic form. Pick from what actually changes the result:
+- the brand and product specifics (name, flavour/variant, pack colours, logo or pack shot to include)
+- the goal and where it runs (Instagram feed, story/reel, billboard, e-commerce, pitch deck) → this drives the format
+- audience and tone (Gen Z and loud, premium and moody, family and warm…)
+- the visual concept or hook (hero pack shot, lifestyle moment, surreal/ingredient explosion, flat-lay…)
+- setting, props, people/talent, styling, lighting
+- for video: length, camera movement, pacing, sound/dialogue
+- copy or text in the image (headline, tagline) and whether to leave space for it instead
+- must-haves and must-avoids, references
+Every question needs 3–5 options that are concrete and vivid enough to be ideas in themselves ("Chips exploding out of the bag mid-air, ingredients flying"), not vague labels ("Dynamic"). Use multi:true where several can apply (e.g. props). When memory or the conversation already implies an answer, pre-select it in defaults; skip a question entirely when memory fully answers it and say so in your intro line ("I kept your usual 9:16 and brand palette").
+Skip discovery when the user gives a detailed brief, attaches references that answer it, or says "just draft it" / "surprise me" — then draft straight away and make sensible choices.
+
+## 2. Draft
+Once you have answers, write the prompt. Every time you write or revise a prompt, call update_prompt_card with the COMPLETE prompt. Never paste the prompt into chat text — the card shows it. In chat, say in 1–3 sentences what you went for and why ("Went with the mid-air explosion on a hot-red backdrop so the pack pops in the feed").
+- Suggest settings in the card only when they matter (aspect ratio, duration, resolution, audio). Use exact keys/values listed for the model; match the placement the user picked (story → 9:16, feed → 4:5 or 1:1, banner → 16:9).
+- Only ask follow-up questions (ask_questions, 1–3 questions) if something important is still unknown after the draft.
 - When the user asks to switch models, rewrite the same idea in the new model's syntax and set model_id.
 - If the user attached images, look at them: describe or build on them as the user asks. For edit / image-to-video models the image is the input — describe only the change or motion.
-- Use what you remember about the user without announcing it every time; mention it briefly when it shaped a choice ("kept it vertical, like your usual reels").`,
+
+## 3. Answer questions properly
+When the user asks something (which model is best for X, how to get realistic hands, what a setting does, how to light a product, why a result looked off), give a genuinely useful, specific answer: lead with the direct answer, then short bullets or steps with concrete examples. Length should fit the question — a detailed question deserves a detailed answer (up to ~250 words). Use **bold** for key terms. Don't pad.
+
+## 4. Keep it moving
+End each turn in which you drafted/revised a card or answered a question by calling suggest_replies with 3–4 next steps phrased as the user would type them, specific to this idea ("Try a 9:16 story cut", "Add salsa splashing in", "Make the pack bigger"). Do not call it on turns where you ask_questions.
+
+## Style
+Warm, confident, specific; no filler, no "Great question!". Keep ordinary chat replies short. Use what you remember about the user without announcing it every time; mention it briefly when it shaped a choice.`,
     CORE_RULES.replace(/^You are Prompt Brain[^\n]*\n/, ''),
     spec ? targetBlock(spec) : chooserBlock(backend, output),
     memoryBlock(memories, true),
@@ -110,6 +146,7 @@ You have a long-term memory of this user (above, each with an [id]). Keep it acc
 - ADD durable facts and preferences: their brand/clients, recurring subjects, visual taste, formats they ship (e.g. "posts 9:16 reels"), models they prefer, words or looks they dislike, how they like you to work.
 - UPDATE an existing memory (by id) when they refine or contradict it. FORGET when they say it's wrong or ask you to.
 - Do NOT store one-off details of the current shot, anything sensitive (health, finances, passwords), or guesses. One short third-person sentence each.
+- Brief answers often reveal durable facts (brand name, pack colours, audience, where they post) — remember those, not the one-off shot details.
 - Don't narrate memory saves in chat; the app shows them.`
       : '\n# Memory\nLearning is paused by the user: do not call remember. You may still use what you already know.',
   ].filter(Boolean).join('\n');
@@ -133,6 +170,80 @@ const CARD_TOOL: Anthropic.Tool = {
     required: ['title', 'prompt'],
   },
 };
+
+const ASK_TOOL: Anthropic.Tool = {
+  name: 'ask_questions',
+  description: 'Show the user an interactive brief: a short set of tailored questions with tappable options. Ends your turn; the answers arrive as the next user message.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      questions: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 7,
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'short slug, e.g. "placement"' },
+            label: { type: 'string', description: '1–3 word label used when summarising the answer, e.g. "Placement"' },
+            question: { type: 'string', description: 'The question, conversational, under 14 words' },
+            hint: { type: 'string', description: 'Optional one-line reason it matters' },
+            options: {
+              type: 'array',
+              minItems: 2,
+              maxItems: 6,
+              items: {
+                type: 'object',
+                properties: {
+                  label: { type: 'string', description: 'Concrete option, under 9 words' },
+                  description: { type: 'string', description: 'Optional extra detail, under 14 words' },
+                },
+                required: ['label'],
+              },
+            },
+            multi: { type: 'boolean', description: 'true when several options can apply' },
+            defaults: { type: 'array', items: { type: 'string' }, description: 'Option labels to pre-select, from memory or context' },
+          },
+          required: ['id', 'label', 'question', 'options'],
+        },
+      },
+    },
+    required: ['questions'],
+  },
+};
+
+const SUGGEST_TOOL: Anthropic.Tool = {
+  name: 'suggest_replies',
+  description: 'Offer 3–4 one-tap next steps, phrased as the user would type them. Call last in the turn.',
+  input_schema: {
+    type: 'object',
+    properties: { replies: { type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 4, description: 'Each under 7 words' } },
+    required: ['replies'],
+  },
+};
+
+function toQuestions(input: Record<string, unknown>): BriefQuestion[] {
+  const raw = Array.isArray(input.questions) ? input.questions : [];
+  const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  return raw.slice(0, 7).flatMap((q: Record<string, unknown>, i: number) => {
+    const options = (Array.isArray(q?.options) ? q.options : [])
+      .map((o: Record<string, unknown>) => ({ label: str(o?.label ?? o, 80), description: str(o?.description, 120) || undefined }))
+      .filter((o: { label: string }) => o.label)
+      .slice(0, 6);
+    const question = str(q?.question, 160);
+    if (!question || options.length < 2) return [];
+    const labels = new Set(options.map((o: { label: string }) => o.label));
+    return [{
+      id: str(q.id, 40) || `q${i + 1}`,
+      label: str(q.label, 30) || `Question ${i + 1}`,
+      question,
+      hint: str(q.hint, 140) || undefined,
+      options,
+      multi: q.multi === true,
+      defaults: (Array.isArray(q.defaults) ? q.defaults : []).filter((d: unknown): d is string => typeof d === 'string' && labels.has(d)),
+    }];
+  });
+}
 
 const REMEMBER_TOOL: Anthropic.Tool = {
   name: 'remember',
@@ -194,6 +305,7 @@ interface Row {
   content: string;
   card: PromptCard | null;
   attachments: Attachment[] | null;
+  questions: BriefQuestion[] | null;
 }
 
 function toMessages(rows: Row[]): Anthropic.MessageParam[] {
@@ -209,6 +321,9 @@ function toMessages(rows: Row[]): Anthropic.MessageParam[] {
     let text = r.content.trim();
     if (r.role === 'assistant' && r.card) {
       text += `\n\n[Prompt card "${r.card.title}" for ${r.card.model_id ?? 'no model'}: ${r.card.prompt}${Object.keys(r.card.settings ?? {}).length ? ` | settings ${JSON.stringify(r.card.settings)}` : ''}]`;
+    }
+    if (r.role === 'assistant' && r.questions?.length) {
+      text += `\n\n[Asked the user: ${r.questions.map((q) => `${q.label}: ${q.question} (${q.options.map((o) => o.label).join(' / ')})`).join('; ')}]`;
     }
     if (text) blocks.push({ type: 'text', text });
     if (!blocks.length) continue;
@@ -338,14 +453,15 @@ Deno.serve(async (req) => {
   if (userMsgError) return json({ error: userMsgError.message }, 500);
 
   const [{ data: history }, memories, examples] = await Promise.all([
-    supabase.from('assistant_messages').select('role, content, card, attachments')
+    supabase.from('assistant_messages').select('role, content, card, attachments, questions')
       .eq('chat_id', chatId).order('created_at', { ascending: false }).limit(HISTORY_LIMIT),
     fetchMemories(supabase, userId),
     spec ? fetchRatedExamples(supabase, userId, spec) : Promise.resolve(''),
   ]);
   const messages = toMessages(((history ?? []) as Row[]).reverse());
   const system = systemPrompt({ spec, backend, output, memories, examples, learn });
-  const tools = learn ? [CARD_TOOL, REMEMBER_TOOL] : [CARD_TOOL];
+  const tools = learn ? [CARD_TOOL, ASK_TOOL, SUGGEST_TOOL, REMEMBER_TOOL] : [CARD_TOOL, ASK_TOOL, SUGGEST_TOOL];
+  const TOOL_STATUS: Record<string, string> = { update_prompt_card: 'writing', ask_questions: 'asking', remember: 'remembering' };
   const anthropic = new Anthropic({ apiKey });
 
   const encoder = new TextEncoder();
@@ -353,9 +469,12 @@ Deno.serve(async (req) => {
     async start(controller) {
       const send = (e: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`));
       send({ type: 'chat', chatId, title });
+      send({ type: 'status', status: 'thinking' });
 
       let text = '';
       let card: PromptCard | null = null;
+      let questions: BriefQuestion[] | null = null;
+      let suggestions: string[] | null = null;
       const memoryEvents: MemoryEvent[] = [];
       let model = CHAT_MODEL;
 
@@ -369,6 +488,12 @@ Deno.serve(async (req) => {
               messages,
             });
             s.on('text', (delta) => { text += delta; send({ type: 'text', delta }); });
+            s.on('streamEvent', (ev) => {
+              if (ev.type === 'content_block_start' && ev.content_block.type === 'tool_use') {
+                const status = TOOL_STATUS[ev.content_block.name];
+                if (status) send({ type: 'status', status });
+              }
+            });
             final = await s.finalMessage();
           } catch (e) {
             const status = (e as { status?: number }).status;
@@ -389,6 +514,15 @@ Deno.serve(async (req) => {
               const c = toCard(input, spec, backend);
               if (c) { card = c; send({ type: 'card', card: c }); }
               toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: c ? 'Card shown to the user.' : 'Card rejected: prompt was empty.' });
+            } else if (block.name === 'ask_questions') {
+              const qs = toQuestions(input);
+              if (qs.length) { questions = qs; send({ type: 'questions', questions: qs }); }
+              toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: qs.length ? 'Shown to the user. Stop and wait for their answers.' : 'Rejected: each question needs at least 2 options.' });
+            } else if (block.name === 'suggest_replies') {
+              const replies = (Array.isArray(input.replies) ? input.replies : [])
+                .filter((r): r is string => typeof r === 'string' && !!r.trim()).map((r) => r.trim().slice(0, 60)).slice(0, 4);
+              if (replies.length) { suggestions = replies; send({ type: 'suggestions', suggestions: replies }); }
+              toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: 'Shown.' });
             } else if (block.name === 'remember' && learn) {
               const ev = await applyMemoryAction(supabase, userId, memories, input as unknown as MemoryAction, 'chat', chatId);
               if (ev) {
@@ -402,6 +536,8 @@ Deno.serve(async (req) => {
             }
           }
           if (final.stop_reason !== 'tool_use' || !toolResults.length) break;
+          // Questions and suggestions close the turn; no need for another model round.
+          if (questions || suggestions) break;
           messages.push({ role: 'assistant', content: final.content as Anthropic.ContentBlockParam[] });
           messages.push({ role: 'user', content: toolResults });
           // Separate text from before and after the tool call.
@@ -409,7 +545,7 @@ Deno.serve(async (req) => {
         }
 
         const { data: saved } = await supabase.from('assistant_messages').insert({
-          chat_id: chatId, user_id: userId, role: 'assistant', content: text.trim(), card,
+          chat_id: chatId, user_id: userId, role: 'assistant', content: text.trim(), card, questions, suggestions,
           memory_events: memoryEvents.length ? memoryEvents : null,
         }).select('id').single();
 

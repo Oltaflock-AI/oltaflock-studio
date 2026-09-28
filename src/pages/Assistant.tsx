@@ -18,15 +18,15 @@ import { cn } from '@/lib/utils';
 
 const STARTERS: Record<'image' | 'video', string[]> = {
   image: [
+    'Make a creative for a chips brand',
     'Hero product shot for a skincare serum, soft daylight',
     'Moody editorial portrait for an Instagram carousel',
-    'Poster for a coffee pop-up with bold readable text',
     'Flat-lay of a summer outfit on linen',
   ],
   video: [
+    'Make a launch video for my sneaker brand',
     '15-second perfume ad: rain, neon, slow push-in',
     'UGC-style review of wireless earbuds, vertical',
-    'Cinematic drone reveal of a mountain cabin at dawn',
     'Animate my product photo into a subtle hero loop',
   ],
 };
@@ -128,8 +128,18 @@ const Assistant = () => {
   const pickerSpecs = useMemo(() => catalogFor(backend).filter((s) => s.output === output), [backend, output]);
   const isEmpty = !activeChatId && !isStreaming && !stream.pendingUser;
   const pending = isStreaming || stream.pendingUser
-    ? { user: stream.pendingUser, text: stream.text, card: stream.card, memoryEvents: stream.memoryEvents }
+    ? { user: stream.pendingUser, text: stream.text, card: stream.card, memoryEvents: stream.memoryEvents, questions: stream.questions, status: stream.status }
     : null;
+
+  // Next-step chips: the assistant's own suggestions for the latest turn, else generic
+  // refinements once there's a draft. Hidden while a brief is waiting for answers.
+  const lastMessage = messages[messages.length - 1];
+  const briefOpen = lastMessage?.role === 'assistant' && !!lastMessage.questions?.length;
+  const quickActions = briefOpen
+    ? []
+    : lastMessage?.role === 'assistant' && lastMessage.suggestions?.length
+      ? lastMessage.suggestions
+      : versions.length > 0 ? QUICK[output] : [];
 
   return (
     <AppShell scrollableContent={false}>
@@ -215,6 +225,7 @@ const Assistant = () => {
                 cardVersionOf={(id) => (id === null ? versions.length : versions.findIndex((v) => v.messageId === id) + 1)}
                 activeVersion={versionIndex}
                 onSelectVersion={(i) => { setVersionIndex(i); setTab('prompt'); }}
+                onAnswer={(answer) => sendMessage(answer)}
               />
             )}
           </div>
@@ -223,8 +234,12 @@ const Assistant = () => {
             onSend={sendMessage}
             onStop={stop}
             isStreaming={isStreaming}
-            quickActions={versions.length > 0 ? QUICK[output] : []}
-            placeholder={isEmpty ? `Describe ${output === 'video' ? 'the shot' : 'the image'} you want…` : 'Reply, or ask for a change…'}
+            quickActions={quickActions}
+            placeholder={
+              isEmpty
+                ? `Describe ${output === 'video' ? 'the video' : 'the creative'} you want, or ask me anything…`
+                : briefOpen ? 'Answer above, or just type what you have in mind…' : 'Reply, ask a question, or request a change…'
+            }
           />
         </main>
 

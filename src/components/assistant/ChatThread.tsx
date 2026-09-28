@@ -1,30 +1,56 @@
 import { Fragment, useEffect, useRef, type ReactNode } from 'react';
-import { Brain, FileText, Undo2 } from 'lucide-react';
+import { ArrowUpRight, Brain, FileText, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useMemories, type Attachment, type AssistantMessage, type MemoryEvent, type PromptCard } from '@/hooks/useAssistant';
+import { useMemories, type Attachment, type AssistantMessage, type AssistantStatus, type BriefQuestion, type MemoryEvent, type PromptCard } from '@/hooks/useAssistant';
+import { BriefForm } from '@/components/assistant/BriefForm';
 import { cn } from '@/lib/utils';
 import logoMark from '@/assets/logo-mark.png';
 
-/** Light formatting for assistant replies: paragraphs, bullet lines and **bold**. */
+/** Light formatting for chat text: paragraphs, headings, bullet and numbered lists, **bold** and *italic*. */
 function RichText({ text }: { text: string }) {
   const inline = (line: string): ReactNode[] =>
-    line.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-      part.startsWith('**') && part.endsWith('**') ? <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong> : <Fragment key={i}>{part}</Fragment>,
-    );
+    line.split(/(\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/g).map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>;
+      if (part.length > 2 && part.startsWith('*') && part.endsWith('*')) return <em key={i}>{part.slice(1, -1)}</em>;
+      return <Fragment key={i}>{part}</Fragment>;
+    });
+  const bullet = /^\s*[-•*]\s+/;
+  const numbered = /^\s*\d+[.)]\s+/;
+  // Group consecutive lines by kind so "Intro:\n- a\n- b" renders as a line plus a list.
+  type Kind = 'p' | 'ul' | 'ol' | 'h';
+  const kindOf = (l: string): Kind => (bullet.test(l) ? 'ul' : numbered.test(l) ? 'ol' : /^#{1,4}\s+/.test(l) ? 'h' : 'p');
+  const blocks: { kind: Kind; lines: string[] }[] = [];
+  for (const para of text.split(/\n{2,}/)) {
+    let prev: { kind: Kind; lines: string[] } | null = null;
+    for (const line of para.split('\n').filter((l) => l.trim())) {
+      const kind = kindOf(line);
+      if (prev && prev.kind === kind && kind !== 'h') prev.lines.push(line);
+      else blocks.push((prev = { kind, lines: [line] }));
+    }
+  }
   return (
-    <div className="space-y-2">
-      {text.split(/\n{2,}/).map((para, i) => {
-        const lines = para.split('\n');
-        if (lines.every((l) => /^\s*[-•*]\s+/.test(l))) {
+    <div className="space-y-2.5">
+      {blocks.map((b, i) => {
+        if (b.kind === 'h') return <p key={i} className="pt-1 text-[14px] font-semibold text-foreground">{inline(b.lines[0].replace(/^#{1,4}\s+/, ''))}</p>;
+        if (b.kind === 'ul') {
           return (
-            <ul key={i} className="space-y-1 pl-1">
-              {lines.map((l, j) => (
-                <li key={j} className="flex gap-2"><span className="text-muted-foreground">•</span><span>{inline(l.replace(/^\s*[-•*]\s+/, ''))}</span></li>
+            <ul key={i} className="space-y-1.5">
+              {b.lines.map((l, j) => (
+                <li key={j} className="flex gap-2.5"><span className="mt-[0.7em] h-1 w-1 shrink-0 rounded-full bg-muted-foreground/70" /><span>{inline(l.replace(bullet, ''))}</span></li>
               ))}
             </ul>
           );
         }
-        return <p key={i}>{lines.map((l, j) => <Fragment key={j}>{j > 0 && <br />}{inline(l)}</Fragment>)}</p>;
+        if (b.kind === 'ol') {
+          return (
+            <ol key={i} className="space-y-1.5">
+              {b.lines.map((l, j) => (
+                <li key={j} className="flex gap-2.5"><span className="shrink-0 font-mono text-[12.5px] leading-[1.65rem] text-muted-foreground">{j + 1}.</span><span>{inline(l.replace(numbered, ''))}</span></li>
+              ))}
+            </ol>
+          );
+        }
+        return <p key={i}>{b.lines.map((l, j) => <Fragment key={j}>{j > 0 && <br />}{inline(l)}</Fragment>)}</p>;
       })}
     </div>
   );
@@ -57,22 +83,56 @@ function MemoryChip({ event }: { event: MemoryEvent }) {
 }
 
 function CardChip({ card, version, active, onClick }: { card: PromptCard; version: number; active: boolean; onClick: () => void }) {
+  const settings = Object.entries(card.settings ?? {}).slice(0, 3);
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'w-full max-w-[420px] text-left rounded-[11px] border px-3 py-2.5 transition-smooth',
-        active ? 'border-primary bg-accent/50' : 'border-border bg-card hover:border-foreground/25 dark:bg-transparent',
+        'group w-full max-w-[460px] text-left rounded-[14px] border p-3.5 transition-smooth animate-in fade-in-0 slide-in-from-bottom-1 duration-300',
+        active
+          ? 'border-primary/70 bg-accent/40 shadow-[0_0_0_3px_hsl(var(--primary)/0.10)]'
+          : 'border-border bg-card hover:border-foreground/25 dark:bg-transparent',
       )}
     >
-      <span className="flex items-center gap-2 text-[12px] text-muted-foreground">
-        <FileText className="h-3.5 w-3.5" />
-        <span className="font-mono">v{version}</span>
-        <span className="font-medium text-foreground truncate">{card.title}</span>
+      <span className="flex items-center gap-2.5">
+        <span className="h-7 w-7 shrink-0 rounded-[8px] bg-primary/10 text-primary flex items-center justify-center">
+          <FileText className="h-3.5 w-3.5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13.5px] font-semibold text-foreground">{card.title}</span>
+          <span className="block text-[11.5px] text-muted-foreground font-mono">Prompt v{version}</span>
+        </span>
+        <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-smooth" />
       </span>
-      <span className="mt-1 block text-[12.5px] text-muted-foreground line-clamp-2">{card.prompt}</span>
+      <span className="mt-2.5 block text-[13px] leading-relaxed text-muted-foreground line-clamp-2">{card.prompt}</span>
+      {settings.length > 0 && (
+        <span className="mt-2.5 flex flex-wrap gap-1">
+          {settings.map(([k, v]) => (
+            <span key={k} className="h-5 px-1.5 inline-flex items-center rounded-[6px] bg-secondary text-[11px] font-mono text-foreground/70">{String(v)}</span>
+          ))}
+        </span>
+      )}
     </button>
+  );
+}
+
+const STATUS_LABEL: Record<AssistantStatus, string> = {
+  thinking: 'Thinking',
+  asking: 'Putting together a few questions',
+  writing: 'Writing the prompt',
+  remembering: 'Updating memory',
+};
+
+function StatusLine({ status }: { status: AssistantStatus }) {
+  return (
+    <span className="inline-flex items-center gap-2 text-[13.5px] text-muted-foreground animate-in fade-in-0 duration-300">
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full rounded-full bg-primary/60 animate-ping" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+      </span>
+      {STATUS_LABEL[status]}…
+    </span>
   );
 }
 
@@ -90,8 +150,8 @@ function Attachments({ items }: { items: Attachment[] }) {
 
 function AssistantAvatar() {
   return (
-    <span className="mt-0.5 h-7 w-7 shrink-0 rounded-[9px] bg-foreground flex items-center justify-center">
-      <img src={logoMark} alt="" className="h-4 w-4 object-contain brightness-0 invert dark:invert-0" />
+    <span className="mt-0.5 h-7 w-7 shrink-0 rounded-full bg-foreground flex items-center justify-center">
+      <img src={logoMark} alt="" className="h-3.5 w-3.5 object-contain brightness-0 invert dark:invert-0" />
     </span>
   );
 }
@@ -99,31 +159,63 @@ function AssistantAvatar() {
 interface ChatThreadProps {
   messages: AssistantMessage[];
   /** Streaming turn, rendered after the saved messages. */
-  pending: { user: { content: string; attachments: Attachment[] } | null; text: string; card: PromptCard | null; memoryEvents: MemoryEvent[] } | null;
+  pending: {
+    user: { content: string; attachments: Attachment[] } | null;
+    text: string;
+    card: PromptCard | null;
+    memoryEvents: MemoryEvent[];
+    questions: BriefQuestion[] | null;
+    status: AssistantStatus | null;
+  } | null;
   isStreaming: boolean;
   error: string | null;
   cardVersionOf: (messageId: string | null) => number;
   activeVersion: number;
   onSelectVersion: (version: number) => void;
+  onAnswer: (answer: string) => void;
 }
 
-export function ChatThread({ messages, pending, isStreaming, error, cardVersionOf, activeVersion, onSelectVersion }: ChatThreadProps) {
+export function ChatThread({ messages, pending, isStreaming, error, cardVersionOf, activeVersion, onSelectVersion, onAnswer }: ChatThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages.length, pending?.text, pending?.card, isStreaming]);
+  }, [messages.length, pending?.text, pending?.card, pending?.questions, pending?.status, isStreaming]);
 
-  const renderAssistant = (key: string, text: string, card: PromptCard | null, memoryEvents: MemoryEvent[], messageId: string | null, streaming = false) => {
+  // Only the latest assistant turn's brief is answerable, and only until the user replies.
+  const lastMessage = messages[messages.length - 1];
+  const openBriefId = !isStreaming && lastMessage?.role === 'assistant' && lastMessage.questions?.length ? lastMessage.id : null;
+
+  // A new brief is taller than the viewport: show it from the top, not the bottom.
+  const briefRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (openBriefId) requestAnimationFrame(() => briefRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [openBriefId]);
+
+  interface Turn {
+    text: string;
+    card: PromptCard | null;
+    memoryEvents: MemoryEvent[];
+    questions: BriefQuestion[] | null;
+    status?: AssistantStatus | null;
+  }
+
+  const renderAssistant = (key: string, turn: Turn, messageId: string | null, streaming = false) => {
+    const { text, card, memoryEvents, questions, status } = turn;
     const version = card ? cardVersionOf(messageId) : 0;
+    const showStatus = streaming && status && !questions;
     return (
-      <div key={key} className="flex gap-3">
+      <div key={key} ref={messageId && messageId === openBriefId ? briefRef : undefined} className="flex gap-3.5 scroll-mt-6">
         <AssistantAvatar />
-        <div className="min-w-0 flex-1 space-y-2.5 text-[15px] leading-relaxed text-foreground">
-          {text ? <RichText text={text} /> : streaming && !card ? <span className="inline-flex gap-1 pt-2">{[0, 1, 2].map((i) => <span key={i} className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />)}</span> : null}
+        <div className="min-w-0 flex-1 space-y-3 text-[15px] leading-[1.65] text-foreground">
+          {text && <RichText text={text} />}
           {card && <CardChip card={card} version={version} active={version - 1 === activeVersion} onClick={() => onSelectVersion(version - 1)} />}
+          {questions && questions.length > 0 && (
+            <BriefForm questions={questions} locked={streaming || messageId !== openBriefId} onSubmit={onAnswer} />
+          )}
           {memoryEvents.length > 0 && (
             <div className="flex flex-col items-start gap-1.5">{memoryEvents.map((e) => <MemoryChip key={e.id + e.action} event={e} />)}</div>
           )}
+          {showStatus && <div className={cn(!text && !card && 'pt-1')}><StatusLine status={status} /></div>}
         </div>
       </div>
     );
@@ -133,22 +225,22 @@ export function ChatThread({ messages, pending, isStreaming, error, cardVersionO
     <div key={key} className="flex flex-col items-end gap-1.5">
       {attachments && attachments.length > 0 && <Attachments items={attachments} />}
       {content && (
-        <div className="max-w-[78%] rounded-[16px] rounded-br-[6px] bg-secondary px-4 py-2.5 text-[15px] leading-relaxed text-foreground whitespace-pre-wrap">
-          {content}
+        <div className="max-w-[80%] rounded-[18px] rounded-br-[6px] bg-secondary px-4 py-2.5 text-[15px] leading-relaxed text-foreground">
+          <RichText text={content} />
         </div>
       )}
     </div>
   );
 
   return (
-    <div className="mx-auto w-full max-w-[760px] px-6 py-8 space-y-7">
+    <div className="mx-auto w-full max-w-[760px] px-6 py-8 space-y-8">
       {messages.map((m) =>
         m.role === 'user'
           ? renderUser(m.id, m.content, m.attachments)
-          : renderAssistant(m.id, m.content, m.card, m.memory_events ?? [], m.id),
+          : renderAssistant(m.id, { text: m.content, card: m.card, memoryEvents: m.memory_events ?? [], questions: m.questions }, m.id),
       )}
       {pending?.user && renderUser('pending-user', pending.user.content, pending.user.attachments)}
-      {isStreaming && pending && renderAssistant('pending', pending.text, pending.card, pending.memoryEvents, null, true)}
+      {isStreaming && pending && renderAssistant('pending', { ...pending, status: pending.status ?? 'thinking' }, null, true)}
       {error && (
         <div className="rounded-[11px] border border-destructive/30 bg-destructive/5 px-4 py-3 text-[13.5px] text-destructive">{error}</div>
       )}
