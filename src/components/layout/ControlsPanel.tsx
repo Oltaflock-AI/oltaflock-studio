@@ -17,7 +17,7 @@ import { STUDIO_PANEL, STUDIO_EYEBROW } from './studioSurface';
 
 function Section({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
   return (
-    <section className={cn('space-y-3', className)}>
+    <section className={cn('space-y-3 py-5', className)}>
       <h2 className={STUDIO_EYEBROW}>{title}</h2>
       {children}
     </section>
@@ -37,12 +37,14 @@ export function ControlsPanel() {
       animate="visible"
       className={cn(STUDIO_PANEL, 'w-[380px] 2xl:w-[420px] flex flex-col overflow-hidden shrink-0')}
     >
-      <motion.div variants={staggerItem} className="flex-1 overflow-y-auto min-h-0 px-5 py-5 space-y-6">
-        <Section title="Provider">
+      <motion.div
+        variants={staggerItem}
+        className="flex-1 overflow-y-auto min-h-0 px-5 divide-y divide-border/70 [scrollbar-gutter:stable]"
+      >
+        <div className="space-y-3 pt-5 pb-5">
           <BackendToggle />
-        </Section>
-
-        <ModeSelector />
+          <ModeSelector />
+        </div>
 
         <Section title="Prompt">
           <PromptInput />
@@ -65,7 +67,7 @@ export function ControlsPanel() {
         )}
       </motion.div>
 
-      <motion.div variants={staggerItem} className="shrink-0 border-t border-border/60 px-5 py-4 space-y-3 bg-card">
+      <motion.div variants={staggerItem} className="shrink-0 border-t border-border px-5 pt-3.5 pb-4 space-y-3 bg-card">
         <div className="flex items-center justify-between gap-3">
           <PromptBrainToggle />
           <CostPreview />

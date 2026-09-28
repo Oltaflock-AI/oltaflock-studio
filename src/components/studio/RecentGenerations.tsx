@@ -145,7 +145,7 @@ export function RecentGenerations() {
         </h2>
         <Link
           to="/library?tab=history"
-          className="text-xs text-primary hover:underline underline-offset-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="text-[13px] font-medium text-muted-foreground hover:text-foreground rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           See all →
         </Link>

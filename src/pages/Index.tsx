@@ -41,7 +41,7 @@ const Index = () => {
                 </div>
               ) : (
                 <>
-                  <div className={cn(STUDIO_PANEL, 'flex-1 min-h-0 overflow-hidden p-4')}>
+                  <div className={cn(STUDIO_PANEL, 'flex-1 min-h-0 overflow-hidden p-2')}>
                     <OutputDisplay onRetry={retry} isRetrying={isRetrying} />
                   </div>
                   <AnimatePresence>

@@ -33,7 +33,7 @@ function fileToBase64(file: Blob): Promise<string> {
 }
 
 const TOOL_BUTTON =
-  'h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[12px] font-medium transition-smooth disabled:opacity-50 disabled:cursor-not-allowed';
+  'h-8 px-2.5 inline-flex items-center gap-1.5 rounded-[8px] text-[13px] font-medium transition-smooth disabled:opacity-45 disabled:cursor-not-allowed';
 
 export function PromptInput() {
   const { rawPrompt, setRawPrompt, pendingRating, selectedModel, mode, controls, brainUseCase, setBrainUseCase } = useGenerationStore();
@@ -131,7 +131,8 @@ export function PromptInput() {
 
   return (
     <div className="space-y-2.5">
-      <div className="relative rounded-xl focus-glow">
+      <div className="rounded-[12px] border border-border bg-card transition-smooth focus-within:border-primary/60 focus-within:ring-[3px] focus-within:ring-primary/15 dark:bg-background/40">
+      <div className="relative">
         <Textarea
           id="studio-prompt"
           aria-label="Prompt"
@@ -143,9 +144,9 @@ export function PromptInput() {
               : 'Describe the image — subject, setting, light, style…'
           }
           className={cn(
-            'min-h-[132px] max-h-[320px] bg-muted/40 dark:bg-background/60 border-border/60 resize-y',
-            'text-[14px] leading-relaxed placeholder:text-muted-foreground/60 rounded-xl px-4 pt-3.5 pb-7',
-            'focus:border-primary/40 focus:ring-2 focus:ring-primary/10 transition-smooth',
+            'min-h-[124px] max-h-[320px] bg-transparent border-0 shadow-none resize-y',
+            'text-[15px] leading-relaxed placeholder:text-muted-foreground/70 rounded-[12px] px-4 pt-3.5 pb-7',
+            'focus-visible:ring-0 focus-visible:ring-offset-0 transition-smooth',
             busy && 'opacity-60',
           )}
           disabled={disabled}
@@ -153,22 +154,24 @@ export function PromptInput() {
         <span
           className={cn(
             'absolute bottom-2 right-3 text-[10.5px] font-mono tabular-nums pointer-events-none',
-            over ? 'text-destructive' : 'text-muted-foreground/50',
+            over ? 'text-destructive' : 'text-muted-foreground/60',
           )}
         >
           {rawPrompt.length}{limit ? ` / ${limit}` : ''}
         </span>
       </div>
 
-      {/* Prompt Brain toolbar */}
-      <div className="flex items-center gap-1.5">
+      {/* Prompt Brain toolbar, docked inside the composer */}
+      <div className="flex items-center gap-1 border-t border-border/70 px-1.5 py-1.5">
         <Select value={useCase} onValueChange={setBrainUseCase} disabled={disabled}>
           <SelectTrigger
             aria-label="What are you making?"
-            className="h-8 w-auto min-w-0 flex-1 gap-1.5 rounded-lg border-border/60 bg-transparent px-2.5 text-[12px]"
+            className="h-8 w-auto min-w-0 flex-1 gap-1.5 rounded-[8px] border-0 bg-transparent px-2 text-[13px] shadow-none hover:bg-secondary focus:ring-0 focus:ring-offset-0"
           >
             <Wand2 className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span className="truncate"><SelectValue /></span>
+            <span className="truncate">
+              <SelectValue>{useCases.find((u) => u.id === useCase)?.label}</SelectValue>
+            </span>
           </SelectTrigger>
           <SelectContent className="max-h-80">
             {useCases.map((u) => (
@@ -185,7 +188,7 @@ export function PromptInput() {
           type="button"
           onClick={optimize}
           disabled={disabled || !rawPrompt.trim()}
-          className={cn(TOOL_BUTTON, 'bg-primary/10 text-primary hover:bg-primary/15')}
+          className={cn(TOOL_BUTTON, 'bg-accent text-accent-foreground hover:brightness-[0.97] dark:hover:brightness-125')}
           title={spec ? `Rewrite for ${spec.name}` : 'Rewrite with Prompt Brain'}
         >
           {busy === 'text' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
@@ -195,7 +198,7 @@ export function PromptInput() {
           type="button"
           onClick={() => analyzeImage()}
           disabled={disabled}
-          className={cn(TOOL_BUTTON, 'text-muted-foreground hover:text-foreground hover:bg-muted')}
+          className={cn(TOOL_BUTTON, 'text-muted-foreground hover:text-foreground hover:bg-secondary')}
           title={firstImage ? 'Write a prompt from your uploaded image' : 'Upload an image to write a prompt from it'}
         >
           {busy === 'image' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
@@ -212,6 +215,7 @@ export function PromptInput() {
             e.target.value = '';
           }}
         />
+      </div>
       </div>
 
       <AnimatePresence initial={false}>

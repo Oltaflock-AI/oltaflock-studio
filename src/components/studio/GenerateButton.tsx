@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { buttonTap, buttonHover } from '@/lib/motion';
 import { useGenerationStore } from '@/store/generationStore';
@@ -365,6 +365,21 @@ export function GenerateButton() {
   const selectedGeneration = generations.find(g => g.id === selectedJobId);
   const hasCompletedOutput = selectedGeneration?.status === 'done' && selectedGeneration?.output_url;
 
+  // ⌘/Ctrl+Enter generates from anywhere in the Studio.
+  const generateRef = useRef(handleGenerate);
+  generateRef.current = handleGenerate;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        generateRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
+
   return (
     <div className="space-y-3">
       <motion.div whileTap={canGenerate ? buttonTap : undefined} whileHover={canGenerate ? buttonHover : undefined}>
@@ -372,11 +387,11 @@ export function GenerateButton() {
           onClick={handleGenerate}
           disabled={!canGenerate}
           className={cn(
-            "w-full h-12 rounded-xl text-[14px] font-semibold tracking-wide",
-            "bg-primary text-primary-foreground hover:bg-primary hover:brightness-110",
-            "shadow-[0_8px_20px_hsl(var(--primary)/0.3)] hover:shadow-[0_10px_26px_hsl(var(--primary)/0.4)]",
+            "w-full h-12 rounded-[12px] text-[15px] font-semibold tracking-[-0.005em]",
+            "bg-foreground text-background hover:bg-foreground/90",
+            "shadow-[0_1px_0_hsl(0_0%_100%/0.12)_inset,0_6px_16px_-6px_hsl(240_10%_10%/0.45)]",
             "transition-all duration-200",
-            "disabled:opacity-50 disabled:shadow-none"
+            "disabled:opacity-100 disabled:bg-secondary disabled:text-muted-foreground disabled:shadow-none disabled:border disabled:border-border"
           )}
           size="lg"
         >
@@ -404,6 +419,7 @@ export function GenerateButton() {
             >
               <Sparkles className="h-4 w-4 mr-2" />
               {mode === 'image-to-image' || mode === 'video-to-video' ? 'Transform' : mode === 'image-to-video' ? 'Animate' : 'Generate'}
+              <kbd className="ml-3 hidden sm:inline font-sans text-[11.5px] font-medium opacity-55">{isMac ? '⌘↵' : 'Ctrl ↵'}</kbd>
             </motion.span>
           )}
         </AnimatePresence>

@@ -9,6 +9,17 @@ import { Progress } from '@/components/ui/progress';
 import { Image as ImageIcon, Video, Trash2, FileText, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { SensitiveMedia } from '@/components/SensitiveMedia';
+
+/** "$0.015" for Higgsfield rows, "0.8 cr" for kie.ai rows. */
+function costLabel(params: Record<string, unknown> | null): string | null {
+  if (!params) return null;
+  if (params.backend === 'higgsfield') {
+    return typeof params.cost_usd === 'number' ? `$${params.cost_usd.toFixed(3)}` : null;
+  }
+  const cr = params.cost_credits;
+  return typeof cr === 'number' && cr > 0 ? `${formatCredits(cr)} cr` : null;
+}
 import { useMemo } from 'react';
 import { formatCredits } from '@/config/pricing';
 import { StarButton } from '@/components/library/StarButton';
@@ -53,7 +64,7 @@ export function RequestsPanel() {
     return (
       <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-4">
         <Loader2 className="h-6 w-6 animate-spin mb-2" />
-        <p className="text-xs">Loading...</p>
+        <p className="text-[13px]">Loading…</p>
       </div>
     );
   }
@@ -62,8 +73,8 @@ export function RequestsPanel() {
     return (
       <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-4">
         <FileText className="h-8 w-8 mb-3 opacity-30" />
-        <p className="text-xs font-medium mb-1">No requests yet</p>
-        <p className="text-xs text-center text-muted-foreground/60 leading-relaxed">
+        <p className="text-[13.5px] font-medium text-foreground mb-1">No generations yet</p>
+        <p className="text-[12.5px] text-center text-muted-foreground leading-relaxed">
           Generate to see history
         </p>
       </div>
@@ -76,7 +87,7 @@ export function RequestsPanel() {
         variants={staggerContainer}
         initial="hidden"
         animate="visible"
-        className="space-y-1.5 p-2"
+        className="space-y-1 p-2"
       >
         <AnimatePresence>
         {generations.map((generation) => {
@@ -85,8 +96,8 @@ export function RequestsPanel() {
           const isActive = status === 'queued' || status === 'running';
           const progress = progressMap.get(generation.id) || 0;
           const ModeIcon = generation.type === 'image' ? ImageIcon : Video;
-          const promptPreview = generation.user_prompt.length > 50 
-            ? generation.user_prompt.slice(0, 50) + '...' 
+          const promptPreview = generation.user_prompt.length > 90
+            ? generation.user_prompt.slice(0, 90) + '…'
             : generation.user_prompt;
           const createdAt = new Date(generation.created_at);
 
@@ -108,66 +119,69 @@ export function RequestsPanel() {
                 }
               }}
               className={cn(
-                'px-3 py-2.5 rounded-xl cursor-pointer transition-smooth group',
+                'p-2 rounded-[12px] cursor-pointer transition-smooth group',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 isSelected
-                  ? 'bg-primary/10 ring-1 ring-primary/25'
-                  : 'hover:bg-muted/70'
+                  ? 'bg-accent ring-1 ring-primary/30'
+                  : 'hover:bg-secondary/80'
               )}
             >
-              {/* Header: Status + Time */}
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <div className={cn('h-2 w-2 rounded-full shrink-0', statusDotColors[status])} />
-                  <ModeIcon className="h-3 w-3 text-muted-foreground" />
-                </div>
-                <span className="text-xs text-muted-foreground font-mono tabular-nums">
-                  {format(createdAt, 'HH:mm')}
-                </span>
-              </div>
-              
-              {/* Prompt preview */}
-              <p className="text-xs leading-relaxed line-clamp-2 text-foreground/80 mb-2">
-                {promptPreview}
-              </p>
-              
-              {/* Progress bar for active jobs */}
-              {isActive && (
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Progress value={progress} className="h-1 flex-1" />
-                  <span className="text-[9px] text-primary font-semibold tabular-nums w-7 text-right">
-                    {progress}%
-                  </span>
-                </div>
-              )}
-              
-              {/* Footer: Model name + Cost + Delete */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 min-w-0">
-                  <ModelBadge modelId={resolveBadgeModelId(generation.model)} size="sm" />
-                  <span className="text-xs text-muted-foreground truncate max-w-[110px]">
-                    {generation.model}
-                  </span>
-                  {(generation.model_params as Record<string, unknown> | null)?.cost_credits && (
-                    <span className="text-[9px] text-primary/70 font-medium tabular-nums shrink-0">
-                      {formatCredits((generation.model_params as Record<string, unknown>).cost_credits as number)} cr
+              <div className="flex gap-3">
+                <div className="relative h-12 w-12 shrink-0 rounded-[9px] overflow-hidden bg-secondary border border-border/60">
+                  {generation.status === 'done' && generation.output_url ? (
+                    <SensitiveMedia sensitive={generation.is_nsfw} size="sm" className="absolute inset-0">
+                      {generation.type === 'video' ? (
+                        <video src={generation.output_url} muted playsInline preload="metadata" className="absolute inset-0 h-full w-full object-cover" aria-hidden="true" />
+                      ) : (
+                        <img src={generation.output_url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+                      )}
+                    </SensitiveMedia>
+                  ) : (
+                    <span className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                      <ModeIcon className="h-4 w-4" strokeWidth={1.75} />
                     </span>
                   )}
+                  <span className={cn('absolute bottom-1 right-1 h-2 w-2 rounded-full ring-2 ring-card', statusDotColors[status])} />
                 </div>
-                <div className="flex items-center gap-0.5">
-                  {generation.status === 'done' && generation.output_url && (
-                    <StarButton generation={generation} size="sm" className="h-5 w-5" />
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] leading-snug line-clamp-2 text-foreground">
+                    {promptPreview}
+                  </p>
+
+                  {isActive && (
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <Progress value={progress} className="h-1 flex-1" />
+                      <span className="font-mono text-[10.5px] text-primary tabular-nums w-8 text-right">{progress}%</span>
+                    </div>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0"
-                    onClick={(e) => handleDelete(e, generation.id)}
-                    disabled={isActive}
-                    aria-label="Delete request"
-                  >
-                    <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive transition-colors" />
-                  </Button>
+
+                  <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-muted-foreground min-w-0">
+                    <span className="truncate">{generation.model}</span>
+                    <span aria-hidden="true">·</span>
+                    <span className="font-mono tabular-nums shrink-0">{format(createdAt, 'HH:mm')}</span>
+                    {costLabel(generation.model_params as Record<string, unknown> | null) && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-mono tabular-nums shrink-0">{costLabel(generation.model_params as Record<string, unknown> | null)}</span>
+                      </>
+                    )}
+                    <span className="ml-auto flex items-center gap-0.5 shrink-0">
+                      {generation.status === 'done' && generation.output_url && (
+                        <StarButton generation={generation} size="sm" className="h-6 w-6" />
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0"
+                        onClick={(e) => handleDelete(e, generation.id)}
+                        disabled={isActive}
+                        aria-label="Delete request"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive transition-colors" />
+                      </Button>
+                    </span>
+                  </div>
                 </div>
               </div>
             </motion.div>

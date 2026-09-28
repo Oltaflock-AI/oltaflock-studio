@@ -56,11 +56,11 @@ export function AppShell({ children, scrollableContent = true }: AppShellProps) 
 
   return (
     <div className="h-screen w-screen flex overflow-hidden bg-background text-foreground">
-      <aside className="w-[240px] shrink-0 flex flex-col gap-6 px-4 py-6 bg-sidebar border-r border-sidebar-border">
+      <aside className="w-[232px] shrink-0 flex flex-col gap-7 px-3.5 py-5 bg-sidebar border-r border-sidebar-border">
         <div className="flex items-center justify-between px-2">
           <NavLink to="/" className="flex items-center gap-2">
-            <img src={logoMark} alt="" className="w-[26px] h-[26px] object-contain shrink-0" />
-            <span className="font-serif text-[19px] text-primary">Oltaflock</span>
+            <img src={logoMark} alt="" className="w-[24px] h-[24px] object-contain shrink-0" />
+            <span className="font-serif text-[23px] leading-none tracking-[-0.01em] text-foreground">Oltaflock</span>
           </NavLink>
           <ThemeToggle />
         </div>
@@ -77,11 +77,13 @@ export function AppShell({ children, scrollableContent = true }: AppShellProps) 
                 key={item.label}
                 to={item.to}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-[11px] text-sm transition-smooth',
-                  isActive ? 'bg-primary/10 text-foreground font-semibold' : 'text-muted-foreground hover:bg-muted/60'
+                  'flex items-center gap-3 px-3 h-9 rounded-[10px] text-[14px] transition-smooth',
+                  isActive
+                    ? 'bg-card text-foreground font-medium shadow-[0_1px_2px_hsl(240_10%_10%/0.06),0_0_0_1px_hsl(var(--border))] dark:bg-secondary dark:shadow-none'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary/70'
                 )}
               >
-                <Icon className={cn('w-[17px] h-[17px]', isActive && 'text-primary')} strokeWidth={1.8} />
+                <Icon className={cn('w-[17px] h-[17px]', isActive && 'text-primary')} strokeWidth={isActive ? 2 : 1.75} />
                 {item.label}
               </NavLink>
             );
@@ -91,26 +93,30 @@ export function AppShell({ children, scrollableContent = true }: AppShellProps) 
         <div className="flex-1" />
 
         <div className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-[11px] bg-warning/10 border border-warning/25">
-            <Coins className="w-[15px] h-[15px] text-warning shrink-0" strokeWidth={2} />
-            <span className="text-xs text-warning">
+          <div className="px-3 py-2.5 rounded-[10px] bg-card border border-border shadow-[0_1px_2px_hsl(240_10%_10%/0.04)] dark:bg-secondary/60">
+            <div className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+              <Coins className="w-3.5 h-3.5 shrink-0" strokeWidth={2} />
+              Kie.ai balance
+            </div>
+            <div className="mt-0.5 font-mono text-[15px] font-medium tabular-nums text-foreground">
               {balance != null
-                ? `${balance.toLocaleString(undefined, { maximumFractionDigits: 1 })} credits`
-                : balanceError ? 'Credits unavailable' : 'Loading credits…'}
-            </span>
+                ? `${balance.toLocaleString(undefined, { maximumFractionDigits: 1 })}`
+                : balanceError ? 'Unavailable' : '…'}
+              {balance != null && <span className="ml-1 font-sans text-[12px] font-normal text-muted-foreground">credits</span>}
+            </div>
           </div>
-          <NavLink to="/settings" className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/60 transition-smooth">
+          <NavLink to="/settings" className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-secondary/70 transition-smooth">
             <Avatar className="h-[26px] w-[26px] shrink-0">
               {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
               <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-medium">{initials}</AvatarFallback>
             </Avatar>
-            <span className="text-xs text-muted-foreground truncate">{displayName}</span>
+            <span className="text-[13px] text-foreground/85 truncate">{displayName}</span>
             <SettingsIcon className="w-3.5 h-3.5 text-muted-foreground/60 ml-auto shrink-0" />
           </NavLink>
           <button
             type="button"
             onClick={handleSignOut}
-            className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-smooth"
+            className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] text-muted-foreground hover:bg-secondary/70 hover:text-foreground transition-smooth"
           >
             <LogOut className="w-3.5 h-3.5" />
             Sign out

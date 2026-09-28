@@ -11,9 +11,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { SEGMENT_TRACK, segmentItem, chipItem } from '@/components/layout/studioSurface';
 import { KlingMultiShotEditor, KlingElementsEditor } from './KlingEditors';
 
-export const CONTROL_LABEL = 'text-[12.5px] font-medium text-foreground/85';
+export const CONTROL_LABEL = 'text-[13px] font-medium text-foreground/90';
 
 export function ControlLabel({ label, help, trailing }: { label: string; help?: string; trailing?: React.ReactNode }) {
   return (
@@ -23,7 +24,7 @@ export function ControlLabel({ label, help, trailing }: { label: string; help?: 
         {help && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Info className="h-3 w-3 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
+              <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[240px] text-xs">{help}</TooltipContent>
           </Tooltip>
@@ -42,7 +43,7 @@ function RatioGlyph({ value }: { value: string }) {
   if (!m) return <span className="h-3 w-3 rounded-[3px] border border-dashed border-current opacity-60" />;
   const w = Number(m[1]);
   const h = Number(m[2]);
-  const scale = 14 / Math.max(w, h);
+  const scale = 13 / Math.max(w, h);
   return (
     <span
       className="rounded-[2.5px] border-[1.5px] border-current opacity-80"
@@ -79,7 +80,7 @@ function FieldControl({ field, disabled }: { field: FieldSpec; disabled: boolean
       return (
         <div className="space-y-2">
           <ControlLabel label={field.label} help={field.help} />
-          <div className="grid grid-cols-5 gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {field.options.map((o) => {
               const active = String(value) === String(o.value);
               return (
@@ -90,14 +91,12 @@ function FieldControl({ field, disabled }: { field: FieldSpec; disabled: boolean
                   onClick={() => set(o.value)}
                   aria-pressed={active}
                   className={cn(
-                    'flex flex-col items-center justify-center gap-1 h-12 rounded-lg border text-[11px] tabular-nums transition-smooth',
-                    active
-                      ? 'border-primary/60 bg-primary/10 text-foreground font-semibold'
-                      : 'border-border/70 text-muted-foreground hover:border-border hover:text-foreground',
+                    'inline-flex items-center gap-1.5 h-8 px-2.5 rounded-[8px] border text-[12.5px] tabular-nums transition-smooth',
+                    chipItem(active),
                     disabled && 'opacity-50 cursor-not-allowed',
                   )}
                 >
-                  <span className="h-4 flex items-center"><RatioGlyph value={String(o.value)} /></span>
+                  <span className="w-3.5 h-3.5 flex items-center justify-center"><RatioGlyph value={String(o.value)} /></span>
                   {optionLabel(o)}
                 </button>
               );
@@ -111,7 +110,7 @@ function FieldControl({ field, disabled }: { field: FieldSpec; disabled: boolean
       return (
         <div className="space-y-2">
           <ControlLabel label={field.label} help={field.help} />
-          <div className="flex p-0.5 rounded-lg bg-muted/70 border border-border/50">
+          <div className={cn(SEGMENT_TRACK, 'flex')}>
             {field.options.map((o) => {
               const active = String(value) === String(o.value);
               return (
@@ -122,10 +121,8 @@ function FieldControl({ field, disabled }: { field: FieldSpec; disabled: boolean
                   onClick={() => set(o.value)}
                   aria-pressed={active}
                   className={cn(
-                    'flex-1 h-8 px-2 rounded-md text-[12px] whitespace-nowrap transition-smooth',
-                    active
-                      ? 'bg-card text-foreground font-semibold shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground',
+                    'flex-1 h-8 px-2 rounded-[8px] text-[13px] whitespace-nowrap transition-smooth',
+                    segmentItem(active),
                     disabled && 'opacity-50 cursor-not-allowed',
                   )}
                 >
@@ -146,7 +143,7 @@ function FieldControl({ field, disabled }: { field: FieldSpec; disabled: boolean
           onValueChange={(v) => set(field.options!.find((o) => String(o.value) === v)?.value ?? v)}
           disabled={disabled}
         >
-          <SelectTrigger className="h-9 rounded-lg bg-muted/50 border-border/60 text-[13px]">
+          <SelectTrigger className="h-9 rounded-[9px] bg-card border-border text-[13.5px] dark:bg-transparent">
             <SelectValue placeholder="Select" />
           </SelectTrigger>
           <SelectContent className="max-h-72">
@@ -226,7 +223,7 @@ function FieldControl({ field, disabled }: { field: FieldSpec; disabled: boolean
           value={(value as string) ?? ''}
           onChange={(e) => set(e.target.value)}
           disabled={disabled}
-          className="min-h-[64px] text-[13px] bg-muted/40 border-border/60 rounded-lg"
+          className="min-h-[64px] text-[13.5px] bg-card border-border rounded-[9px] dark:bg-transparent"
           placeholder={field.help}
         />
       </div>
@@ -251,23 +248,23 @@ export function SchemaControls({ spec }: { spec: ModelSpec }) {
   const advanced = fields.filter((f) => f.advanced);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {basic.map((f) => <FieldControl key={f.key} field={f} disabled={pendingRating} />)}
 
       {spec.editors?.includes('kling-multishot') && <KlingMultiShotEditor disabled={pendingRating} />}
       {spec.editors?.includes('kling-elements') && <KlingElementsEditor disabled={pendingRating} />}
 
       {advanced.length > 0 && (
-        <div className="rounded-xl border border-border/60">
+        <div className="rounded-[11px] bg-secondary/60 border border-border/60">
           <button
             type="button"
             onClick={() => setAdvancedOpen((o) => !o)}
-            className="w-full flex items-center justify-between px-3.5 h-10 text-[12.5px] font-medium text-muted-foreground hover:text-foreground"
+            className="w-full flex items-center justify-between px-3.5 h-10 text-[13px] font-medium text-foreground/80 hover:text-foreground"
             aria-expanded={advancedOpen}
           >
             Advanced
             <span className="flex items-center gap-2">
-              <span className="text-[11px] text-muted-foreground/70">{advanced.length} settings</span>
+              <span className="text-[12px] text-muted-foreground">{advanced.length} settings</span>
               <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', advancedOpen && 'rotate-180')} />
             </span>
           </button>
@@ -280,7 +277,7 @@ export function SchemaControls({ spec }: { spec: ModelSpec }) {
                 transition={{ duration: 0.18 }}
                 className="overflow-hidden"
               >
-                <div className="px-3.5 pb-3.5 pt-1 space-y-4 border-t border-border/50">
+                <div className="px-3.5 pb-4 pt-3 space-y-5 border-t border-border/60">
                   {advanced.map((f) => <FieldControl key={f.key} field={f} disabled={pendingRating} />)}
                 </div>
               </motion.div>

@@ -162,20 +162,20 @@ export function MediaUpload({
           />
           <div
             className={cn(
-              'w-full h-[72px] rounded-xl border border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-1 text-muted-foreground transition-smooth',
-              !isDisabled && 'hover:border-primary/50 hover:bg-primary/5 hover:text-foreground',
+              'w-full h-[76px] rounded-[11px] border border-dashed border-foreground/20 bg-secondary/40 flex flex-col items-center justify-center gap-1.5 text-muted-foreground transition-smooth',
+              !isDisabled && 'hover:border-primary hover:bg-accent/60 hover:text-accent-foreground',
               isDisabled && 'opacity-50'
             )}
           >
             {isUploading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-[11px]">Uploading…</span>
+                <span className="text-[12.5px]">Uploading…</span>
               </>
             ) : (
               <>
                 <Icon className="h-4 w-4" />
-                <span className="text-[11.5px]">
+                <span className="text-[12.5px]">
                   Drop or click to add {kind}{maxFiles > 1 ? 's' : ''}
                 </span>
               </>

@@ -5,6 +5,7 @@ import { useGenerationStore } from '@/store/generationStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { fromStudioMode, toStudioMode } from '@/types/generation';
 import { cn } from '@/lib/utils';
+import { SEGMENT_TRACK, segmentItem, chipItem } from '@/components/layout/studioSurface';
 
 type Output = 'image' | 'video';
 
@@ -38,8 +39,8 @@ export function ModeSelector() {
   const inputs = INPUTS[output].filter((i) => specsForMode(i.mode, backend).length > 0);
 
   return (
-    <div className="space-y-2" role="group" aria-label="Generation mode">
-      <div className="grid grid-cols-2 p-1 rounded-xl bg-muted/70 border border-border/50">
+    <div className="space-y-2.5" role="group" aria-label="Generation mode">
+      <div className={cn(SEGMENT_TRACK, 'grid-cols-2')}>
         {(['image', 'video'] as const).map((o) => {
           const Icon = o === 'image' ? ImageIcon : Video;
           const active = output === o;
@@ -51,8 +52,8 @@ export function ModeSelector() {
               aria-pressed={active}
               onClick={() => go(o === 'image' ? 'text-to-image' : 'text-to-video')}
               className={cn(
-                'h-9 flex items-center justify-center gap-2 rounded-lg text-[13px] transition-smooth',
-                active ? 'bg-card text-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                'h-9 flex items-center justify-center gap-2 rounded-[8px] text-[14px] transition-smooth',
+                segmentItem(active),
                 disabled && !active && 'opacity-50 cursor-not-allowed',
               )}
             >
@@ -73,10 +74,8 @@ export function ModeSelector() {
               aria-pressed={active}
               onClick={() => go(m)}
               className={cn(
-                'flex-1 h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border text-[12px] whitespace-nowrap transition-smooth',
-                active
-                  ? 'border-primary/50 bg-primary/10 text-foreground font-semibold'
-                  : 'border-border/60 text-muted-foreground hover:text-foreground hover:border-border',
+                'flex-1 h-8 inline-flex items-center justify-center gap-1.5 rounded-[9px] border text-[13px] whitespace-nowrap transition-smooth',
+                chipItem(active),
                 disabled && !active && 'opacity-50 cursor-not-allowed',
               )}
             >

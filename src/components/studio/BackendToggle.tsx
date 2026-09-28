@@ -5,6 +5,7 @@ import { useGenerationStore } from '@/store/generationStore';
 import { useHiggsfieldStatus } from '@/hooks/useHiggsfield';
 import { toStudioMode } from '@/types/generation';
 import { cn } from '@/lib/utils';
+import { SEGMENT_TRACK, segmentItem } from '@/components/layout/studioSurface';
 
 const BACKENDS: Backend[] = ['kie', 'higgsfield'];
 
@@ -29,7 +30,9 @@ export function BackendToggle() {
 
   return (
     <div className="space-y-1.5">
-      <div className="grid grid-cols-2 p-1 rounded-xl bg-muted/70 border border-border/50" role="radiogroup" aria-label="API provider">
+      <div className="flex items-center justify-between gap-3">
+      <span className="text-[13px] text-muted-foreground">Provider</span>
+      <div className={cn(SEGMENT_TRACK, 'grid-cols-2 p-[2px] rounded-[9px]')} role="radiogroup" aria-label="API provider">
         {BACKENDS.map((b) => {
           const active = backend === b;
           return (
@@ -40,8 +43,8 @@ export function BackendToggle() {
               aria-checked={active}
               onClick={() => choose(b)}
               className={cn(
-                'h-8 flex items-center justify-center gap-2 rounded-lg text-[12.5px] transition-smooth',
-                active ? 'bg-card text-foreground font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                'h-7 px-3 flex items-center justify-center gap-1.5 rounded-[7px] text-[12.5px] transition-smooth',
+                segmentItem(active),
               )}
             >
               <span
@@ -53,13 +56,12 @@ export function BackendToggle() {
           );
         })}
       </div>
-      <p className={cn('text-[11.5px] leading-snug px-0.5', hfNotReady ? 'text-destructive' : 'text-muted-foreground')}>
-        {backend === 'kie'
-          ? 'Generating with your kie.ai account.'
-          : hfNotReady
-            ? 'Higgsfield API key not set on the server yet. Add HF_CREDENTIALS to Supabase secrets.'
-            : 'Generating with your Higgsfield API account · priced live per request.'}
-      </p>
+      </div>
+      {hfNotReady && (
+        <p className="text-[12px] leading-snug px-0.5 text-destructive">
+          Higgsfield API key isn't set on the server yet (HF_CREDENTIALS).
+        </p>
+      )}
     </div>
   );
 }

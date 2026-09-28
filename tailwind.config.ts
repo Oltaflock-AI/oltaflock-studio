@@ -28,6 +28,11 @@ export default {
   			tight: '-0.01em',
   		},
   		colors: {
+  			stage: {
+  				DEFAULT: 'hsl(var(--stage))',
+  				foreground: 'hsl(var(--stage-foreground))',
+  				muted: 'hsl(var(--stage-muted))'
+  			},
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
@@ -126,42 +131,12 @@ export default {
   			'fade-up': 'fade-up 0.25s ease-out',
   		},
   		fontFamily: {
-  			sans: [
-  				'IBM Plex Sans',
-  				'ui-sans-serif',
-  				'system-ui',
-  				'-apple-system',
-  				'BlinkMacSystemFont',
-  				'Segoe UI',
-  				'Roboto',
-  				'Helvetica Neue',
-  				'Arial',
-  				'Noto Sans',
-  				'sans-serif'
-  			],
+  			sans: ['Geist', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
   			// Display/headline face — used for page titles and the wordmark, echoing
   			// the brand kit's serif logotype (Roxie Rossa isn't confirmed as a
-  			// licensed web font, so Fraunces stands in for it).
-  			serif: [
-  				'Fraunces',
-  				'ui-serif',
-  				'Georgia',
-  				'Cambria',
-  				'Times New Roman',
-  				'Times',
-  				'serif'
-  			],
-  			mono: [
-  				'Fira Code',
-  				'ui-monospace',
-  				'SFMono-Regular',
-  				'Menlo',
-  				'Monaco',
-  				'Consolas',
-  				'Liberation Mono',
-  				'Courier New',
-  				'monospace'
-  			]
+  			// licensed web font, so Instrument Serif stands in for it).
+  			serif: ['Instrument Serif', 'ui-serif', 'Georgia', 'serif'],
+  			mono: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
   		},
   		boxShadow: {
   			'2xs': 'var(--shadow-2xs)',

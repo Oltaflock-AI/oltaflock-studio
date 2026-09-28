@@ -21,19 +21,19 @@ export function StudioPageHeader() {
       variants={slideDown}
       initial="hidden"
       animate="visible"
-      className="flex items-center justify-between gap-4 px-6 2xl:px-8 pt-6 pb-4 shrink-0"
+      className="flex items-end justify-between gap-4 px-6 2xl:px-8 pt-6 pb-5 shrink-0"
     >
       <div className="flex flex-col gap-0.5 min-w-0">
-        <h1 className="font-serif font-medium text-[28px] leading-tight">Create</h1>
-        <p className="text-[13px] text-muted-foreground">
-          {IMAGE_COUNT} image and {VIDEO_COUNT} video endpoints, each with a Prompt Brain tuned for it
+        <h1 className="font-serif text-[34px] leading-none tracking-[-0.015em]">Create</h1>
+        <p className="mt-1.5 text-[13.5px] text-muted-foreground">
+          {IMAGE_COUNT} image and {VIDEO_COUNT} video models, each with a Prompt Brain tuned for it
         </p>
       </div>
       <div className="flex items-center gap-2.5 shrink-0">
         <button
           type="button"
           onClick={() => setShowStudioSidebar(!showStudioSidebar)}
-          className="h-9 px-3 hidden xl:inline-flex items-center gap-2 rounded-lg border border-border/70 bg-card text-[12.5px] text-muted-foreground hover:text-foreground transition-smooth"
+          className="h-9 px-3 hidden xl:inline-flex items-center gap-2 rounded-[10px] text-[13px] text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-smooth"
           aria-pressed={showStudioSidebar}
         >
           <Toggle className="h-4 w-4" />

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { fadeIn, scaleIn } from '@/lib/motion';
+import { fadeIn } from '@/lib/motion';
 import { useGenerationStore } from '@/store/generationStore';
 import { useGenerations } from '@/hooks/useGenerations';
 import { useGenerationProgress } from '@/hooks/useGenerationProgress';
@@ -14,15 +14,17 @@ import { StarButton } from '@/components/library/StarButton';
 import { toast } from 'sonner';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { GlowOrb } from '@/components/effects/GlowOrb';
 import { OutputDisplaySkeleton } from './skeletons/OutputDisplaySkeleton';
-import { ParallaxLayer } from '@/components/effects/MouseParallax';
 import { SensitiveMedia } from '@/components/SensitiveMedia';
 
 interface OutputDisplayProps {
   onRetry?: () => void;
   isRetrying?: boolean;
 }
+
+/** The dark "lightbox" the output sits on, in both themes, so colours read true. */
+const STAGE =
+  'rounded-[14px] bg-stage text-stage-foreground bg-[radial-gradient(120%_70%_at_50%_0%,hsl(240_6%_17%/0.9)_0%,transparent_65%)] dark:bg-[radial-gradient(120%_70%_at_50%_0%,hsl(240_6%_11%)_0%,transparent_65%)]';
 
 export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
   const { selectedJobId } = useGenerationStore();
@@ -135,28 +137,28 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
   // Generating state - Premium progress display
   if (selectedGeneration?.status === 'queued' || selectedGeneration?.status === 'running') {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-gradient-to-b from-muted/10 to-muted/30 dark:from-muted/5 dark:to-muted/20 rounded-2xl canvas-inset p-8">
+      <div className={cn(STAGE, 'h-full flex flex-col items-center justify-center p-8')}>
         <div className="relative mb-8">
           <div className={cn(
             "w-24 h-24 rounded-2xl",
-            "bg-gradient-to-br from-primary/20 to-primary/5",
+            "bg-white/[0.06] border border-white/10",
             "flex items-center justify-center"
           )}>
             <Sparkles className="h-10 w-10 text-primary animate-gentle-pulse" />
           </div>
-          <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-card border-2 border-primary flex items-center justify-center shadow-lg">
-            <span className="text-xs font-bold text-primary tabular-nums">{progress}%</span>
+          <div className="absolute -bottom-2 -right-3 h-7 px-2 rounded-full bg-primary flex items-center justify-center shadow-lg">
+            <span className="font-mono text-[11.5px] font-medium text-white tabular-nums">{progress}%</span>
           </div>
         </div>
         
-        <Progress value={progress} className="w-56 h-1.5 mb-4" />
+        <Progress value={progress} className="w-56 h-1 mb-5 bg-white/10" />
         
-        <p className="text-sm font-medium text-foreground">{getProgressLabel()}</p>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="text-[15px] font-medium">{getProgressLabel()}</p>
+        <p className="text-[13px] text-stage-muted mt-1">
           {selectedGeneration.model}
         </p>
         
-        <p className="text-xs text-muted-foreground/60 mt-6 text-center max-w-[220px]">
+        <p className="text-[13px] text-stage-muted/80 mt-6 text-center max-w-[260px]">
           You can start another generation while this one runs
         </p>
       </div>
@@ -166,21 +168,20 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
   // Error state
   if (selectedGeneration?.status === 'error') {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-gradient-to-b from-muted/10 to-muted/30 dark:from-muted/5 dark:to-muted/20 rounded-2xl canvas-inset p-8">
-        <div className="w-20 h-20 rounded-2xl bg-destructive/10 flex items-center justify-center mb-4">
-          <AlertCircle className="h-10 w-10 text-destructive" />
+      <div className={cn(STAGE, 'h-full flex flex-col items-center justify-center p-8')}>
+        <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-400/20 flex items-center justify-center mb-5">
+          <AlertCircle className="h-8 w-8 text-red-400" />
         </div>
-        <p className="text-sm font-medium text-destructive mb-2">Generation failed</p>
-        <p className="text-xs text-muted-foreground text-center max-w-[280px] leading-relaxed mb-4">
+        <p className="font-serif text-[26px] leading-none mb-2">Generation failed</p>
+        <p className="text-[13.5px] text-stage-muted text-center max-w-[340px] leading-relaxed mb-5">
           {selectedGeneration.error_message || 'Unknown error occurred'}
         </p>
         {onRetry && (
           <Button 
             onClick={onRetry} 
             disabled={isRetrying}
-            variant="outline"
             size="sm"
-            className="h-9 px-4 rounded-lg transition-smooth"
+            className="h-9 px-4 rounded-[10px] bg-white text-black hover:bg-white/90 transition-smooth"
           >
             {isRetrying ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -194,33 +195,24 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
     );
   }
 
-  // Empty state - no selection or no output
+  // Empty state - no selection or no output. Deliberately static.
   if (!selectedGeneration || !selectedGeneration.output_url) {
+    const Icon = mediaType === 'image' ? ImageIcon : Video;
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-gradient-to-b from-muted/10 to-muted/30 dark:from-muted/5 dark:to-muted/20 rounded-2xl canvas-inset p-8 relative overflow-hidden">
-        <GlowOrb interactive />
-        <motion.div
-          variants={scaleIn}
-          initial="hidden"
-          animate="visible"
-          className="relative z-10 flex flex-col items-center"
-        >
-          <ParallaxLayer depth={0.5} className="flex flex-col items-center">
-            <div className="w-20 h-20 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-              {mediaType === 'image' ? (
-                <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
-              ) : (
-                <Video className="h-10 w-10 text-muted-foreground/30" />
-              )}
-            </div>
-          </ParallaxLayer>
-          <ParallaxLayer depth={0.7} className="flex flex-col items-center">
-            <p className="text-xl font-medium text-foreground mb-1">Ready to create</p>
-            <p className="text-sm text-muted-foreground text-center max-w-[240px] leading-relaxed">
-              Select a model and enter a prompt, then click Generate
-            </p>
-          </ParallaxLayer>
-        </motion.div>
+      <div className={cn(STAGE, 'h-full flex flex-col items-center justify-center p-8 text-center')}>
+        <div className="w-14 h-14 rounded-2xl border border-white/10 bg-white/[0.04] flex items-center justify-center mb-6">
+          <Icon className="h-6 w-6 text-stage-muted" strokeWidth={1.5} />
+        </div>
+        <p className="font-serif text-[34px] leading-none tracking-[-0.01em]">Ready to create</p>
+        <p className="mt-3 text-[14px] text-stage-muted max-w-[300px] leading-relaxed">
+          Write a prompt and pick a model in the console, then generate.
+        </p>
+        <p className="mt-5 text-[12px] text-stage-muted/70">
+          <kbd className="font-sans px-1.5 py-0.5 rounded-md border border-white/15 text-stage-foreground/80">
+            {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'} ↵
+          </kbd>
+          <span className="ml-2">to generate</span>
+        </p>
       </div>
     );
   }
@@ -236,9 +228,8 @@ export function OutputDisplay({ onRetry, isRetrying }: OutputDisplayProps) {
       >
         {/* Canvas container with refined styling */}
         <div className={cn(
-          "flex-1 rounded-2xl overflow-hidden relative group min-h-0",
-          "bg-gradient-to-b from-muted/20 to-muted/40 dark:from-muted/10 dark:to-muted/30",
-          "canvas-inset"
+          STAGE,
+          "flex-1 overflow-hidden relative group min-h-0"
         )}>
           <SensitiveMedia
             sensitive={selectedGeneration.is_nsfw}
