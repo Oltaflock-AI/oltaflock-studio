@@ -13,9 +13,9 @@ import { animateGeneration } from './generationActions';
 import { downloadGeneration } from '@/lib/downloadGeneration';
 import { ProgressRing } from './GenerationTile';
 
-/** The dark stage outputs sit on, in both themes, so colours read true. */
+/** The stage outputs sit on: soft light in light mode, near-black in dark mode. */
 export const STAGE =
-  'bg-stage text-stage-foreground bg-[radial-gradient(120%_70%_at_50%_0%,hsl(240_6%_17%/0.9)_0%,transparent_65%)] dark:bg-[radial-gradient(120%_70%_at_50%_0%,hsl(240_6%_11%)_0%,transparent_65%)]';
+  'bg-stage text-stage-foreground bg-[radial-gradient(120%_70%_at_50%_0%,hsl(0_0%_100%/0.75)_0%,transparent_65%)] dark:bg-[radial-gradient(120%_70%_at_50%_0%,hsl(240_6%_11%)_0%,transparent_65%)]';
 
 const GLASS_BTN =
   'inline-flex h-8 whitespace-nowrap items-center disabled:opacity-50 gap-1.5 rounded-full px-3 text-[12.5px] font-medium text-white/90 hover:bg-white/15 hover:text-white transition-smooth';
@@ -43,7 +43,7 @@ function ActionBar({ g, onFullscreen }: { g: DbGeneration; onFullscreen: () => v
 function RetryButton() {
   const { handleRegenerateFromJob, isSubmitting } = useGenerate();
   return (
-    <button type="button" onClick={handleRegenerateFromJob} disabled={isSubmitting} className="mt-3 inline-flex h-9 items-center gap-2 rounded-[10px] bg-white px-4 text-[13px] font-medium text-black hover:bg-white/90 disabled:opacity-60">
+    <button type="button" onClick={handleRegenerateFromJob} disabled={isSubmitting} className="mt-3 inline-flex h-9 items-center gap-2 rounded-[10px] bg-foreground px-4 text-[13px] font-medium text-background hover:bg-foreground/90 disabled:opacity-60">
       {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />} Try again
     </button>
   );
@@ -94,7 +94,7 @@ export function StudioCanvas({ className, bottomInset = 0, topInset = 0, actions
             {(hidden) => g.type === 'video' ? (
               <video src={g.output_url!} controls={!hidden} autoPlay={!hidden} muted loop className="max-h-full max-w-full rounded-xl shadow-2xl" />
             ) : (
-              <img src={g.output_url!} alt="Generated output" className="max-h-full max-w-full rounded-xl object-contain shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)]" />
+              <img src={g.output_url!} alt="Generated output" className="max-h-full max-w-full rounded-xl object-contain shadow-[0_30px_80px_-24px_rgba(0,0,0,0.35)] dark:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)]" />
             )}
           </SensitiveMedia>
         )}
@@ -106,7 +106,7 @@ export function StudioCanvas({ className, bottomInset = 0, topInset = 0, actions
         )}
         {g?.status === 'error' && (
           <div className="flex max-w-[340px] flex-col items-center gap-2 text-center">
-            <AlertCircle className="h-7 w-7 text-red-400" />
+            <AlertCircle className="h-7 w-7 text-destructive dark:text-red-400" />
             <p className="font-serif text-[26px] leading-none">Generation failed</p>
             <p className="text-[13px] text-stage-muted">{g.error_message}</p>
             <RetryButton />

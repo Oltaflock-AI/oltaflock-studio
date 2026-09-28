@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronLeft, FolderTree, LayoutGrid, Search } from 'lucide-react';
+import { ChevronLeft, FolderTree, LayoutGrid, Search, ZoomIn, ZoomOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useGenerations } from '@/hooks/useGenerations';
 import { useFolders } from '@/hooks/useFolders';
 import { usePromptLibrary } from '@/hooks/usePromptLibrary';
-import { GridView, type Density } from '@/components/library/GridView';
+import { GridView, DEFAULT_TILE, MAX_TILE, MIN_TILE } from '@/components/library/GridView';
+import { Slider } from '@/components/ui/slider';
 import { OrganizeView } from '@/components/library/OrganizeView';
 import { LibraryViewer } from '@/components/library/LibraryViewer';
 import { SelectionBar } from '@/components/library/SelectionBar';
@@ -18,8 +19,10 @@ import { cn } from '@/lib/utils';
 
 type View = 'grid' | 'organize';
 
-function readDensity(): Density {
-  try { const v = localStorage.getItem('library-density'); return v === 's' || v === 'l' ? v : 'm'; } catch { return 'm'; }
+const clampTile = (n: number) => Math.min(MAX_TILE, Math.max(MIN_TILE, n));
+
+function readTileSize(): number {
+  try { const v = Number(localStorage.getItem('library-tile-size')); return v ? clampTile(v) : DEFAULT_TILE; } catch { return DEFAULT_TILE; }
 }
 
 /** Your generations: browse them as a grid, or organise them into folders. */
@@ -35,9 +38,36 @@ export default function Library() {
   const [type, setType] = useState<TypeFilter>('all');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('newest');
-  const [density, setDensityState] = useState<Density>(readDensity);
+  const [tileSize, setTileSizeState] = useState<number>(readTileSize);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [openId, setOpenId] = useState<string | null>(null);
-  const setDensity = (d: Density) => { setDensityState(d); try { localStorage.setItem('library-density', d); } catch { /* per-device nicety only */ } };
+  const setTileSize = useCallback((next: number | ((prev: number) => number)) => {
+    setTileSizeState((prev) => {
+      const v = clampTile(typeof next === 'function' ? next(prev) : next);
+      try { localStorage.setItem('library-tile-size', String(Math.round(v))); } catch { /* per-device nicety only */ }
+      return v;
+    });
+  }, []);
+  const zoomBy = useCallback((factor: number) => setTileSize((s) => s * factor), [setTileSize]);
+
+  // Pinch on a trackpad (ctrl+wheel) and Cmd/Ctrl +/- zoom the grid instead of the page.
+  useEffect(() => {
+    if (view !== 'grid') return;
+    const el = scrollRef.current;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      zoomBy(Math.exp(-e.deltaY * 0.01));
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomBy(1.2); }
+      if (e.key === '-') { e.preventDefault(); zoomBy(1 / 1.2); }
+    };
+    el?.addEventListener('wheel', onWheel, { passive: false });
+    window.addEventListener('keydown', onKey);
+    return () => { el?.removeEventListener('wheel', onWheel); window.removeEventListener('keydown', onKey); };
+  }, [view, zoomBy]);
 
   const isStarred = useCallback((id: string) => !!findByGenerationId(id), [findByGenerationId]);
   const scopedFolder = scope.kind === 'folder' ? folders.find((f) => f.id === scope.id) : undefined;
@@ -69,8 +99,8 @@ export default function Library() {
   return (
     <AppShell scrollableContent={false}>
       <AnimatedPage className="h-full">
-        <div className="mx-auto flex h-full w-full max-w-[1720px] flex-col overflow-hidden px-8 pt-7">
-          <header className="flex shrink-0 flex-wrap items-end justify-between gap-4 pb-5">
+        <div className="flex h-full w-full flex-col overflow-hidden px-4 pt-5 sm:px-5">
+          <header className="flex shrink-0 flex-wrap items-end justify-between gap-4 pb-4">
             <div className="min-w-0">
               {view === 'grid' && scope.kind !== 'all' ? (
                 <button type="button" onClick={() => setScope({ kind: 'all' })} className="mb-1 inline-flex items-center gap-1 text-[12.5px] text-muted-foreground hover:text-foreground">
@@ -105,7 +135,7 @@ export default function Library() {
             </div>
           </header>
 
-          <div className="flex shrink-0 flex-wrap items-center gap-2.5 pb-5">
+          <div className="flex shrink-0 flex-wrap items-center gap-2.5 pb-4">
             <label className="flex h-9 w-[280px] items-center gap-2 rounded-[10px] border border-border bg-card px-3 text-muted-foreground focus-within:border-primary/50 focus-within:ring-[3px] focus-within:ring-primary/10">
               <Search className="h-4 w-4 shrink-0" />
               <input id="library-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names, prompts or models" className="w-full bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/80" />
@@ -137,24 +167,34 @@ export default function Library() {
                 </SelectContent>
               </Select>
               {view === 'grid' && (
-                <div className="inline-flex rounded-[10px] border border-border bg-card p-0.5" role="group" aria-label="Thumbnail size">
-                  {(['s', 'm', 'l'] as const).map((d) => (
-                    <button key={d} type="button" aria-pressed={density === d} onClick={() => setDensity(d)} className={cn('h-8 w-8 rounded-[8px] text-[12px] font-medium uppercase transition-smooth', density === d ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-                      {d}
-                    </button>
-                  ))}
+                <div className="flex h-9 items-center gap-1 rounded-[10px] border border-border bg-card px-1.5" title="Zoom (pinch or ⌘ +/−)">
+                  <button type="button" aria-label="Zoom out" onClick={() => zoomBy(1 / 1.25)} disabled={tileSize <= MIN_TILE} className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40">
+                    <ZoomOut className="h-4 w-4" />
+                  </button>
+                  <Slider
+                    aria-label="Thumbnail size"
+                    className="w-[160px] px-1"
+                    min={MIN_TILE}
+                    max={MAX_TILE}
+                    step={1}
+                    value={[tileSize]}
+                    onValueChange={([v]) => setTileSize(v)}
+                  />
+                  <button type="button" aria-label="Zoom in" onClick={() => zoomBy(1.25)} disabled={tileSize >= MAX_TILE} className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-40">
+                    <ZoomIn className="h-4 w-4" />
+                  </button>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto" onClick={(e) => view === 'grid' && e.target === e.currentTarget && selection.clear()}>
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto" onClick={(e) => view === 'grid' && e.target === e.currentTarget && selection.clear()}>
             {isLoading ? (
-              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
-                {Array.from({ length: 12 }).map((_, i) => <div key={i} className="aspect-square animate-pulse rounded-[14px] bg-muted" />)}
+              <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(tileSize)}px, 1fr))` }}>
+                {Array.from({ length: 24 }).map((_, i) => <div key={i} className="aspect-square animate-pulse rounded-[8px] bg-muted" />)}
               </div>
             ) : view === 'grid' ? (
-              <GridView items={items} scope={scope} sort={sort} density={density} selection={selection} isStarred={isStarred} onOpen={setOpenId} onScope={setScope} onMove={move} />
+              <GridView items={items} scope={scope} tileSize={tileSize} selection={selection} isStarred={isStarred} onOpen={setOpenId} onScope={setScope} onMove={move} />
             ) : (
               <div className="h-full pb-6">
                 <OrganizeView items={items} scope={scope} onScope={setScope} counts={counts} selection={selection} isStarred={isStarred} onOpen={setOpenId} />

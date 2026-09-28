@@ -82,10 +82,10 @@
     --shadow-panel: 0 1px 0 0 hsl(40 10% 80% / 0.35), 0 1px 3px 0 hsl(240 10% 10% / 0.04);
     --shadow-canvas: inset 0 1px 2px 0 hsl(0 0% 0% / 0.02);
 
-    /* Canvas stage: a dark lightbox in both themes so outputs read true */
-    --stage: 240 7% 10%;
-    --stage-foreground: 40 12% 92%;
-    --stage-muted: 240 5% 62%;
+    /* Canvas stage: a soft light lightbox (dark theme overrides below) */
+    --stage: 40 10% 92.5%;
+    --stage-foreground: 240 8% 12%;
+    --stage-muted: 240 4% 46%;
 
     --tracking-normal: 0em;
     --spacing: 0.25rem;

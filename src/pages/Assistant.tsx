@@ -142,7 +142,7 @@ const Assistant = () => {
       : versions.length > 0 ? QUICK[output] : [];
 
   return (
-    <AppShell scrollableContent={false} compactNav>
+    <AppShell scrollableContent={false}>
       <div className="h-full flex overflow-hidden">
         <ChatRail className="hidden xl:flex" />
         <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
