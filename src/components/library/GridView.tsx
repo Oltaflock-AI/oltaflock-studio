@@ -9,10 +9,10 @@ import { cn } from '@/lib/utils';
 import { DRAG_TYPE, FolderDialog, FolderDot, readDraggedIds } from './folders';
 import type { Scope } from './libraryState';
 
-/** Images per row: the Library's zoom slider range. */
-export const MIN_COLUMNS = 2;
-export const MAX_COLUMNS = 12;
-export const DEFAULT_COLUMNS = 6;
+/** Thumbnail width in px: the Library's zoom slider range. */
+export const MIN_TILE = 72;
+export const MAX_TILE = 520;
+export const DEFAULT_TILE = 200;
 
 interface Selection { has: (id: string) => boolean; count: number; ids: string[]; click: (id: string, e?: React.MouseEvent) => void; toggle: (id: string) => void }
 
@@ -134,14 +134,14 @@ function FolderCard({ id, name, color, count, cover, coverType, onOpen, onDropId
 
 /** Visual grid of generations, with folder covers on top when browsing everything. */
 export function GridView({
-  items, scope, columns, selection, isStarred, onOpen, onScope, onMove,
+  items, scope, tileSize, selection, isStarred, onOpen, onScope, onMove,
 }: {
-  items: DbGeneration[]; scope: Scope; columns: number; selection: Selection;
+  items: DbGeneration[]; scope: Scope; tileSize: number; selection: Selection;
   isStarred: (id: string) => boolean; onOpen: (id: string) => void; onScope: (s: Scope) => void; onMove: (ids: string[], folderId: string, name: string) => void;
 }) {
   const { folders } = useFolders();
   const [newOpen, setNewOpen] = useState(false);
-  const compact = columns >= 9;
+  const compact = tileSize < 140;
 
   return (
     <div className="space-y-7 pb-28">
@@ -173,7 +173,7 @@ export function GridView({
       )}
 
       {items.length > 0 && (
-        <div className={cn('grid', compact ? 'gap-[3px]' : 'gap-1')} style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+        <div className={cn('grid', compact ? 'gap-[3px]' : 'gap-1')} style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(tileSize)}px, 1fr))` }}>
           {items.map((g) => (
             <Tile key={g.id} g={g} selection={selection} starred={isStarred(g.id)} compact={compact} onOpen={() => onOpen(g.id)} />
           ))}
