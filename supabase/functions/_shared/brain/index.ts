@@ -5,6 +5,7 @@ import type { ModelSpec } from '../catalog/types.ts';
 import { fieldValue, mediaValue, visibleFields, visibleMedia } from '../catalog/adapters.ts';
 import { USE_CASES } from '../catalog/use-cases.ts';
 import { CORE_RULES, FAMILY_GUIDES, USE_CASE_GUIDES, MODE_RULES } from './knowledge.ts';
+import { fetchMemories, memoryBlock } from '../memory.ts';
 
 const PRIMARY_MODEL = Deno.env.get('BRAIN_MODEL') || 'claude-sonnet-5';
 const FALLBACK_MODEL = 'claude-sonnet-4-20250514';
@@ -47,7 +48,7 @@ function describeSetup(spec: ModelSpec, controls: Record<string, unknown>): stri
   return lines.length ? lines.join('\n') : '- defaults';
 }
 
-async function fetchRatedExamples(supabase: SupabaseClientLike, userId: string, spec: ModelSpec): Promise<string> {
+export async function fetchRatedExamples(supabase: SupabaseClientLike, userId: string, spec: ModelSpec): Promise<string> {
   try {
     const { data } = await supabase
       .from('generations')
@@ -143,8 +144,10 @@ export async function optimizePrompt(input: BrainInput): Promise<BrainResult | n
   }
 
   const { spec, prompt, useCase = 'auto', controls = {}, userId, supabase, image } = input;
-  const examples = supabase && userId ? await fetchRatedExamples(supabase, userId, spec) : '';
-  const system = buildSystemPrompt(spec, useCase, controls, examples);
+  const [examples, memories] = supabase && userId
+    ? await Promise.all([fetchRatedExamples(supabase, userId, spec), fetchMemories(supabase, userId, 40)])
+    : ['', []];
+  const system = buildSystemPrompt(spec, useCase, controls, examples + memoryBlock(memories));
 
   const direction = prompt.trim()
     ? `User's idea:\n"""${prompt.trim()}"""`
