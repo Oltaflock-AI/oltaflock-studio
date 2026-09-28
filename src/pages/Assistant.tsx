@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronsUpDown, Brain, Sparkles } from 'lucide-react';
+import { ChevronsUpDown, Brain, Sparkles, History } from 'lucide-react';
 import { catalogFor, getSpec } from '@catalog/index.ts';
 import { BACKEND_LABELS, type Backend } from '@catalog/types.ts';
 import { AppShell } from '@/components/layout/AppShell';
@@ -13,6 +13,7 @@ import { MemoryPanel } from '@/components/assistant/MemoryPanel';
 import { PromptCardPanel, type CardVersion } from '@/components/assistant/PromptCardPanel';
 import { useAssistantChats, useChatMessages, useMemories, usePromptChat, type Attachment } from '@/hooks/useAssistant';
 import { useAssistantStore } from '@/store/assistantStore';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
 const STARTERS: Record<'image' | 'video', string[]> = {
@@ -62,6 +63,9 @@ const Assistant = () => {
   const onChat = useCallback((id: string) => setActiveChatId(id), [setActiveChatId]);
   const { send, stop, stream, isStreaming, error } = usePromptChat(onChat);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // Close the history drawer once a chat is picked.
+  useEffect(() => setHistoryOpen(false), [activeChatId]);
   const [tab, setTab] = useState<'prompt' | 'memory'>('prompt');
   const [versionIndex, setVersionIndex] = useState(0);
 
@@ -122,14 +126,28 @@ const Assistant = () => {
   return (
     <AppShell scrollableContent={false}>
       <div className="h-full flex overflow-hidden">
-        <ChatRail />
+        <ChatRail className="hidden xl:flex" />
+        <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+          <SheetContent side="left" className="w-[280px] p-0 xl:hidden [&>button]:hidden">
+            <SheetTitle className="sr-only">Chat history</SheetTitle>
+            <ChatRail className="w-full 2xl:w-full h-full border-r-0" />
+          </SheetContent>
+        </Sheet>
 
         <main className="flex-1 min-w-0 flex flex-col">
           <header className="shrink-0 flex items-center justify-between gap-4 px-6 h-16 border-b border-border">
-            <h1 className="min-w-0 truncate font-serif text-[24px] leading-none tracking-[-0.01em]">
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              aria-label="Chat history"
+              className="xl:hidden -ml-2 p-2 rounded-[9px] text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-smooth"
+            >
+              <History className="h-4 w-4" />
+            </button>
+            <h1 className="hidden 2xl:block min-w-0 truncate font-serif text-[24px] leading-none tracking-[-0.01em]">
               {activeChat?.title ?? 'Prompt Assistant'}
             </h1>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="ml-auto flex items-center gap-2 min-w-0">
               <Segmented<Backend>
                 label="Provider"
                 value={backend}
@@ -145,7 +163,7 @@ const Assistant = () => {
               <button
                 type="button"
                 onClick={() => setPickerOpen(true)}
-                className="h-8 max-w-[240px] pl-2 pr-2.5 inline-flex items-center gap-2 rounded-[9px] border border-border bg-card text-[13px] hover:border-foreground/25 transition-smooth dark:bg-transparent"
+                className="h-8 min-w-0 2xl:shrink-0 max-w-[240px] pl-2 pr-2.5 inline-flex items-center gap-2 rounded-[9px] border border-border bg-card text-[13px] hover:border-foreground/25 transition-smooth dark:bg-transparent"
               >
                 {spec ? <ModelBadge modelId={spec.id} size="sm" /> : <Sparkles className="h-4 w-4 text-primary" />}
                 <span className="truncate font-medium">{spec?.name ?? 'Help me choose'}</span>
@@ -202,7 +220,7 @@ const Assistant = () => {
           />
         </main>
 
-        <aside aria-label="Prompt and memory" className="hidden lg:flex w-[400px] 2xl:w-[440px] shrink-0 flex-col border-l border-border bg-card">
+        <aside aria-label="Prompt and memory" className="hidden lg:flex w-[360px] 2xl:w-[440px] shrink-0 flex-col border-l border-border bg-card">
           <div className="shrink-0 h-16 flex items-center px-4 border-b border-border">
             <Segmented<'prompt' | 'memory'>
               label="Panel"

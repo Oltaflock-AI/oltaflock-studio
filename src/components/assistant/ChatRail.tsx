@@ -79,7 +79,7 @@ function ChatRow({ chat, active }: { chat: AssistantChat; active: boolean }) {
 }
 
 /** Saved chats, newest first, grouped by day. */
-export function ChatRail() {
+export function ChatRail({ className }: { className?: string }) {
   const { chats, isLoading } = useAssistantChats();
   const { activeChatId, setActiveChatId } = useAssistantStore();
 
@@ -93,7 +93,7 @@ export function ChatRail() {
   }, [chats]);
 
   return (
-    <aside aria-label="Chat history" className="w-[248px] shrink-0 flex flex-col border-r border-border bg-sidebar/60">
+    <aside aria-label="Chat history" className={cn('w-[220px] 2xl:w-[248px] shrink-0 flex flex-col border-r border-border bg-sidebar/60', className)}>
       <div className="p-3">
         <button
           type="button"
