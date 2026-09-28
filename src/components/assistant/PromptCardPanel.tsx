@@ -262,7 +262,7 @@ export function PromptCardPanel({ versions, index, onIndexChange: setIndex, atta
               {Object.entries(card.settings).map(([k, v]) => {
                 const item = setting(spec, k, v);
                 return (
-                  <div key={k} className="bg-card px-3 py-2.5">
+                  <div key={k} className="bg-card px-3 py-2.5 last:odd:col-span-2">
                     <dt className="text-[11px] text-muted-foreground capitalize">{item.label}</dt>
                     <dd className="mt-0.5 font-mono text-[13px] text-foreground">{item.value}</dd>
                   </div>

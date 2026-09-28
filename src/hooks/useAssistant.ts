@@ -217,7 +217,7 @@ export interface SendOptions {
   attachments: Attachment[];
   modelId: string | null;
   backend: Backend;
-  output: 'image' | 'video';
+  output?: 'image' | 'video';
   learn: boolean;
 }
 

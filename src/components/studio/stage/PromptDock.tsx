@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { StylePicker } from './StylePicker';
+import { useMentions } from './MentionMenu';
 
 const CHIP =
   'inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[9px] border border-border/80 bg-card px-2.5 text-[12.5px] text-foreground/90 transition-smooth hover:border-foreground/25 hover:text-foreground disabled:opacity-50 data-[state=open]:border-foreground/30 dark:bg-transparent';
@@ -115,6 +116,7 @@ export function PromptDock() {
   const backend = usePreferencesStore((s) => s.studioBackend);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mentions = useMentions(textareaRef, brain.rawPrompt, brain.setRawPrompt);
 
   const studioMode = toStudioMode(mode);
   const output = outputOf(studioMode);
@@ -146,6 +148,7 @@ export function PromptDock() {
 
   return (
     <div className="relative">
+      {mentions.menu}
       <AnimatePresence>
         {brain.suggestion && (
           <motion.div
@@ -215,9 +218,11 @@ export function PromptDock() {
               aria-label="Prompt"
               value={brain.rawPrompt}
               onChange={(e) => brain.setRawPrompt(e.target.value)}
+              onKeyDown={(e) => { mentions.onKeyDown(e); }}
+              onBlur={mentions.close}
               rows={2}
               disabled={brain.busy !== null}
-              placeholder={output === 'video' ? 'Describe the shot: subject, action, camera, mood…' : 'Describe the image: subject, setting, light, style…'}
+              placeholder={output === 'video' ? 'Describe the shot: subject, action, camera, mood… (@ to reference a past generation)' : 'Describe the image: subject, setting, light, style… (@ to reference a past generation)'}
               className="min-h-[56px] w-full resize-none bg-transparent px-1 pt-2.5 text-[15px] leading-relaxed outline-none placeholder:text-muted-foreground/70 disabled:opacity-60"
             />
           )}

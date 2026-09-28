@@ -39,6 +39,9 @@ const STARTERS: Record<'image' | 'video', { title: string; category: string; ide
   ],
 };
 
+/** Starters alternate image and video ideas, since there's no output toggle to pick one. */
+const MIXED_STARTERS = STARTERS.image.flatMap((s, i) => [s, STARTERS.video[i]].filter(Boolean));
+
 const QUICK: Record<'image' | 'video', string[]> = {
   image: ['More cinematic', 'Different lighting', 'Simplify it', 'Change the background', 'Give me 3 variations'],
   video: ['More cinematic', 'Add a camera move', 'Make it shorter', 'Different mood', 'Give me 3 variations'],
@@ -64,7 +67,7 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
 }
 
 const Assistant = () => {
-  const { backend, output, modelId, activeChatId, learn, setBackend, setOutput, setModelId, setActiveChatId } = useAssistantStore();
+  const { backend, output, modelId, activeChatId, learn, setBackend, setActiveChatId } = useAssistantStore();
   const { chats, isSettled: chatsSettled } = useAssistantChats();
   const { memories } = useMemories();
   const { data: messages = [], isSuccess: messagesLoaded } = useChatMessages(activeChatId);
@@ -121,7 +124,8 @@ const Assistant = () => {
 
   const sendMessage = (text: string, files: Attachment[] = []) => {
     setTab('prompt');
-    send({ chatId: activeChatId, message: text, attachments: files, modelId, backend, output, learn });
+    // No output toggle: the model (once chosen) decides image vs video; until then the assistant asks.
+    send({ chatId: activeChatId, message: text, attachments: files, modelId, backend, output: spec?.output, learn });
   };
 
   const chooseModel = (id: string) => {
@@ -134,7 +138,7 @@ const Assistant = () => {
     }
   };
 
-  const pickerSpecs = useMemo(() => catalogFor(backend).filter((s) => s.output === output), [backend, output]);
+  const pickerSpecs = useMemo(() => catalogFor(backend), [backend]);
   const isEmpty = !activeChatId && !isStreaming && !stream.pendingUser;
   const pending = isStreaming || stream.pendingUser
     ? { user: stream.pendingUser, text: stream.text, cards: stream.cards, memoryEvents: stream.memoryEvents, questions: stream.questions, status: stream.status }
@@ -195,18 +199,12 @@ const Assistant = () => {
                 onChange={(b) => setBackend(b)}
                 options={[{ value: 'kie', label: BACKEND_LABELS.kie }, { value: 'higgsfield', label: BACKEND_LABELS.higgsfield }]}
               />
-              <Segmented<'image' | 'video'>
-                label="Output"
-                value={output}
-                onChange={(o) => { setOutput(o); if (spec && spec.output !== o) setModelId(null); }}
-                options={[{ value: 'image', label: 'Image' }, { value: 'video', label: 'Video' }]}
-              />
             </div>
           </header>
 
           <div className="flex-1 overflow-y-auto">
             {isEmpty ? (
-              <div className="mx-auto w-full max-w-[1080px] px-6 pt-[12vh] pb-10">
+              <div className="mx-auto w-full max-w-[1120px] min-[1800px]:max-w-[1360px] px-6 pt-[10vh] pb-10">
                 <h2 className="font-serif text-[46px] leading-[1.02] tracking-[-0.02em]">What are we making?</h2>
                 <p className="mt-3 text-[15px] text-muted-foreground max-w-[520px] leading-relaxed">
                   Start with a strange thought, an impossible scene, or one of these. We&apos;ll turn it into a prompt for {spec ? spec.name : 'the right model'} and make it real.
@@ -219,12 +217,12 @@ const Assistant = () => {
                 )}
                 <div className="mt-8 flex items-center justify-between gap-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">A few unexpected starting points</p>
-                  <button type="button" onClick={() => setStarterPage((page) => (page + 1) % 2)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <button type="button" onClick={() => setStarterPage((page) => (page + 1) % Math.ceil(MIXED_STARTERS.length / 4))} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <Shuffle className="h-3.5 w-3.5" /> More ideas
                   </button>
                 </div>
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {STARTERS[output].slice(starterPage * 4, starterPage * 4 + 4).map((s) => (
+                  {MIXED_STARTERS.slice(starterPage * 4, starterPage * 4 + 4).map((s) => (
                     <button
                       key={s.title}
                       type="button"
@@ -272,13 +270,13 @@ const Assistant = () => {
             }
             placeholder={
               isEmpty
-                ? `Describe ${output === 'video' ? 'the video' : 'the creative'} you want, or ask me anything…`
+                ? 'Describe the image or video you want, or ask me anything…'
                 : briefOpen ? 'Tap an answer above, or type your own…' : 'Reply, ask a question, or request a change…'
             }
           />
         </main>
 
-        <aside aria-label="Prompt and memory" className={cn(showPanel ? 'hidden lg:flex' : 'hidden', 'w-[380px] 2xl:w-[460px] shrink-0 flex-col border-l border-border bg-card animate-in fade-in-0 slide-in-from-right-4 duration-300')}>
+        <aside aria-label="Prompt and memory" className={cn(showPanel ? 'hidden lg:flex' : 'hidden', 'w-[380px] 2xl:w-[440px] min-[2200px]:w-[520px] shrink-0 flex-col border-l border-border bg-card animate-in fade-in-0 slide-in-from-right-4 duration-300')}>
           <div className="shrink-0 h-16 flex items-end gap-6 px-6 border-b border-border" role="tablist" aria-label="Panel">
             {([['prompt', 'Prompt', versions.length], ['memory', 'Memory', memories.length]] as const).map(([value, label, count]) => (
               <button
@@ -323,7 +321,7 @@ const Assistant = () => {
         specs={pickerSpecs}
         selectedId={modelId}
         onSelect={chooseModel}
-        title={output === 'video' ? 'Video models' : 'Image models'}
+        title="Models"
         backend={backend}
         showMode
       />

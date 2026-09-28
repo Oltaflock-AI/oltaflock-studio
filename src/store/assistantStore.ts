@@ -28,7 +28,8 @@ export const useAssistantStore = create<AssistantState>()(
       setBackend: (backend) => set({ backend, modelId: null }),
       setOutput: (output) => set({ output }),
       setModelId: (modelId) => set({ modelId }),
-      setActiveChatId: (activeChatId) => set({ activeChatId }),
+      // A new chat starts on auto-pick; otherwise the last chat's model would stick to every new idea.
+      setActiveChatId: (activeChatId) => set(activeChatId ? { activeChatId } : { activeChatId: null, modelId: null }),
       setLearn: (learn) => set({ learn }),
     }),
     { name: 'oltaflock-assistant' },

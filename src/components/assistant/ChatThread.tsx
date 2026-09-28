@@ -105,7 +105,7 @@ function CardChip({ card, version, active, onClick }: { card: PromptCard; versio
         </span>
         <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-smooth" />
       </span>
-      <span className="mt-2.5 block text-[13px] leading-relaxed text-muted-foreground line-clamp-2">{card.prompt}</span>
+      <span className="mt-2.5 text-[13px] leading-relaxed text-muted-foreground line-clamp-2">{card.prompt}</span>
       {settings.length > 0 && (
         <span className="mt-2.5 flex flex-wrap gap-1">
           {settings.map(([k, v]) => (
@@ -271,7 +271,7 @@ export function ChatThread({ messages, pending, isStreaming, error, activeVersio
   );
 
   return (
-    <div className="mx-auto w-full max-w-[1120px] px-6 py-10 space-y-9">
+    <div className="mx-auto w-full max-w-[1120px] min-[1800px]:max-w-[1360px] px-6 py-8 space-y-7">
       {turns.map((t) => (t.kind === 'user' ? renderUser(t.id, t.content, t.attachments) : renderAssistant(t)))}
       {pending?.user && renderUser('pending-user', pending.user.content, pending.user.attachments)}
       {isStreaming && pending && renderAssistant(

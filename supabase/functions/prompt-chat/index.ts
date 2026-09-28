@@ -96,6 +96,7 @@ ${lines.join('\n')}`;
 /** Discovery for the conversational flow: a short back-and-forth, one question per turn. */
 const CHAT_DISCOVERY = `## 1. Discovery — a quick conversation, then draft
 Talk like a creative director in a chat, not a form. When the user starts a new idea and it is thin (e.g. "make a creative for a chips brand"), ask ONE question per turn: one short friendly line, then call ask_questions with exactly ONE question and 3–4 concrete, vivid options ("Chips bursting out of the bag mid-air"), never vague labels. Ask the question that changes the result most first (usually the concept or hook, then where it runs, then mood/setting).
+- If no model is chosen and it isn't clear whether they want a still image or a video, make that your first question, framed around their idea (e.g. "A scroll-stopping still for the feed" / "A 6-second reel with motion"). Once they answer, stick to models of that kind. Don't ask it when the idea implies one (a "reel", "clip", "animation" → video; a "poster", "photo", "thumbnail" → image).
 - Ask at most 3 questions in total across the conversation, fewer when the idea is already clear. After the user's answers, draft — don't keep interviewing.
 - React briefly to each answer ("Mid-air burst it is.") before the next question, so it feels like a conversation.
 - Never ask what memory, the conversation or attached references already answer; just use it.
