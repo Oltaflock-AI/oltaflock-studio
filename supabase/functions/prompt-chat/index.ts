@@ -298,6 +298,22 @@ Deno.serve(async (req) => {
   if (spec && specBackend(spec) !== backend) spec = undefined;
   if (!message && !attachments.length) return json({ error: 'Empty message' }, 400);
 
+  // Placeholder title from the opening message, replaced by the first card's title.
+  const autoTitle = (m: string) => (m || 'Reference upload').replace(/\s+/g, ' ').slice(0, 60);
+
+  // True while the chat still carries its auto title and no earlier reply produced a card,
+  // so the first card names the chat even when it arrives after a clarifying turn.
+  const hasPlaceholderTitle = async (currentMessageId?: string) => {
+    if (!body.chatId) return true;
+    const [{ data: first }, { count }] = await Promise.all([
+      supabase.from('assistant_messages').select('content').eq('chat_id', chatId).eq('role', 'user')
+        .order('created_at', { ascending: true }).limit(1).maybeSingle(),
+      supabase.from('assistant_messages').select('id', { count: 'exact', head: true }).eq('chat_id', chatId)
+        .not('card', 'is', null).neq('id', currentMessageId ?? ''),
+    ]);
+    return !count && !!first && title === autoTitle(first.content);
+  };
+
   // Resolve or create the chat.
   let chatId: string | undefined = typeof body.chatId === 'string' ? body.chatId : undefined;
   let title = '';
@@ -306,7 +322,7 @@ Deno.serve(async (req) => {
     if (!data) return json({ error: 'Chat not found' }, 404);
     title = data.title;
   } else {
-    title = (message || 'Reference upload').replace(/\s+/g, ' ').slice(0, 60);
+    title = autoTitle(message);
     const { data, error } = await supabase
       .from('assistant_chats')
       .insert({ user_id: userId, title, model_id: spec?.id ?? null, backend })
@@ -399,7 +415,7 @@ Deno.serve(async (req) => {
 
         const chatUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() };
         if (card?.model_id) chatUpdate.model_id = card.model_id;
-        if (card && !body.chatId) { chatUpdate.title = card.title; send({ type: 'chat', chatId, title: card.title }); }
+        if (card && await hasPlaceholderTitle(saved?.id)) { chatUpdate.title = card.title; send({ type: 'chat', chatId, title: card.title }); }
         await supabase.from('assistant_chats').update(chatUpdate).eq('id', chatId);
 
         send({ type: 'done', messageId: saved?.id });
