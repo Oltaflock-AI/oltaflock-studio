@@ -18,9 +18,14 @@ export function useHiggsfieldStatus(enabled = true) {
   });
 }
 
+/** A numeric quote, or `description` alone for token-metered models. */
 export interface HiggsfieldEstimate {
-  credits: number;
-  usd: number;
+  credits?: number;
+  usd?: number;
+  /** Pre-discount price when Higgsfield applies a discount. */
+  listUsd?: number;
+  discountPct?: number;
+  description?: string;
 }
 
 function useDebounced<T>(value: T, ms: number): T {
@@ -47,8 +52,10 @@ export function useHiggsfieldEstimate(spec: ModelSpec | undefined, prompt: strin
       const { data, error } = await supabase.functions.invoke('higgsfield', {
         body: { action: 'estimate', model, prompt: prompt.trim() || '', controls: ctl },
       });
-      if (error || !data || typeof (data as HiggsfieldEstimate).credits !== 'number') return null;
-      return data as HiggsfieldEstimate;
+      const d = data as HiggsfieldEstimate | null;
+      if (error || !d) return null;
+      if (typeof d.description === 'string') return { description: d.description };
+      return Number.isFinite(d.credits) && Number.isFinite(d.usd) ? d : null;
     },
     enabled: !!key,
     staleTime: 10 * 60_000,

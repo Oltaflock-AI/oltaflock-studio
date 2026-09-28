@@ -101,7 +101,7 @@ export function GenerateButton() {
           cost_credits: cost.credits,
           cost_usd: spec.api === 'higgsfield' ? (hfEstimate?.usd ?? null) : cost.usd,
           backend: spec.backend ?? 'kie',
-          ...(spec.api === 'higgsfield' && hfEstimate ? { hf_credits: hfEstimate.credits } : {}),
+          ...(spec.api === 'higgsfield' && hfEstimate?.credits !== undefined ? { hf_credits: hfEstimate.credits } : {}),
         },
       });
       

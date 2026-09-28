@@ -56,7 +56,18 @@ export function higgsfieldStatus(requestId: string) {
   return call<Record<string, unknown>>('GET', `/requests/${encodeURIComponent(requestId)}/status`);
 }
 
-/** Price for these exact params, e.g. { credits: "1.500", usd: "0.094" }. */
+/**
+ * Price for these exact params. Either a number ({ type: 'estimate', credits,
+ * usd, discount }) or, for token-metered models, prose ({ type: 'description' }).
+ */
+export interface HiggsfieldEstimateResponse {
+  type?: 'estimate' | 'description';
+  credits?: string;
+  usd?: string;
+  discount?: { percentage: string; credits: string; usd: string } | null;
+  pricing_description?: string;
+}
+
 export function estimateHiggsfield(endpoint: string, input: Record<string, unknown>) {
-  return call<{ credits: string; usd: string }>('POST', `/estimate/${endpoint}`, input);
+  return call<HiggsfieldEstimateResponse>('POST', `/estimate/${endpoint}`, input);
 }

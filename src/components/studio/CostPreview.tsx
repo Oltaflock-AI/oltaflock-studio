@@ -27,9 +27,14 @@ function HiggsfieldCost() {
       title="Quoted by Higgsfield for these settings. Failed or moderated requests aren't charged."
     >
       {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Coins className="h-3.5 w-3.5" />}
-      {data ? (
+      {data?.description ? (
+        <span className="cursor-help underline decoration-dotted underline-offset-2" title={data.description}>
+          Metered pricing
+        </span>
+      ) : data ? (
         <>
-          <span className="font-semibold text-foreground">${data.usd.toFixed(3)}</span>
+          <span className="font-semibold text-foreground">${data.usd!.toFixed(3)}</span>
+          {data.listUsd !== undefined && <span className="line-through opacity-60">${data.listUsd.toFixed(3)}</span>}
           <span>· {data.credits} HF cr</span>
         </>
       ) : (

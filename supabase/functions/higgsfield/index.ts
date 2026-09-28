@@ -1,6 +1,6 @@
 // Studio helper for the Higgsfield backend:
 //   { action: 'status' }                              → { configured }
-//   { action: 'estimate', model, prompt, controls }   → { credits, usd }
+//   { action: 'estimate', model, prompt, controls }   → { credits, usd, listUsd?, discountPct? } | { description }
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getSpec } from '../_shared/catalog/index.ts';
 import { buildInput } from '../_shared/catalog/adapters.ts';
@@ -36,7 +36,17 @@ Deno.serve(async (req: Request) => {
     const input = buildInput(spec, prompt.trim() || (spec.noPrompt ? '' : 'estimate'), controls);
     const res = await estimateHiggsfield(spec.endpoint, input);
     if (!res.ok || !res.data) return json({ error: res.error }, 502);
-    return json({ credits: Number(res.data.credits), usd: Number(res.data.usd) });
+    const d = res.data;
+    if (d.type === 'description' || d.credits === undefined) {
+      return json({ description: d.pricing_description ?? 'Metered pricing' });
+    }
+    // Quote the discounted price when Higgsfield applies one.
+    const final = d.discount ?? d;
+    return json({
+      credits: Number(final.credits),
+      usd: Number(final.usd),
+      ...(d.discount ? { listUsd: Number(d.usd), discountPct: Number(d.discount.percentage) } : {}),
+    });
   }
 
   return json({ error: 'Unknown action' }, 400);
