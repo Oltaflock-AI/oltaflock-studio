@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Sparkles, LayoutGrid, Layers, Clock, MessageCircle, Settings as SettingsIcon, Coins, LogOut } from 'lucide-react';
+import { Sparkles, LayoutGrid, Layers, MessageCircle, Settings as SettingsIcon, Coins, LogOut } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ThemeToggle } from '@/components/studio/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,7 +22,6 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Studio', icon: Sparkles },
   { to: '/library', label: 'Library', icon: LayoutGrid },
   { to: '/presets', label: 'Presets', icon: Layers },
-  { to: '/library?tab=history', label: 'History', icon: Clock },
   { to: '/assistant', label: 'Assistant', icon: MessageCircle },
 ];
 
@@ -35,7 +34,6 @@ interface AppShellProps {
 /**
  * Persistent left navigation rail + top-level chrome shared by every
  * authenticated page. Each page renders its own content inside this shell;
- * Studio keeps its existing internal 4-pane layout unchanged.
  */
 export function AppShell({ children, scrollableContent = true }: AppShellProps) {
   const location = useLocation();
@@ -44,10 +42,9 @@ export function AppShell({ children, scrollableContent = true }: AppShellProps) 
   const { signOut } = useAuth();
   const queryClient = useQueryClient();
   const { clearAll } = useGenerationStore();
-  const onHistory = location.pathname === '/library' && new URLSearchParams(location.search).get('tab') === 'history';
 
   const handleSignOut = async () => {
-    // Same order as UserMenu: drop cached user data before the session goes.
+    // Drop cached user data before the session goes.
     clearAll();
     queryClient.clear();
     await signOut();
@@ -67,10 +64,7 @@ export function AppShell({ children, scrollableContent = true }: AppShellProps) 
 
         <nav className="flex flex-col gap-0.5">
           {NAV_ITEMS.map((item) => {
-            const isActive =
-              item.label === 'History' ? onHistory
-              : item.label === 'Library' ? location.pathname === '/library' && !onHistory
-              : location.pathname === item.to;
+            const isActive = location.pathname === item.to;
             const Icon = item.icon;
             return (
               <NavLink

@@ -29,6 +29,10 @@ export interface DbGeneration {
   external_task_id: string | null;
   /** User-marked sensitive: previews stay blurred until explicitly revealed. */
   is_nsfw?: boolean;
+  /** Library folder this generation is filed in, if any. */
+  folder_id?: string | null;
+  /** Human-readable name (AI-written from the prompt, user-editable). */
+  title?: string | null;
 }
 
 // Insert type (omitting auto-generated fields)
@@ -42,6 +46,7 @@ export interface GenerationInsert {
   status?: GenerationStatus;
   output_url?: string | null;
   error_message?: string | null;
+  title?: string | null;
 }
 
 // Update type
@@ -54,6 +59,7 @@ export interface GenerationUpdate {
   progress?: number;
   external_task_id?: string | null;
   is_nsfw?: boolean;
+  title?: string | null;
 }
 
 export function useGenerations() {
@@ -126,6 +132,7 @@ export function useGenerations() {
           output_url: generation.output_url,
           error_message: generation.error_message,
           user_id: user.id,
+          ...(generation.title ? { title: generation.title } : {}),
         })
         .select()
         .single();
@@ -198,6 +205,46 @@ export function useGenerations() {
     },
   });
 
+  // Files several generations into a folder (or back to unfiled with null).
+  const moveToFolderMutation = useMutation({
+    mutationFn: async ({ ids, folderId }: { ids: string[]; folderId: string | null }) => {
+      if (!user?.id) throw new Error('User not authenticated');
+      const { error } = await supabase
+        .from('generations')
+        .update({ folder_id: folderId } as never)
+        .in('id', ids)
+        .eq('user_id', user.id);
+      if (error) throw error;
+    },
+    onMutate: async ({ ids, folderId }) => {
+      const key = ['generations', user?.id];
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<DbGeneration[]>(key);
+      const moving = new Set(ids);
+      queryClient.setQueryData<DbGeneration[]>(key, (gens) =>
+        gens?.map((g) => (moving.has(g.id) ? { ...g, folder_id: folderId } : g)),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(['generations', user?.id], context.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['generations', user?.id] });
+    },
+  });
+
+  const deleteManyMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (!user?.id) throw new Error('User not authenticated');
+      const { error } = await supabase.from('generations').delete().in('id', ids).eq('user_id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['generations', user?.id] });
+    },
+  });
+
   const deleteGenerationMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -219,6 +266,8 @@ export function useGenerations() {
     createGeneration: createGenerationMutation.mutateAsync,
     updateGeneration: updateGenerationMutation.mutateAsync,
     deleteGeneration: deleteGenerationMutation.mutateAsync,
+    deleteGenerations: deleteManyMutation.mutateAsync,
+    moveToFolder: (ids: string[], folderId: string | null) => moveToFolderMutation.mutateAsync({ ids, folderId }),
     setNsfw: (generation: DbGeneration, isNsfw: boolean) =>
       setNsfwMutation.mutateAsync({ generation, isNsfw }),
     refetch: generationsQuery.refetch,

@@ -1,302 +1,170 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, FolderTree, LayoutGrid, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { Plus, Search, Loader2, Library as LibraryIcon } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { AnimatedPage } from '@/components/ui/animated-page';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
-import { CategoryFilter } from '@/components/library/CategoryFilter';
-import { CollectionFilter } from '@/components/library/CollectionFilter';
-import { LibraryCard } from '@/components/library/LibraryCard';
-import { LibraryDetailDialog } from '@/components/library/LibraryDetailDialog';
-import { HistoryList } from '@/components/library/HistoryList';
-import { NewCollectionDialog, MoveToCollectionDialog } from '@/components/library/CollectionDialogs';
-import { modelDisplayName } from '@/components/library/modelName';
-import { usePromptLibrary } from '@/hooks/usePromptLibrary';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useGenerations } from '@/hooks/useGenerations';
-import type { LibraryCategory, LibraryItem } from '@/types/library';
+import { useFolders } from '@/hooks/useFolders';
+import { usePromptLibrary } from '@/hooks/usePromptLibrary';
+import { GridView, type Density } from '@/components/library/GridView';
+import { OrganizeView } from '@/components/library/OrganizeView';
+import { LibraryViewer } from '@/components/library/LibraryViewer';
+import { SelectionBar } from '@/components/library/SelectionBar';
+import { FolderDot } from '@/components/library/folders';
+import { TYPE_FILTERS, applyFilters, useSelection, type Scope, type SortKey, type TypeFilter } from '@/components/library/libraryState';
+import { cn } from '@/lib/utils';
 
-type LibraryTab = 'all' | 'curated' | 'saved' | 'history';
+type View = 'grid' | 'organize';
 
-const TABS: { id: LibraryTab; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'curated', label: 'Curated' },
-  { id: 'saved', label: 'Saved' },
-  { id: 'history', label: 'History' },
-];
-
-function parseTab(value: string | null): LibraryTab {
-  return TABS.some((t) => t.id === value) ? (value as LibraryTab) : 'all';
+function readDensity(): Density {
+  try { const v = localStorage.getItem('library-density'); return v === 's' || v === 'l' ? v : 'm'; } catch { return 'm'; }
 }
 
+/** Your generations: browse them as a grid, or organise them into folders. */
 export default function Library() {
-  const {
-    items,
-    isLoading,
-    deleteFromLibrary,
-    isOwnItem,
-    collections,
-    findSavedCopy,
-    saveCopy,
-    restoreItem,
-  } = usePromptLibrary();
-  const { generations, isLoading: historyLoading } = useGenerations();
+  const { generations, isLoading, moveToFolder } = useGenerations();
+  const { folders } = useFolders();
+  const { findByGenerationId } = usePromptLibrary();
+  const [params, setParams] = useSearchParams();
+  const view: View = params.get('view') === 'organize' ? 'organize' : 'grid';
+  const setView = (v: View) => setParams((p) => { const n = new URLSearchParams(p); n.delete('tab'); if (v === 'grid') n.delete('view'); else n.set('view', v); return n; }, { replace: true });
 
-  // Tab lives in the URL (?tab=) so the shell's "History" link deep-links here.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tab = parseTab(searchParams.get('tab'));
-  const setTab = (next: LibraryTab) => {
-    setSearchParams(
-      (prev) => {
-        const params = new URLSearchParams(prev);
-        if (next === 'all') params.delete('tab');
-        else params.set('tab', next);
-        return params;
-      },
-      { replace: true }
-    );
-  };
+  const [scope, setScopeState] = useState<Scope>({ kind: 'all' });
+  const [type, setType] = useState<TypeFilter>('all');
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<SortKey>('newest');
+  const [density, setDensityState] = useState<Density>(readDensity);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const setDensity = (d: Density) => { setDensityState(d); try { localStorage.setItem('library-density', d); } catch { /* per-device nicety only */ } };
 
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState<LibraryCategory | 'all'>('all');
-  const [collection, setCollection] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [moveTarget, setMoveTarget] = useState<LibraryItem | null>(null);
-  const [newCollectionOpen, setNewCollectionOpen] = useState(false);
-  const [starBusyId, setStarBusyId] = useState<string | null>(null);
+  const isStarred = useCallback((id: string) => !!findByGenerationId(id), [findByGenerationId]);
+  const scopedFolder = scope.kind === 'folder' ? folders.find((f) => f.id === scope.id) : undefined;
 
-  // Resolve from live data so the dialog reflects collection moves etc.
-  const selected = useMemo(
-    () => (selectedId ? items.find((it) => it.id === selectedId) ?? null : null),
-    [items, selectedId]
+  const items = useMemo(
+    () => applyFilters(generations, { scope, type, query, sort, isStarred }),
+    [generations, scope, type, query, sort, isStarred],
   );
+  const ids = useMemo(() => items.map((g) => g.id), [items]);
+  const selection = useSelection(ids);
+  const selected = useMemo(() => items.filter((g) => selection.has(g.id)), [items, selection]);
+  const setScope = (s: Scope) => { setScopeState(s); selection.clear(); };
 
-  // Drop a stale collection filter once its last item leaves it.
-  const activeCollection =
-    collection && collections.some((c) => c.name === collection) ? collection : null;
+  const counts = useMemo(() => ({
+    all: generations.length,
+    unfiled: generations.filter((g) => !g.folder_id).length,
+    starred: generations.filter((g) => isStarred(g.id)).length,
+  }), [generations, isStarred]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return items.filter((it) => {
-      if (category !== 'all' && it.category !== category) return false;
-      if (tab === 'saved' && it.is_curated) return false;
-      if (tab === 'curated' && !it.is_curated) return false;
-      if (activeCollection && (!isOwnItem(it) || it.collection !== activeCollection)) return false;
-      if (q) {
-        const hay =
-          `${it.title} ${it.prompt} ${it.model} ${modelDisplayName(it.model)} ${it.collection ?? ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [items, search, category, tab, activeCollection, isOwnItem]);
-
-  const removeWithUndo = useCallback(
-    async (item: LibraryItem) => {
-      await deleteFromLibrary(item.id);
-      toast.success('Removed from library', {
-        action: {
-          label: 'Undo',
-          onClick: () => {
-            restoreItem(item).catch((e: unknown) =>
-              toast.error(e instanceof Error ? e.message : 'Failed to restore')
-            );
-          },
-        },
-      });
-    },
-    [deleteFromLibrary, restoreItem]
-  );
-
-  const handleDelete = async (item: LibraryItem) => {
+  const move = async (moveIds: string[], folderId: string, name: string) => {
     try {
-      await removeWithUndo(item);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to delete';
-      toast.error(msg);
+      await moveToFolder(moveIds, folderId);
+      toast.success(`Moved ${moveIds.length === 1 ? '1 item' : `${moveIds.length} items`} to ${name}`);
+    } catch {
+      toast.error('Could not move. Try again.');
     }
   };
-
-  const handleToggleStar = async (item: LibraryItem) => {
-    if (starBusyId) return;
-    setStarBusyId(item.id);
-    try {
-      if (isOwnItem(item)) {
-        // Own item: un-starring removes it from the library (undoable).
-        await removeWithUndo(item);
-      } else {
-        const copy = findSavedCopy(item);
-        if (copy) {
-          await removeWithUndo(copy);
-        } else {
-          await saveCopy(item);
-          toast.success('Saved to your library');
-        }
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Something went wrong');
-    } finally {
-      setStarBusyId(null);
-    }
-  };
-
-  const isHistory = tab === 'history';
 
   return (
     <AppShell scrollableContent={false}>
       <AnimatedPage className="h-full">
-        <div className="mx-auto flex h-full w-full max-w-[1680px] flex-col gap-4 overflow-hidden px-8 pt-7">
-          {/* Header */}
-          <header className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-col gap-0.5">
-              <h1 className="font-serif text-[28px] font-medium leading-tight tracking-tight">Library</h1>
-              <p className="text-[13px] text-muted-foreground">
-                Every generation, saved prompt and collection
+        <div className="mx-auto flex h-full w-full max-w-[1720px] flex-col overflow-hidden px-8 pt-7">
+          <header className="flex shrink-0 flex-wrap items-end justify-between gap-4 pb-5">
+            <div className="min-w-0">
+              {view === 'grid' && scope.kind !== 'all' ? (
+                <button type="button" onClick={() => setScope({ kind: 'all' })} className="mb-1 inline-flex items-center gap-1 text-[12.5px] text-muted-foreground hover:text-foreground">
+                  <ChevronLeft className="h-3.5 w-3.5" /> Library
+                </button>
+              ) : null}
+              <h1 className="flex items-center gap-2.5 font-serif text-[34px] leading-none tracking-[-0.015em]">
+                {view === 'grid' && scopedFolder && <FolderDot color={scopedFolder.color} className="h-7 w-7" />}
+                {view === 'grid' ? (scopedFolder?.name ?? (scope.kind === 'starred' ? 'Starred' : scope.kind === 'unfiled' ? 'Unfiled' : 'Library')) : 'Library'}
+              </h1>
+              <p className="mt-2 text-[13.5px] text-muted-foreground">
+                {isLoading ? 'Loading your generations…' : `${generations.length} generation${generations.length === 1 ? '' : 's'} · ${folders.length} folder${folders.length === 1 ? '' : 's'}`}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2.5">
-              <div className="relative w-[240px]">
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <Input
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={isHistory ? 'Search history…' : 'Search library…'}
-                  aria-label={isHistory ? 'Search history' : 'Search library'}
-                  className="h-9 rounded-[10px] bg-card pl-9 text-[12.5px]"
-                />
-              </div>
-              <Button
-                type="button"
-                onClick={() => setNewCollectionOpen(true)}
-                className="h-9 gap-1.5 rounded-[10px] px-4 text-[12.5px] font-semibold shadow-[0_6px_16px_hsl(var(--primary)/0.25)] transition-[filter,transform] hover:brightness-110 active:scale-[0.98]"
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                New collection
-              </Button>
+
+            <div className="inline-flex rounded-[12px] border border-border/60 bg-secondary p-[3px]" role="tablist" aria-label="Library view">
+              {([['grid', 'Grid', LayoutGrid], ['organize', 'Organize', FolderTree]] as const).map(([id, label, Icon]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === id}
+                  onClick={() => setView(id)}
+                  className={cn(
+                    'inline-flex h-9 items-center gap-2 rounded-[9px] px-4 text-[13.5px] transition-smooth',
+                    view === id ? 'bg-card font-semibold text-foreground shadow-[0_1px_2px_hsl(240_10%_10%/0.08)] dark:bg-muted' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <Icon className={cn('h-4 w-4', view === id && 'text-primary')} /> {label}
+                </button>
+              ))}
             </div>
           </header>
 
-          {/* Tabs */}
-          <div role="tablist" aria-label="Library sections" className="flex shrink-0 gap-6 border-b border-border">
-            {TABS.map((t) => {
-              const active = tab === t.id;
-              return (
+          <div className="flex shrink-0 flex-wrap items-center gap-2.5 pb-5">
+            <label className="flex h-9 w-[280px] items-center gap-2 rounded-[10px] border border-border bg-card px-3 text-muted-foreground focus-within:border-primary/50 focus-within:ring-[3px] focus-within:ring-primary/10">
+              <Search className="h-4 w-4 shrink-0" />
+              <input id="library-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names, prompts or models" className="w-full bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/80" />
+            </label>
+            <div className="flex gap-1">
+              {TYPE_FILTERS.map((f) => (
                 <button
-                  key={t.id}
+                  key={f.id}
                   type="button"
-                  role="tab"
-                  id={`library-tab-${t.id}`}
-                  aria-selected={active}
-                  aria-controls="library-panel"
-                  onClick={() => setTab(t.id)}
-                  className={cn(
-                    '-mb-px border-b-2 px-0.5 pb-3 text-[13px] transition-colors',
-                    'focus-visible:outline-none focus-visible:text-foreground',
-                    active
-                      ? 'border-primary font-semibold text-foreground'
-                      : 'border-transparent text-muted-foreground hover:text-foreground'
-                  )}
+                  aria-pressed={type === f.id}
+                  onClick={() => setType(f.id)}
+                  className={cn('h-9 rounded-full px-3.5 text-[13px] transition-smooth', type === f.id ? 'bg-foreground font-medium text-background' : 'text-muted-foreground hover:bg-secondary hover:text-foreground')}
                 >
-                  {t.label}
-                  {t.id === 'history' && generations.length > 0 && (
-                    <span className="ml-1.5 text-[11px] font-normal text-muted-foreground tabular-nums">
-                      {generations.length}
-                    </span>
-                  )}
+                  {f.label}
                 </button>
-              );
-            })}
+              ))}
+            </div>
+            {view === 'grid' && scope.kind === 'all' && counts.starred > 0 && (
+              <button type="button" onClick={() => setScope({ kind: 'starred' })} className="h-9 rounded-full px-3.5 text-[13px] text-muted-foreground hover:bg-secondary hover:text-foreground">★ Starred</button>
+            )}
+
+            <div className="ml-auto flex items-center gap-2">
+              <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+                <SelectTrigger className="h-9 w-[150px] rounded-[10px] bg-card text-[13px]" aria-label="Sort"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest first</SelectItem>
+                  <SelectItem value="oldest">Oldest first</SelectItem>
+                  <SelectItem value="model">By model</SelectItem>
+                </SelectContent>
+              </Select>
+              {view === 'grid' && (
+                <div className="inline-flex rounded-[10px] border border-border bg-card p-0.5" role="group" aria-label="Thumbnail size">
+                  {(['s', 'm', 'l'] as const).map((d) => (
+                    <button key={d} type="button" aria-pressed={density === d} onClick={() => setDensity(d)} className={cn('h-8 w-8 rounded-[8px] text-[12px] font-medium uppercase transition-smooth', density === d ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Filters (grid views only) */}
-          {!isHistory && (
-            <div className="flex shrink-0 flex-col gap-2.5">
-              <CollectionFilter
-                collections={collections}
-                value={activeCollection}
-                onChange={setCollection}
-              />
-              <CategoryFilter value={category} onChange={setCategory} />
-            </div>
-          )}
-
-          <div
-            id="library-panel"
-            role="tabpanel"
-            aria-labelledby={`library-tab-${tab}`}
-            className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2 pt-1"
-          >
-            {isHistory ? (
-              <HistoryList generations={generations} isLoading={historyLoading} search={search} />
-            ) : isLoading ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Loading library" />
+          <div className="min-h-0 flex-1 overflow-y-auto" onClick={(e) => view === 'grid' && e.target === e.currentTarget && selection.clear()}>
+            {isLoading ? (
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+                {Array.from({ length: 12 }).map((_, i) => <div key={i} className="aspect-square animate-pulse rounded-[14px] bg-muted" />)}
               </div>
-            ) : filtered.length === 0 ? (
-              <div className="flex h-64 flex-col items-center justify-center text-center">
-                <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/60">
-                  <LibraryIcon className="h-8 w-8 text-muted-foreground/50" />
-                </div>
-                <p className="text-sm font-medium">No prompts match</p>
-                <p className="mt-1 max-w-xs text-xs text-muted-foreground">
-                  {items.length === 0
-                    ? 'Save a generation from the studio to start your library.'
-                    : 'Try a different category, collection, search, or tab.'}
-                </p>
-              </div>
+            ) : view === 'grid' ? (
+              <GridView items={items} scope={scope} sort={sort} density={density} selection={selection} isStarred={isStarred} onOpen={setOpenId} onScope={setScope} onMove={move} />
             ) : (
-              <motion.div
-                layout
-                className="grid grid-cols-1 gap-4 pb-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-              >
-                <AnimatePresence mode="popLayout">
-                  {filtered.map((item) => {
-                    const own = isOwnItem(item);
-                    return (
-                      <LibraryCard
-                        key={item.id}
-                        item={item}
-                        onOpen={() => setSelectedId(item.id)}
-                        onDelete={own ? () => handleDelete(item) : undefined}
-                        onMoveToCollection={own ? () => setMoveTarget(item) : undefined}
-                        starred={own || !!findSavedCopy(item)}
-                        onToggleStar={() => handleToggleStar(item)}
-                        starBusy={starBusyId === item.id}
-                      />
-                    );
-                  })}
-                </AnimatePresence>
-              </motion.div>
+              <div className="h-full pb-6">
+                <OrganizeView items={items} scope={scope} onScope={setScope} counts={counts} selection={selection} isStarred={isStarred} onOpen={setOpenId} />
+              </div>
             )}
           </div>
         </div>
 
-        <LibraryDetailDialog
-          item={selected}
-          open={!!selected}
-          onOpenChange={(o) => !o && setSelectedId(null)}
-          onMoveToCollection={(item) => setMoveTarget(item)}
-        />
-        <MoveToCollectionDialog
-          item={moveTarget}
-          open={!!moveTarget}
-          onOpenChange={(o) => !o && setMoveTarget(null)}
-        />
-        <NewCollectionDialog
-          open={newCollectionOpen}
-          onOpenChange={setNewCollectionOpen}
-          onCreated={(name) => {
-            setCollection(name);
-            if (tab === 'curated' || tab === 'history') setTab('all');
-          }}
-        />
+        <SelectionBar selected={selected} total={items.length} onSelectAll={selection.selectAll} onClear={selection.clear} />
+        <LibraryViewer items={items} openId={openId} onOpenId={setOpenId} />
       </AnimatedPage>
     </AppShell>
   );

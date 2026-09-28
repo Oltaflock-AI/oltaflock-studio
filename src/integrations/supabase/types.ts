@@ -37,6 +37,8 @@ export type Database = {
       }
       generations: {
         Row: {
+          folder_id: string | null
+          title: string | null
           created_at: string | null
           error_message: string | null
           external_task_id: string | null
@@ -55,6 +57,8 @@ export type Database = {
           user_prompt: string
         }
         Insert: {
+          folder_id?: string | null
+          title?: string | null
           created_at?: string | null
           error_message?: string | null
           external_task_id?: string | null
@@ -73,6 +77,8 @@ export type Database = {
           user_prompt: string
         }
         Update: {
+          folder_id?: string | null
+          title?: string | null
           created_at?: string | null
           error_message?: string | null
           external_task_id?: string | null

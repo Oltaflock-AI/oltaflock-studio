@@ -73,10 +73,12 @@ interface ModelCatalogDialogProps {
   backend: Backend;
   /** Label each row with its mode (for lists that span modes). */
   showMode?: boolean;
+  /** Rendered at the right of the title row (e.g. the provider switch). */
+  headerExtra?: ReactNode;
 }
 
 /** Searchable, filterable catalog of models, grouped by maker. */
-export function ModelCatalogDialog({ open, onOpenChange, specs, selectedId, onSelect, title, backend, showMode }: ModelCatalogDialogProps) {
+export function ModelCatalogDialog({ open, onOpenChange, specs, selectedId, onSelect, title, backend, showMode, headerExtra }: ModelCatalogDialogProps) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
 
@@ -110,6 +112,7 @@ export function ModelCatalogDialog({ open, onOpenChange, specs, selectedId, onSe
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden rounded-2xl">
         <DialogHeader className="px-6 pt-5 pb-4 border-b border-border space-y-3">
+          <div className="flex items-start justify-between gap-4 pr-8">
           <div>
             <DialogTitle className="font-serif text-[26px] font-normal leading-tight">
               {title} <span className="text-muted-foreground">· {BACKEND_LABELS[backend]}</span>
@@ -119,6 +122,8 @@ export function ModelCatalogDialog({ open, onOpenChange, specs, selectedId, onSe
                 ? 'Each model lists what it does best. Higgsfield prices are quoted live for your exact settings.'
                 : 'Each model lists what it does best. Prices are for default settings.'}
             </DialogDescription>
+          </div>
+          {headerExtra && <div className="shrink-0 pt-1">{headerExtra}</div>}
           </div>
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
