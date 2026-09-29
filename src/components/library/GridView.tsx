@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { AlertCircle, Check, EyeOff, Play, Star } from 'lucide-react';
+import { AlertCircle, Check, EyeOff, Loader2, Pencil, Play, Star } from 'lucide-react';
+import { toast } from 'sonner';
+import { usePromptLibrary } from '@/hooks/usePromptLibrary';
+import { GenerationTitle } from '@/components/studio/stage/GenerationTitle';
 import type { DbGeneration } from '@/hooks/useGenerations';
 import { useFolders } from '@/hooks/useFolders';
 import { ModelBadge } from '@/components/studio/ModelBadge';
@@ -21,6 +24,24 @@ function Tile({ g, selection, starred, compact, onOpen }: { g: DbGeneration; sel
   const selecting = selection.count > 0;
   const active = g.status === 'queued' || g.status === 'running';
   const name = displayTitle(g);
+  const [renaming, setRenaming] = useState(false);
+  const [starring, setStarring] = useState(false);
+  const { quickStar } = usePromptLibrary();
+  const canStar = g.status === 'done' && !!g.output_url;
+
+  const toggleStar = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!canStar || starring) return;
+    setStarring(true);
+    try {
+      const res = await quickStar(g);
+      toast.success(res.starred ? `Starred “${name}”` : 'Unstarred');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not star');
+    } finally {
+      setStarring(false);
+    }
+  };
 
   return (
     <div
@@ -28,14 +49,19 @@ function Tile({ g, selection, starred, compact, onOpen }: { g: DbGeneration; sel
       tabIndex={0}
       aria-label={name}
       aria-pressed={selected}
-      draggable
+      draggable={!renaming}
       onDragStart={(e) => {
         const ids = selected ? selection.ids : [g.id];
         e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(ids));
         e.dataTransfer.effectAllowed = 'move';
       }}
       onClick={(e) => (selecting || e.metaKey || e.ctrlKey || e.shiftKey ? selection.click(g.id, e) : onOpen())}
-      onKeyDown={(e) => { if (e.key === 'Enter') onOpen(); if (e.key === ' ') { e.preventDefault(); selection.toggle(g.id); } }}
+      onKeyDown={(e) => {
+        if (renaming) return;
+        if (e.key === 'Enter') onOpen();
+        if (e.key === ' ') { e.preventDefault(); selection.toggle(g.id); }
+        if (e.key === 'F2') { e.preventDefault(); setRenaming(true); }
+      }}
       className={cn(
         'group relative aspect-square cursor-pointer overflow-hidden bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
         compact ? 'rounded-[4px]' : 'rounded-[8px]',
@@ -66,8 +92,23 @@ function Tile({ g, selection, starred, compact, onOpen }: { g: DbGeneration; sel
         </span>
       )}
 
-      {!compact && <span className="absolute inset-x-0 bottom-0 flex translate-y-1 flex-col gap-1 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2.5 pt-10 opacity-0 transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100">
-        <span className="truncate text-[13px] font-semibold text-white">{name}</span>
+      {(!compact || renaming) && <span
+        onClick={(e) => renaming && e.stopPropagation()}
+        className={cn(
+          'absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2.5 pt-10 transition-all duration-150',
+          renaming ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100',
+        )}
+      >
+        <span onDoubleClick={(e) => { e.stopPropagation(); setRenaming(true); }} className="min-w-0">
+          <GenerationTitle
+            g={g}
+            editing={renaming}
+            onEditingChange={setRenaming}
+            showPencil={false}
+            className="text-[13px] font-semibold text-white"
+            inputClassName="h-7 text-[13px] font-semibold text-foreground"
+          />
+        </span>
         <span className="flex items-center gap-1.5 text-[11.5px] text-white/75">
           <ModelBadge modelId={g.model} size="sm" className="ring-1 ring-black/20" /> <span className="truncate">{g.model}</span>
         </span>
@@ -89,7 +130,32 @@ function Tile({ g, selection, starred, compact, onOpen }: { g: DbGeneration; sel
         {g.type === 'video' && g.status === 'done' && (
           <span className="inline-flex items-center gap-1 rounded-md bg-black/55 px-1.5 py-0.5 text-[10.5px] font-medium text-white backdrop-blur-sm"><Play className="h-2.5 w-2.5 fill-white" /> Video</span>
         )}
-        {starred && <span className="grid h-6 w-6 place-items-center rounded-full bg-black/45 backdrop-blur-sm"><Star className="h-3.5 w-3.5 fill-warning text-warning" /></span>}
+        {canStar && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setRenaming(true); }}
+            aria-label="Rename"
+            title="Rename (F2)"
+            className="grid h-7 w-7 place-items-center rounded-full bg-black/45 text-white/90 opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/65 hover:text-white group-hover:opacity-100"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {canStar && (
+          <button
+            type="button"
+            onClick={toggleStar}
+            aria-label={starred ? 'Unstar' : 'Star'}
+            aria-pressed={starred}
+            title={starred ? 'Unstar' : 'Star'}
+            className={cn(
+              'grid h-7 w-7 place-items-center rounded-full bg-black/45 backdrop-blur-sm transition-opacity hover:bg-black/65',
+              starred || starring ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+            )}
+          >
+            {starring ? <Loader2 className="h-3.5 w-3.5 animate-spin text-white" /> : <Star className={cn('h-3.5 w-3.5', starred ? 'fill-warning text-warning' : 'text-white')} />}
+          </button>
+        )}
       </span>
     </div>
   );
@@ -157,9 +223,13 @@ export function GridView({
 
       {items.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-24 text-center">
-          <p className="font-serif text-[28px]">{scope.kind === 'folder' ? 'This folder is empty' : 'Nothing here yet'}</p>
+          <p className="font-serif text-[28px]">{scope.kind === 'folder' ? 'This folder is empty' : scope.kind === 'starred' ? 'No starred generations yet' : 'Nothing here yet'}</p>
           <p className="max-w-[360px] text-[13.5px] text-muted-foreground">
-            {scope.kind === 'folder' ? 'Drag generations onto the folder, or select some and use Move to.' : 'Try a different filter, or make something in the Studio.'}
+            {scope.kind === 'folder'
+              ? 'Drag generations onto the folder, or select some and use Move to.'
+              : scope.kind === 'starred'
+                ? 'Hover any generation and tap the star to keep your favourites here.'
+                : 'Try a different filter, or make something in the Studio.'}
           </p>
         </div>
       )}

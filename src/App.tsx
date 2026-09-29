@@ -15,6 +15,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Library = lazy(() => import("./pages/Library"));
 const Presets = lazy(() => import("./pages/Presets"));
+const Elements = lazy(() => import("./pages/Elements"));
 const GenerationDetail = lazy(() => import("./pages/GenerationDetail"));
 const Assistant = lazy(() => import("./pages/Assistant"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -70,6 +71,14 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <Presets />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/elements"
+                  element={
+                    <ProtectedRoute>
+                      <Elements />
                     </ProtectedRoute>
                   }
                 />

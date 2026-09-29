@@ -7,6 +7,7 @@ import { fromStudioMode } from '@/types/generation';
 import { params, specFor } from './generationMeta';
 import { getSpec } from '@catalog/index.ts';
 import { getStyle } from '@/config/stylePresets';
+import type { StudioElement } from '@/hooks/useElements';
 
 /** Load a past generation's prompt, mode, provider, model, settings and media back into the composer. */
 export function reuseGeneration(g: DbGeneration) {
@@ -73,29 +74,57 @@ export function applyStylePreset(id: string | null) {
 export function referenceGeneration(g: DbGeneration) {
   if (!g.output_url || g.status !== 'done') return;
   const kind = g.type === 'video' ? 'video' : 'image';
+  attachReferences([g.output_url], kind, `this ${kind}`);
+}
+
+/** An element's images as references for the next generation ("@Name" in the prompt). */
+export function referenceElement(e: Pick<StudioElement, 'name' | 'image_urls'>, { quiet = false } = {}) {
+  return attachReferences(e.image_urls, 'image', `@${e.name}`, { quiet });
+}
+
+/**
+ * Adds reference media to the current model's slots of the right kind, or
+ * switches to a model that takes it (see referenceGeneration). Returns false
+ * when no model for the provider accepts that kind of reference.
+ */
+export function attachReferences(
+  sources: string[],
+  kind: 'image' | 'video',
+  what: string,
+  { quiet = false }: { quiet?: boolean } = {},
+): boolean {
   const store = useGenerationStore.getState();
   const current = store.selectedModel ? getSpec(store.selectedModel) : undefined;
 
-  const addTo = (spec: NonNullable<typeof current>): boolean => {
-    const controls = useGenerationStore.getState().controls;
-    for (const slot of spec.media.filter((m) => m.kind === kind)) {
+  /** Fills free slots; 'none' when the spec has no slot of this kind. */
+  const addTo = (spec: NonNullable<typeof current>): 'added' | 'present' | 'none' => {
+    const slots = spec.media.filter((m) => m.kind === kind);
+    if (slots.length === 0) return 'none';
+    let pending = sources.filter((u) => {
+      const controls = useGenerationStore.getState().controls;
+      return !slots.some((slot) => ((controls[`media.${slot.key}`] as string[] | undefined) ?? []).includes(u));
+    });
+    if (pending.length === 0) return 'present';
+    for (const slot of slots) {
       const key = `media.${slot.key}`;
-      const urls = Array.isArray(controls[key]) ? (controls[key] as string[]) : [];
-      if (urls.includes(g.output_url!)) {
-        toast.info('Already added as a reference');
-        return true;
-      }
-      if (urls.length < slot.max) {
-        useGenerationStore.getState().setControl(key, [...urls, g.output_url!] as never);
-        return true;
-      }
+      const urls = (useGenerationStore.getState().controls[key] as string[] | undefined) ?? [];
+      const room = slot.max - urls.length;
+      if (room <= 0 || pending.length === 0) continue;
+      useGenerationStore.getState().setControl(key, [...urls, ...pending.slice(0, room)] as never);
+      pending = pending.slice(room);
     }
-    return false;
+    if (pending.length > 0 && !quiet) toast.info(`${spec.name} has no room for ${pending.length} more reference${pending.length === 1 ? '' : 's'}`);
+    return 'added';
   };
 
-  if (current && addTo(current)) {
-    toast.success(`Added as a reference for ${current.name}`, studioAction());
-    return;
+  const onCurrent = current ? addTo(current) : 'none';
+  if (onCurrent === 'present') {
+    if (!quiet) toast.info(`${what} is already attached`);
+    return true;
+  }
+  if (onCurrent === 'added' && current) {
+    if (!quiet) toast.success(`Added ${what} as a reference for ${current.name}`, studioAction());
+    return true;
   }
 
   const backend = usePreferencesStore.getState().studioBackend;
@@ -107,14 +136,15 @@ export function referenceGeneration(g: DbGeneration) {
     candidates.find((s) => current && s.family === current.family) ??
     candidates[0];
   if (!target) {
-    toast.error(`No model for this provider takes a reference ${kind}`);
-    return;
+    if (!quiet) toast.error(`No model for this provider takes a reference ${kind}`);
+    return false;
   }
   store.setMode(fromStudioMode(mode));
   store.setSelectedModel(target.id as never);
   addTo(target);
   document.getElementById('studio-prompt')?.focus();
-  toast.success(`Switched to ${target.name} with this ${kind} as a reference`, studioAction());
+  if (!quiet) toast.success(`Switched to ${target.name} with ${what} as a reference`, studioAction());
+  return true;
 }
 
 /** Outside the Studio, offer a jump back to it (client-side, keeping the composer state). */

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Sparkles, LayoutGrid, Layers, MessageCircle, Settings as SettingsIcon, Coins, LogOut } from 'lucide-react';
+import { Sparkles, LayoutGrid, Layers, MessageCircle, Settings as SettingsIcon, Coins, LogOut, Boxes } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ThemeToggle } from '@/components/studio/ThemeToggle';
@@ -23,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Studio', icon: Sparkles },
   { to: '/library', label: 'Library', icon: LayoutGrid },
   { to: '/presets', label: 'Presets', icon: Layers },
+  { to: '/elements', label: 'Elements', icon: Boxes },
   { to: '/assistant', label: 'Assistant', icon: MessageCircle },
 ];
 

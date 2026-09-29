@@ -205,7 +205,8 @@ export function usePromptLibrary() {
         await deleteFromLibrary.mutateAsync(existing.id);
         return { starred: false };
       }
-      const title = await generateTitle(gen.user_prompt, 'other');
+      // Reuse the generation's own name when it has one; naming from scratch is a slow model call.
+      const title = gen.title?.trim() || await generateTitle(gen.user_prompt, 'other');
       await saveToLibrary.mutateAsync({
         title,
         prompt: gen.user_prompt,

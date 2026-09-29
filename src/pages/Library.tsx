@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronLeft, FolderTree, LayoutGrid, Search, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, FolderTree, LayoutGrid, Search, Star, ZoomIn, ZoomOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { AnimatedPage } from '@/components/ui/animated-page';
@@ -112,7 +112,7 @@ export default function Library() {
                 {view === 'grid' ? (scopedFolder?.name ?? (scope.kind === 'starred' ? 'Starred' : scope.kind === 'unfiled' ? 'Unfiled' : 'Library')) : 'Library'}
               </h1>
               <p className="mt-2 text-[13.5px] text-muted-foreground">
-                {isLoading ? 'Loading your generations…' : `${generations.length} generation${generations.length === 1 ? '' : 's'} · ${folders.length} folder${folders.length === 1 ? '' : 's'}`}
+                {isLoading ? 'Loading your generations…' : view === 'grid' && scope.kind === 'starred' ? `${counts.starred} starred` : `${generations.length} generation${generations.length === 1 ? '' : 's'} · ${folders.length} folder${folders.length === 1 ? '' : 's'}`}
               </p>
             </div>
 
@@ -136,6 +136,27 @@ export default function Library() {
           </header>
 
           <div className="flex shrink-0 flex-wrap items-center gap-2.5 pb-4">
+            {view === 'grid' && (
+              <div className="inline-flex rounded-[10px] border border-border bg-card p-0.5" role="tablist" aria-label="Show">
+                {([['all', 'All', counts.all], ['starred', 'Starred', counts.starred]] as const).map(([kind, label, count]) => {
+                  const on = kind === 'starred' ? scope.kind === 'starred' : scope.kind !== 'starred';
+                  return (
+                    <button
+                      key={kind}
+                      type="button"
+                      role="tab"
+                      aria-selected={on}
+                      onClick={() => setScope({ kind })}
+                      className={cn('inline-flex h-8 items-center gap-1.5 rounded-[8px] px-3 text-[13px] transition-smooth', on ? 'bg-secondary font-medium text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                    >
+                      {kind === 'starred' && <Star className={cn('h-3.5 w-3.5', on ? 'fill-warning text-warning' : '')} />}
+                      {label}
+                      <span className="font-mono text-[11px] tabular-nums text-muted-foreground">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <label className="flex h-9 w-[280px] items-center gap-2 rounded-[10px] border border-border bg-card px-3 text-muted-foreground focus-within:border-primary/50 focus-within:ring-[3px] focus-within:ring-primary/10">
               <Search className="h-4 w-4 shrink-0" />
               <input id="library-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names, prompts or models" className="w-full bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/80" />
@@ -153,9 +174,6 @@ export default function Library() {
                 </button>
               ))}
             </div>
-            {view === 'grid' && scope.kind === 'all' && counts.starred > 0 && (
-              <button type="button" onClick={() => setScope({ kind: 'starred' })} className="h-9 rounded-full px-3.5 text-[13px] text-muted-foreground hover:bg-secondary hover:text-foreground">★ Starred</button>
-            )}
 
             <div className="ml-auto flex items-center gap-2">
               <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>

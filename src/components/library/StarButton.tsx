@@ -27,7 +27,7 @@ export function StarButton({
     if (disabled) return;
     try {
       const res = await quickStar(generation);
-      toast.success(res.starred ? 'Added to library' : 'Removed from library');
+      toast.success(res.starred ? 'Starred' : 'Unstarred');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed';
       toast.error(msg);
@@ -43,7 +43,7 @@ export function StarButton({
       size="icon"
       onClick={handleClick}
       disabled={disabled}
-      title={starred ? 'Remove from library' : 'Add to library'}
+      title={starred ? 'Unstar' : 'Star'}
       className={cn(dim, 'shrink-0', className)}
     >
       {isStarToggling ? (

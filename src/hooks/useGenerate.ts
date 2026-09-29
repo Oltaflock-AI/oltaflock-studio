@@ -13,6 +13,8 @@ import { useHiggsfieldEstimate } from '@/hooks/useHiggsfield';
 import { calculateCost } from '@/config/pricing';
 import { autoNameGeneration } from '@/hooks/useGenerationTitles';
 import { composeStylePrompt, getStyle } from '@/config/stylePresets';
+import { elementsInPrompt, expandElements, useElements } from '@/hooks/useElements';
+import { referenceElement } from '@/components/studio/stage/generationActions';
 
 /**
  * Everything behind the Generate button: validation, the DB row, the edge
@@ -24,6 +26,7 @@ export function useGenerate({ shortcut = false }: { shortcut?: boolean } = {}) {
   const { balance } = useUserCredits();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { elements } = useElements();
   
   const {
     mode,
@@ -57,6 +60,21 @@ export function useGenerate({ shortcut = false }: { shortcut?: boolean } = {}) {
   const handleGenerate = async () => {
     if (!canGenerate || !modelConfig || !spec) return;
 
+    // "@Name" elements: make sure their images ride along as references.
+    const used = elementsInPrompt(rawPrompt, elements);
+    if (used.length > 0) {
+      if (!spec.media.some((m) => m.kind === 'image')) {
+        // Switches to a model that takes references; let the user check it before spending credits.
+        if (referenceElement(used[0])) {
+          used.slice(1).forEach((e) => referenceElement(e, { quiet: true }));
+          toast.info(`${spec.name} can't use reference images, so I switched models for @${used[0].name}. Check the settings, then generate.`);
+        }
+        return;
+      }
+      used.forEach((e) => referenceElement(e, { quiet: true }));
+    }
+    const controls = useGenerationStore.getState().controls;
+
     const problem = validateSpecInput(spec, rawPrompt, controls);
     if (problem) {
       toast.error(problem);
@@ -71,7 +89,11 @@ export function useGenerate({ shortcut = false }: { shortcut?: boolean } = {}) {
     
     // Build model_params object from controls
     const style = getStyle(useGenerationStore.getState().stylePresetId);
-    const modelParams: Record<string, unknown> = { ...controls, ...(style ? { style_preset: style.id } : {}) };
+    const modelParams: Record<string, unknown> = {
+      ...controls,
+      ...(style ? { style_preset: style.id } : {}),
+      ...(used.length ? { elements: used.map((e) => e.name) } : {}),
+    };
     
     const dbType = spec.output;
 
@@ -160,7 +182,7 @@ export function useGenerate({ shortcut = false }: { shortcut?: boolean } = {}) {
       cleanControls.cost_credits = calculateCost(selectedModel!, modelParams).credits;
 
       const invokeBody = {
-        prompt: composeStylePrompt(rawPrompt, modelParams.style_preset as string | undefined),
+        prompt: composeStylePrompt(expandElements(rawPrompt, elements), modelParams.style_preset as string | undefined),
         model: selectedModel,
         type: generationType,
         controls: cleanControls,
@@ -320,7 +342,7 @@ export function useGenerate({ shortcut = false }: { shortcut?: boolean } = {}) {
 
       const { data, error } = await supabase.functions.invoke('generate', {
         body: {
-          prompt: composeStylePrompt(prompt, modelParams.style_preset as string | undefined),
+          prompt: composeStylePrompt(expandElements(prompt, elements), modelParams.style_preset as string | undefined),
           model: modelConfig.id,
           type: modelConfig.generationTypes[0] || 'text-to-image',
           controls: cleanControls,
