@@ -3,7 +3,7 @@ import { specBackend, specsForMode } from '@catalog/index.ts';
 import type { DbGeneration } from '@/hooks/useGenerations';
 import { useGenerationStore } from '@/store/generationStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
-import { fromStudioMode } from '@/types/generation';
+import { fromStudioMode, toStudioMode } from '@/types/generation';
 import { params, specFor } from './generationMeta';
 import { getSpec } from '@catalog/index.ts';
 import { getStyle } from '@/config/stylePresets';
@@ -51,16 +51,30 @@ export function animateGeneration(g: DbGeneration) {
 }
 
 /**
- * Make a style preset active (or clear it with null). If the style suits an
- * aspect ratio and the current model offers it, switch to that too.
+ * Make a style preset active (or clear it with null). A video preset switches
+ * an image composer to text-to-video. If the style suits an aspect ratio and
+ * the model offers it, switch to that too.
  */
 export function applyStylePreset(id: string | null) {
   const store = useGenerationStore.getState();
   store.setStylePreset(id);
   const style = getStyle(id);
-  const spec = store.selectedModel ? getSpec(store.selectedModel) : undefined;
+  if (!style) return;
+  usePreferencesStore.getState().noteStyleUsed(style.id);
+
+  if (style.kind === 'video' && !toStudioMode(store.mode).endsWith('video')) {
+    const first = specsForMode('text-to-video', usePreferencesStore.getState().studioBackend)[0];
+    if (first) {
+      store.setMode('video');
+      store.setSelectedModel(first.id as never);
+      toast.info(`Switched to video with ${first.name}`);
+    }
+  }
+
+  const current = useGenerationStore.getState().selectedModel;
+  const spec = current ? getSpec(current) : undefined;
   const aspect = spec?.fields.find((f) => f.key === 'aspect_ratio');
-  if (style?.aspect && aspect?.options?.some((o) => o.value === style.aspect)) {
+  if (style.aspect && aspect?.options?.some((o) => o.value === style.aspect)) {
     store.setControl('aspect_ratio', style.aspect as never);
   }
 }

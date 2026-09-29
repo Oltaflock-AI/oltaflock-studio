@@ -17,21 +17,31 @@ const TEXTURES: Record<SwatchTexture, React.CSSProperties | null> = {
   none: null,
 };
 
-/** A style's sample image, or its swatch and texture until one exists. */
-export function StyleCover({ style, className, sizes }: { style: StylePreset; className?: string; sizes?: string }) {
+/**
+ * A style's sample image, or its swatch and texture until one exists. Video
+ * presets move like their camera does: on hover of a `group` parent, or
+ * always when `play` is set.
+ */
+export function StyleCover({
+  style, className, sizes, play,
+}: { style: StylePreset; className?: string; sizes?: string; play?: boolean }) {
   const [broken, setBroken] = useState(false);
   const texture = TEXTURES[style.texture];
+  const motion = style.motion
+    ? { className: 'cover-motion', 'data-motion': style.motion, 'data-play': play ? 'true' : undefined }
+    : { className: '' };
   return (
     <div className={cn('relative overflow-hidden', className)} style={{ background: style.swatch }}>
       {style.cover && !broken ? (
         <img
+          {...motion}
           src={style.cover}
           alt={`${style.name} sample`}
           sizes={sizes}
           loading="lazy"
           decoding="async"
           onError={() => setBroken(true)}
-          className="absolute inset-0 h-full w-full object-cover"
+          className={cn('absolute inset-0 h-full w-full object-cover', motion.className)}
         />
       ) : (
         texture && <div aria-hidden className="absolute inset-0" style={texture} />

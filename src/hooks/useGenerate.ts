@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { useHiggsfieldEstimate } from '@/hooks/useHiggsfield';
 import { calculateCost } from '@/config/pricing';
 import { autoNameGeneration } from '@/hooks/useGenerationTitles';
-import { composeStylePrompt, getStyle } from '@/config/stylePresets';
+import { composeStylePrompt, getStyle, styleAppliesTo } from '@/config/stylePresets';
 import { elementsInPrompt, expandElements, useElements } from '@/hooks/useElements';
 import { referenceElement } from '@/components/studio/stage/generationActions';
 
@@ -88,7 +88,8 @@ export function useGenerate({ shortcut = false }: { shortcut?: boolean } = {}) {
     const requestId = generateJobId();
     
     // Build model_params object from controls
-    const style = getStyle(useGenerationStore.getState().stylePresetId);
+    const picked = getStyle(useGenerationStore.getState().stylePresetId);
+    const style = picked && styleAppliesTo(picked, spec.output) ? picked : undefined;
     const modelParams: Record<string, unknown> = {
       ...controls,
       ...(style ? { style_preset: style.id } : {}),

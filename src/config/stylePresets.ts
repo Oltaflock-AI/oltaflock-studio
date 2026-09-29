@@ -1,25 +1,47 @@
 /**
  * Style presets: a look you pick once and keep while you write your own
- * prompts. At generate time the style's description is added to the prompt
+ * prompts. At generate time the preset's description is added to the prompt
  * (see composeStylePrompt), so it works with every model and with Prompt Brain.
+ *
+ * Image looks describe light, colour and medium, so they also suit video.
+ * Video presets describe camera movement, pace and format, so they apply to
+ * video models only.
  */
 
-export type StyleCategory = 'light' | 'retro' | 'film' | 'editorial' | 'art';
+export type PresetKind = 'image' | 'video';
 
-export const STYLE_CATEGORIES: Array<{ id: StyleCategory; label: string }> = [
-  { id: 'light', label: 'Light & mood' },
-  { id: 'retro', label: 'Retro & eras' },
-  { id: 'film', label: 'Film & camera' },
-  { id: 'editorial', label: 'Editorial' },
-  { id: 'art', label: 'Art & dream' },
+export type StyleCategory =
+  | 'light' | 'retro' | 'film' | 'editorial' | 'art'
+  | 'camera' | 'pace' | 'format';
+
+export const STYLE_CATEGORIES: Array<{ id: StyleCategory; label: string; kind: PresetKind }> = [
+  { id: 'light', label: 'Light & mood', kind: 'image' },
+  { id: 'retro', label: 'Retro & eras', kind: 'image' },
+  { id: 'film', label: 'Film & camera', kind: 'image' },
+  { id: 'editorial', label: 'Editorial', kind: 'image' },
+  { id: 'art', label: 'Art & dream', kind: 'image' },
+  { id: 'camera', label: 'Camera moves', kind: 'video' },
+  { id: 'pace', label: 'Time & pace', kind: 'video' },
+  { id: 'format', label: 'Formats', kind: 'video' },
+];
+
+export const PRESET_KINDS: Array<{ id: PresetKind; label: string }> = [
+  { id: 'image', label: 'Image looks' },
+  { id: 'video', label: 'Video' },
 ];
 
 /** Texture drawn over a style's swatch on the Presets page. */
 export type SwatchTexture = 'grain' | 'haze' | 'scanlines' | 'halation' | 'chrome' | 'halftone' | 'flash' | 'none';
 
+/** How a video preset's cover moves, hinting at the camera move or pace. */
+export type CoverMotion =
+  | 'push' | 'pull' | 'orbit' | 'fly' | 'handheld' | 'rise' | 'whip' | 'vertigo'
+  | 'drift' | 'timelapse' | 'stutter' | 'ramp' | 'sway';
+
 export interface StylePreset {
   id: string;
   name: string;
+  kind: PresetKind;
   category: StyleCategory;
   /** One line shown on the card. */
   tagline: string;
@@ -36,10 +58,14 @@ export interface StylePreset {
   ink: 'light' | 'dark';
   /** Optional sample output shown instead of the swatch. */
   cover?: string;
+  /** Video presets: how the cover moves in previews. */
+  motion?: CoverMotion;
   isNew?: boolean;
 }
 
-export const STYLE_PRESETS: StylePreset[] = [
+type Draft = Omit<StylePreset, 'kind'>;
+
+const IMAGE_LOOKS: Draft[] = [
   // Light & mood
   {
     id: 'golden-hour',
@@ -382,10 +408,461 @@ export const STYLE_PRESETS: StylePreset[] = [
     ink: 'dark',
     cover: '/presets/watercolor.webp',
   },
+
+  // More looks, no sample image yet: their swatch and texture stand in.
+  {
+    id: 'harsh-noon',
+    name: 'Harsh Noon',
+    category: 'light',
+    tagline: 'Overhead sun, graphic hard shadows',
+    notes: ['Hard light', 'Deep shadow', 'Saturated'],
+    prompt: 'harsh midday sun directly overhead, crisp hard-edged shadows forming graphic shapes, bright saturated colour, deep blue sky, high contrast, bold summer fashion campaign energy',
+    swatch: 'linear-gradient(160deg, #2F7DE1 0%, #5FA8F5 35%, #F5E6C8 60%, #E3B23C 100%)',
+    texture: 'none',
+    ink: 'dark',
+    isNew: true,
+  },
+  {
+    id: 'moonlit',
+    name: 'Moonlit',
+    category: 'light',
+    tagline: 'Silver night light and soft mist',
+    notes: ['Night', 'Silver blue', 'Mist'],
+    prompt: 'lit by a full moon at night, cool silver-blue moonlight, soft low mist hanging in the air, gentle rim light on edges, deep indigo shadows, quiet mysterious calm, fine grain',
+    swatch: 'radial-gradient(30% 28% at 70% 25%, #EEF3FF 0%, #9FB3D9 35%, transparent 70%), linear-gradient(180deg, #0E1631 0%, #1D2B52 60%, #0A0F20 100%)',
+    texture: 'haze',
+    ink: 'light',
+    isNew: true,
+  },
+  {
+    id: 'kodachrome',
+    name: 'Kodachrome 60s',
+    category: 'retro',
+    tagline: 'Mid-century slide film, rich reds',
+    notes: ['Slide film', 'Rich reds', 'Crisp'],
+    prompt: 'shot on 1960s Kodachrome slide film, rich saturated reds and deep blues, warm yellows, crisp fine detail, slightly dense shadows, mid-century travel and lifestyle photograph',
+    swatch: 'linear-gradient(160deg, #F2D16B 0%, #D9442B 40%, #1F4E8C 80%, #16243D 100%)',
+    texture: 'grain',
+    ink: 'light',
+    isNew: true,
+  },
+  {
+    id: 'daguerreotype',
+    name: 'Daguerreotype',
+    category: 'retro',
+    tagline: '1800s plate, silvered and still',
+    notes: ['Sepia', 'Silver plate', 'Vignette'],
+    prompt: '19th-century daguerreotype photograph, silvery sepia monochrome, soft focus falloff, heavy dark vignette, scratches and tarnish on the metal plate, formal still pose, antique museum artefact',
+    swatch: 'radial-gradient(70% 60% at 50% 45%, #CDBFA4 0%, #8C7A5E 50%, #2E261C 100%)',
+    texture: 'grain',
+    ink: 'light',
+  },
+  {
+    id: 'medium-format',
+    name: 'Medium Format',
+    category: 'film',
+    tagline: 'Hasselblad depth and creamy falloff',
+    notes: ['80mm', 'Creamy bokeh', 'Detail'],
+    prompt: 'shot on a medium-format Hasselblad with an 80mm lens, extraordinary detail, creamy shallow depth of field, smooth tonal gradation, natural colour, refined fine-art portrait quality',
+    aspect: '4:5',
+    swatch: 'linear-gradient(160deg, #EDE6DA 0%, #C9B8A0 40%, #6E6A5E 80%, #2A2A26 100%)',
+    texture: 'grain',
+    ink: 'light',
+  },
+  {
+    id: 'infrared',
+    name: 'Infrared',
+    category: 'film',
+    tagline: 'Pink foliage, surreal false colour',
+    notes: ['False colour', 'Pink leaves', 'Dark sky'],
+    prompt: 'infrared photography, foliage turned candy pink and white, deep dark sky, surreal false-colour palette, glowing highlights, otherworldly landscape feel',
+    swatch: 'linear-gradient(170deg, #1C2340 0%, #3E4E86 35%, #F4A6C8 70%, #FFE3EE 100%)',
+    texture: 'grain',
+    ink: 'light',
+    isNew: true,
+  },
+  {
+    id: 'flat-lay',
+    name: 'Flat Lay',
+    category: 'editorial',
+    tagline: 'Top-down, styled and tidy',
+    notes: ['Overhead', 'Styled', 'Soft shadow'],
+    prompt: 'top-down flat lay composition, carefully arranged objects on a clean textured surface, soft even window light with gentle shadows, balanced negative space, lifestyle brand styling',
+    aspect: '1:1',
+    swatch: 'linear-gradient(135deg, #F3EDE3 0%, #F3EDE3 50%, #E4D4C0 50%, #D9C3A8 100%)',
+    texture: 'grain',
+    ink: 'dark',
+  },
+  {
+    id: 'architectural',
+    name: 'Architectural',
+    category: 'editorial',
+    tagline: 'Clean lines, corrected verticals',
+    notes: ['Symmetry', 'Tilt-shift', 'Minimal'],
+    prompt: 'architectural photography, perfectly corrected vertical lines, strong symmetry and geometry, clean minimal composition, soft directional daylight, crisp material textures, design-magazine quality',
+    swatch: 'linear-gradient(90deg, #E9E7E2 0%, #E9E7E2 45%, #B9B6AF 45%, #B9B6AF 55%, #7D7A74 55%, #7D7A74 100%)',
+    texture: 'none',
+    ink: 'dark',
+  },
+  {
+    id: 'oil-painting',
+    name: 'Oil Painting',
+    category: 'art',
+    tagline: 'Old-master brushwork and glaze',
+    notes: ['Impasto', 'Chiaroscuro', 'Canvas'],
+    prompt: 'classical oil painting, visible impasto brushstrokes and layered glazes, old-master chiaroscuro lighting, rich earthy pigments, fine canvas texture, museum-quality fine art',
+    swatch: 'radial-gradient(50% 55% at 45% 45%, #C79A5A 0%, #7A4A26 45%, #2A1810 100%)',
+    texture: 'grain',
+    ink: 'light',
+  },
+  {
+    id: 'pixel-art',
+    name: 'Pixel Art',
+    category: 'art',
+    tagline: '16-bit sprites and dithered skies',
+    notes: ['16-bit', 'Limited palette', 'Dithering'],
+    prompt: '16-bit pixel art, crisp square pixels, limited retro game palette, ordered dithering in gradients, clean readable sprites, nostalgic console game scene',
+    swatch: 'linear-gradient(180deg, #2B1B5A 0%, #2B1B5A 20%, #4B2F8F 20%, #4B2F8F 40%, #8A4FB8 40%, #8A4FB8 55%, #F28A30 55%, #F28A30 65%, #2E9C6A 65%, #2E9C6A 100%)',
+    texture: 'none',
+    ink: 'light',
+    isNew: true,
+  },
+  {
+    id: 'isometric-3d',
+    name: 'Isometric 3D',
+    category: 'art',
+    tagline: 'Tiny soft-lit worlds in a cube',
+    notes: ['Isometric', 'Soft render', 'Miniature'],
+    prompt: 'isometric 3D render, miniature diorama on a floating tile, soft global illumination, smooth matte materials, pastel palette, clean edges, playful and tidy',
+    aspect: '1:1',
+    swatch: 'linear-gradient(150deg, #CDE7FF 0%, #B9C8FF 40%, #FFC9DE 75%, #FFE9B8 100%)',
+    texture: 'none',
+    ink: 'dark',
+  },
+  {
+    id: 'ukiyo-e',
+    name: 'Ukiyo-e',
+    category: 'art',
+    tagline: 'Japanese woodblock print',
+    notes: ['Woodblock', 'Flat colour', 'Bold outline'],
+    prompt: 'ukiyo-e Japanese woodblock print, bold outlines, flat areas of colour with subtle gradients, Prussian blue and muted vermilion palette, stylised waves and clouds, visible washi paper texture',
+    swatch: 'radial-gradient(22% 18% at 72% 26%, #C8553D 0 98%, transparent 100%), radial-gradient(120% 60% at 30% 100%, #1E3559 0%, #2B4C7E 45%, transparent 46%), linear-gradient(180deg, #F1E3C6 0%, #E8D5AE 100%)',
+    texture: 'grain',
+    ink: 'dark',
+  },
+];
+
+/**
+ * Video presets reuse image-look samples as covers; the cover's motion is what
+ * shows the preset (a slow push-in, an orbit, a timelapse…).
+ */
+const VIDEO_PRESETS: Draft[] = [
+  // Camera moves
+  {
+    id: 'slow-push-in',
+    name: 'Slow Push-In',
+    category: 'camera',
+    tagline: 'Creeping dolly toward the subject',
+    notes: ['Dolly in', 'Steady', 'Building tension'],
+    prompt: 'camera: slow steady dolly push-in toward the subject, smooth gimbal movement, subject grows in frame over the shot, cinematic tension building, shallow depth of field',
+    swatch: 'linear-gradient(90deg, #0F2A33 0%, #1F4B55 40%, #C4773B 80%, #E9A25F 100%)',
+    texture: 'grain',
+    ink: 'light',
+    cover: '/presets/candlelit.webp',
+    motion: 'push',
+  },
+  {
+    id: 'pull-back-reveal',
+    name: 'Pull-Back Reveal',
+    category: 'camera',
+    tagline: 'Start close, reveal the whole world',
+    notes: ['Dolly out', 'Reveal', 'Scale'],
+    prompt: 'camera: starts tight on a detail then smoothly pulls back to reveal the full scene and its scale, continuous single take, steady motion, epic reveal',
+    swatch: 'linear-gradient(170deg, #0B4F8A 0%, #1C7C54 45%, #E0B32B 80%, #C2411F 100%)',
+    texture: 'grain',
+    ink: 'light',
+    cover: '/presets/overcast-soft.webp',
+    motion: 'pull',
+  },
+  {
+    id: 'orbit',
+    name: '360 Orbit',
+    category: 'camera',
+    tagline: 'Circle the subject in one smooth arc',
+    notes: ['Orbit', 'Parallax', 'Hero'],
+    prompt: 'camera: smooth orbit around the subject in a continuous arc, background parallax sliding behind, subject stays centred and sharp, hero shot',
+    swatch: 'radial-gradient(70% 60% at 50% 40%, #FFFFFF 0%, #F1F1F3 55%, #D9DADF 100%)',
+    texture: 'none',
+    ink: 'dark',
+    cover: '/presets/studio-product.webp',
+    motion: 'orbit',
+    isNew: true,
+  },
+  {
+    id: 'fpv-drone',
+    name: 'FPV Drone',
+    category: 'camera',
+    tagline: 'Fast, low, weaving fly-through',
+    notes: ['Fly-through', 'Speed', 'Banking'],
+    prompt: 'camera: FPV drone flying fast and low through the scene, banking turns and dives, weaving past obstacles, wide-angle lens, exhilarating continuous motion, slight motion blur',
+    aspect: '16:9',
+    swatch: 'linear-gradient(180deg, #7EC8F0 0%, #3E8FC2 40%, #2F6B3A 75%, #1B3A22 100%)',
+    texture: 'none',
+    ink: 'light',
+    cover: '/presets/velvia.webp',
+    motion: 'fly',
+    isNew: true,
+  },
+  {
+    id: 'handheld-doc',
+    name: 'Handheld Doc',
+    category: 'camera',
+    tagline: 'Loose, human, in the moment',
+    notes: ['Handheld', 'Observational', 'Natural'],
+    prompt: 'camera: handheld documentary style, subtle natural shake and breathing, reactive reframing, observational and intimate, natural available light, real-moment authenticity',
+    swatch: 'linear-gradient(160deg, #D8D4CE 0%, #9EA3A8 40%, #4E5A66 75%, #1E232A 100%)',
+    texture: 'grain',
+    ink: 'light',
+    cover: '/presets/tri-x.webp',
+    motion: 'handheld',
+  },
+  {
+    id: 'crane-up',
+    name: 'Crane Up',
+    category: 'camera',
+    tagline: 'Rise above the scene for the finale',
+    notes: ['Jib', 'Rising', 'Establishing'],
+    prompt: 'camera: smooth crane shot rising upward from ground level to a high angle over the scene, revealing the surroundings, grand establishing move, steady and graceful',
+    swatch: 'linear-gradient(180deg, #1B2A57 0%, #2E4A8C 45%, #5C7FC2 75%, #F2A65A 100%)',
+    texture: 'grain',
+    ink: 'light',
+    cover: '/presets/blue-hour.webp',
+    motion: 'rise',
+  },
+  {
+    id: 'whip-pan',
+    name: 'Whip Pan',
+    category: 'camera',
+    tagline: 'Snap sideways with a blur of energy',
+    notes: ['Fast pan', 'Motion blur', 'Energetic'],
+    prompt: 'camera: fast whip pan snapping sideways onto the subject, streaking horizontal motion blur during the move, sharp landing, energetic kinetic editing feel',
+    swatch: 'linear-gradient(135deg, #0B0B1A 0%, #2A0C3D 40%, #D1267A 75%, #1FC7C9 100%)',
+    texture: 'halation',
+    ink: 'light',
+    cover: '/presets/neon-noir.webp',
+    motion: 'whip',
+  },
+  {
+    id: 'dolly-zoom',
+    name: 'Dolly Zoom',
+    category: 'camera',
+    tagline: 'Vertigo warp, background stretches',
+    notes: ['Vertigo', 'Unsettling', 'Hitchcock'],
+    prompt: 'camera: dolly zoom vertigo effect, camera moves back while zooming in so the subject stays the same size as the background stretches and warps, unsettling dramatic realisation',
+    swatch: 'linear-gradient(170deg, #BFE3FF 0%, #F5D0F0 45%, #FFF1B8 80%, #B7F0D8 100%)',
+    texture: 'haze',
+    ink: 'dark',
+    cover: '/presets/dreamcore.webp',
+    motion: 'vertigo',
+    isNew: true,
+  },
+
+  // Time & pace
+  {
+    id: 'slow-motion',
+    name: 'Slow Motion',
+    category: 'pace',
+    tagline: '120fps, every detail suspended',
+    notes: ['120fps', 'Suspended', 'Graceful'],
+    prompt: 'shot in slow motion at 120 frames per second, graceful suspended movement, hair, fabric and particles drifting, smooth fluid motion, crisp detail in every frame',
+    swatch: 'radial-gradient(120% 90% at 78% 18%, #FFE3A1 0%, #F7B267 28%, #E07A5F 58%, #6B3E5E 100%)',
+    texture: 'haze',
+    ink: 'dark',
+    cover: '/presets/golden-hour.webp',
+    motion: 'drift',
+  },
+  {
+    id: 'timelapse',
+    name: 'Timelapse',
+    category: 'pace',
+    tagline: 'Hours pass in seconds',
+    notes: ['Day to night', 'Streaking clouds', 'Locked-off'],
+    prompt: 'timelapse, locked-off camera, hours compressed into seconds, clouds streaking across the sky, light shifting from day to dusk, city lights switching on, people blurring past',
+    aspect: '16:9',
+    swatch: 'linear-gradient(180deg, #1B2A57 0%, #2E4A8C 45%, #5C7FC2 75%, #F2A65A 100%)',
+    texture: 'grain',
+    ink: 'light',
+    cover: '/presets/blue-hour.webp',
+    motion: 'timelapse',
+  },
+  {
+    id: 'speed-ramp',
+    name: 'Speed Ramp',
+    category: 'pace',
+    tagline: 'Fast, then slow on the key moment',
+    notes: ['Ramp', 'Impact', 'Sports promo'],
+    prompt: 'speed ramp, real-time action accelerates then drops into dramatic slow motion at the key moment before snapping back to speed, punchy sports-promo energy',
+    swatch: 'linear-gradient(135deg, #111 0%, #333 40%, #E8327B 75%, #FFB347 100%)',
+    texture: 'grain',
+    ink: 'light',
+    cover: '/presets/90s-disposable.webp',
+    motion: 'ramp',
+    isNew: true,
+  },
+  {
+    id: 'stop-motion',
+    name: 'Stop-Motion',
+    category: 'pace',
+    tagline: 'Charming 12fps handmade movement',
+    notes: ['12fps', 'Handmade', 'Tactile'],
+    prompt: 'stop-motion animation at 12 frames per second, slightly jittery handmade movement, tactile miniature props, subtle frame-to-frame lighting flicker, charming crafted feel',
+    swatch: 'linear-gradient(150deg, #FFB86B 0%, #FF7F6E 35%, #7FC8A9 70%, #6A8CD6 100%)',
+    texture: 'none',
+    ink: 'dark',
+    cover: '/presets/claymation.webp',
+    motion: 'stutter',
+  },
+  {
+    id: 'seamless-loop',
+    name: 'Seamless Loop',
+    category: 'pace',
+    tagline: 'Ends exactly where it starts',
+    notes: ['Loop', 'Ambient', 'Calm'],
+    prompt: 'seamless looping video, gentle continuous ambient motion, the final frame matches the first frame perfectly, calm hypnotic rhythm, no cuts',
+    swatch: 'linear-gradient(160deg, #F6E7F2 0%, #E6D5F5 35%, #CFE3F2 70%, #F3EBDD 100%)',
+    texture: 'haze',
+    ink: 'dark',
+    cover: '/presets/hazy-daydream.webp',
+    motion: 'sway',
+  },
+
+  // Formats
+  {
+    id: 'movie-trailer',
+    name: 'Movie Trailer',
+    category: 'format',
+    tagline: 'Epic, graded, blockbuster weight',
+    notes: ['Anamorphic', 'Dramatic', 'Epic'],
+    prompt: 'blockbuster movie trailer shot, anamorphic widescreen, dramatic motivated lighting, teal and orange grade, atmospheric haze, slow deliberate camera move, epic scale and tension',
+    aspect: '21:9',
+    swatch: 'linear-gradient(90deg, #0F2A33 0%, #1F4B55 40%, #C4773B 80%, #E9A25F 100%)',
+    texture: 'grain',
+    ink: 'light',
+    cover: '/presets/cinematic-35.webp',
+    motion: 'pull',
+  },
+  {
+    id: 'music-video',
+    name: 'Music Video',
+    category: 'format',
+    tagline: 'Neon, rhythm and bold moves',
+    notes: ['Stylised', 'Rhythmic', 'Coloured light'],
+    prompt: 'stylised music video shot, bold coloured lighting and haze, rhythmic camera movement on the beat, confident performance, glossy high-contrast grade',
+    swatch: 'linear-gradient(180deg, #1A0B3B 0%, #5B1B7A 40%, #E8327B 70%, #FFB347 100%)',
+    texture: 'scanlines',
+    ink: 'light',
+    cover: '/presets/synthwave.webp',
+    motion: 'handheld',
+  },
+  {
+    id: 'ugc-selfie',
+    name: 'UGC Selfie',
+    category: 'format',
+    tagline: 'Vertical, phone-in-hand, talking to camera',
+    notes: ['9:16', 'Front camera', 'Authentic'],
+    prompt: 'vertical smartphone selfie video, arm-length front camera, person talking directly to camera, natural handheld sway, casual real-home setting, authentic social media UGC feel',
+    aspect: '9:16',
+    swatch: 'radial-gradient(60% 55% at 50% 45%, #FFFFFF 0%, #F2F2F2 25%, #7A7A86 60%, #0E0E12 100%)',
+    texture: 'flash',
+    ink: 'dark',
+    cover: '/presets/party-flash.webp',
+    motion: 'handheld',
+    isNew: true,
+  },
+  {
+    id: 'product-turntable',
+    name: 'Product Turntable',
+    category: 'format',
+    tagline: 'Slow spin on a clean studio set',
+    notes: ['Turntable', 'Seamless', 'E-commerce'],
+    prompt: 'product slowly rotating on a turntable, clean seamless studio background, soft key light with moving reflections gliding across the surface, sharp detail, premium commercial',
+    aspect: '1:1',
+    swatch: 'radial-gradient(70% 60% at 50% 40%, #FFFFFF 0%, #F1F1F3 55%, #D9DADF 100%)',
+    texture: 'none',
+    ink: 'dark',
+    cover: '/presets/studio-product.webp',
+    motion: 'orbit',
+  },
+  {
+    id: 'fashion-film',
+    name: 'Fashion Film',
+    category: 'format',
+    tagline: 'Slow, sensual, editorial motion',
+    notes: ['Editorial', 'Fabric motion', 'Poised'],
+    prompt: 'high-fashion film, poised slow movement, fabric flowing, polished beauty lighting, elegant slow camera glide, luxury editorial grade',
+    aspect: '9:16',
+    swatch: 'linear-gradient(150deg, #F6F1EB 0%, #E9D7CB 40%, #C9A48C 75%, #2B211C 100%)',
+    texture: 'none',
+    ink: 'dark',
+    cover: '/presets/glossy-magazine.webp',
+    motion: 'drift',
+  },
+  {
+    id: 'nature-doc',
+    name: 'Nature Doc',
+    category: 'format',
+    tagline: 'Long-lens wildlife, patient framing',
+    notes: ['Telephoto', 'Patient', 'Natural'],
+    prompt: 'nature documentary footage, long telephoto lens, patient locked-off framing with slow subtle pans, natural light, rich detail, calm observational wildlife filmmaking',
+    aspect: '16:9',
+    swatch: 'linear-gradient(170deg, #0B4F8A 0%, #1C7C54 45%, #E0B32B 80%, #C2411F 100%)',
+    texture: 'grain',
+    ink: 'light',
+    cover: '/presets/velvia.webp',
+    motion: 'sway',
+  },
+  {
+    id: 'anime-action',
+    name: 'Anime Action',
+    category: 'format',
+    tagline: 'Dynamic cuts, speed lines, impact',
+    notes: ['Speed lines', 'Impact frames', 'Dynamic'],
+    prompt: 'anime action sequence, dynamic sweeping camera, speed lines and impact frames, dramatic foreshortening, bold cel-shaded motion, painted sky background',
+    aspect: '16:9',
+    swatch: 'linear-gradient(180deg, #7EC8F0 0%, #BFE6F5 45%, #FFE6B0 75%, #8CC98B 100%)',
+    texture: 'none',
+    ink: 'dark',
+    cover: '/presets/anime-cel.webp',
+    motion: 'whip',
+  },
+  {
+    id: 'asmr-macro',
+    name: 'ASMR Macro',
+    category: 'format',
+    tagline: 'Extreme close-ups, slow and tactile',
+    notes: ['Macro', 'Texture', 'Satisfying'],
+    prompt: 'extreme macro close-up, slow satisfying tactile motion, textures in sharp detail, very shallow depth of field, soft diffused light, calm ASMR product video',
+    swatch: 'linear-gradient(160deg, #F4EEE4 0%, #E3D6C3 45%, #C4B39A 80%, #9C8B74 100%)',
+    texture: 'grain',
+    ink: 'dark',
+    cover: '/presets/quiet-luxury.webp',
+    motion: 'push',
+    isNew: true,
+  },
+];
+
+export const STYLE_PRESETS: StylePreset[] = [
+  ...IMAGE_LOOKS.map((s): StylePreset => ({ ...s, kind: 'image' })),
+  ...VIDEO_PRESETS.map((s): StylePreset => ({ ...s, kind: 'video' })),
 ];
 
 export function getStyle(id: string | null | undefined): StylePreset | undefined {
   return id ? STYLE_PRESETS.find((s) => s.id === id) : undefined;
+}
+
+/** Image looks suit any output; video presets describe motion, so only video. */
+export function styleAppliesTo(style: StylePreset, output: string): boolean {
+  return style.kind === 'image' || output === 'video';
 }
 
 /** The prompt sent to the model: the user's words first, then the style's look. */
@@ -393,5 +870,6 @@ export function composeStylePrompt(prompt: string, styleId: string | null | unde
   const style = getStyle(styleId);
   if (!style) return prompt;
   const base = prompt.trim().replace(/[.\s]+$/, '');
-  return base ? `${base}. Style: ${style.prompt}.` : `${style.prompt}.`;
+  const label = style.kind === 'video' ? 'Shot' : 'Style';
+  return base ? `${base}. ${label}: ${style.prompt}.` : `${style.prompt}.`;
 }

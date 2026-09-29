@@ -18,6 +18,12 @@ interface PreferencesState {
   /** Which API account the Studio generates with. */
   studioBackend: Backend;
   setStudioBackend: (backend: Backend) => void;
+  /** Starred style presets, most recently starred first. */
+  favoriteStyles: string[];
+  toggleFavoriteStyle: (id: string) => void;
+  /** Style presets used lately, newest first. */
+  recentStyles: string[];
+  noteStyleUsed: (id: string) => void;
   setTheme: (theme: Theme) => void;
   setDefaultMode: (mode: DefaultMode) => void;
   setNotificationSound: (enabled: boolean) => void;
@@ -35,6 +41,16 @@ export const usePreferencesStore = create<PreferencesState>()(
       setBlurSensitive: (blurSensitive) => set({ blurSensitive }),
       studioBackend: 'kie',
       setStudioBackend: (studioBackend) => set({ studioBackend }),
+      favoriteStyles: [],
+      toggleFavoriteStyle: (id) =>
+        set((s) => ({
+          favoriteStyles: s.favoriteStyles.includes(id)
+            ? s.favoriteStyles.filter((f) => f !== id)
+            : [id, ...s.favoriteStyles],
+        })),
+      recentStyles: [],
+      noteStyleUsed: (id) =>
+        set((s) => ({ recentStyles: [id, ...s.recentStyles.filter((r) => r !== id)].slice(0, 8) })),
       setTheme: (theme) => {
         localStorage.setItem('theme', theme);
         const root = document.documentElement;
@@ -59,6 +75,8 @@ export const usePreferencesStore = create<PreferencesState>()(
         showStudioSidebar: state.showStudioSidebar,
         blurSensitive: state.blurSensitive,
         studioBackend: state.studioBackend,
+        favoriteStyles: state.favoriteStyles,
+        recentStyles: state.recentStyles,
       }),
     }
   )
