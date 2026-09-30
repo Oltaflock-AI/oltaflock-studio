@@ -12,6 +12,7 @@ import { USE_CASES } from '../_shared/catalog/use-cases.ts';
 import type { ModelSpec } from '../_shared/catalog/types.ts';
 import { optimizePrompt } from '../_shared/brain/index.ts';
 import { fetchKieCredits } from '../_shared/kie-credits.ts';
+import { persistOutput } from '../_shared/persist-output.ts';
 import { MEMORY_CATEGORIES, fetchMemories } from '../_shared/memory.ts';
 
 // deno-lint-ignore no-explicit-any
@@ -205,15 +206,52 @@ async function fetchGenerations(ctx: Ctx, ids: string[]): Promise<GenerationRow[
   return (data ?? []) as GenerationRow[];
 }
 
-/** Re-reads the rows until all are finished or `seconds` elapse. */
+/**
+ * Rows are marked done with the provider's temporary URL, then the permanent
+ * copy (keyed by generation id) replaces it a few seconds later. Wait for that
+ * copy, but give up after PERSIST_GRACE_MS in case storage is off or failed.
+ */
+const PERSIST_GRACE_MS = 15_000;
+
 async function waitFor(ctx: Ctx, ids: string[], seconds: number): Promise<GenerationRow[]> {
   const deadline = Date.now() + Math.min(seconds, MAX_WAIT_SECONDS) * 1000;
+  const doneAt = new Map<string, number>();
+  const settled = (r: GenerationRow) => {
+    if (r.status === 'error') return true;
+    if (r.status !== 'done') return false;
+    if (!r.output_url || r.output_url.includes(r.id)) return true;
+    if (!doneAt.has(r.id)) doneAt.set(r.id, Date.now());
+    return Date.now() - doneAt.get(r.id)! > PERSIST_GRACE_MS;
+  };
   let rows = await fetchGenerations(ctx, ids);
-  while (Date.now() < deadline && rows.some((r) => !isFinished(r.status))) {
+  while (Date.now() < deadline && !rows.every(settled)) {
     await new Promise((r) => setTimeout(r, Math.min(POLL_MS, Math.max(0, deadline - Date.now()))));
     rows = await fetchGenerations(ctx, ids);
   }
-  return rows;
+  const stale = new Set([...doneAt].filter(([, at]) => Date.now() - at > PERSIST_GRACE_MS).map(([id]) => id));
+  return repairUnpersisted(ctx, rows, (r) => stale.has(r.id));
+}
+
+const isUnpersisted = (r: GenerationRow) => r.status === 'done' && !!r.output_url && !r.output_url.includes(r.id);
+
+/**
+ * The callback copies outputs to permanent storage but carries on if that
+ * fails, and nothing retries it — so the row keeps the provider's expiring URL.
+ * Retry the copy for such rows (those given up on in this call, or finished
+ * over two minutes ago) so MCP clients never hand out a link that dies.
+ */
+async function repairUnpersisted(ctx: Ctx, rows: GenerationRow[], gaveUp: (r: GenerationRow) => boolean = () => false) {
+  const old = (r: GenerationRow) => Date.now() - new Date(r.created_at).getTime() > 120_000;
+  const targets = rows.filter((r) => isUnpersisted(r) && (gaveUp(r) || old(r))).slice(0, 5);
+  if (!targets.length) return rows;
+  const fixed = new Map<string, string>();
+  await Promise.all(targets.map(async (r) => {
+    const url = await persistOutput(r.output_url!, ctx.userId, r.id);
+    if (!url) return;
+    const { error } = await ctx.supabase.from('generations').update({ output_url: url }).eq('id', r.id);
+    if (!error) fixed.set(r.id, url);
+  }));
+  return rows.map((r) => (fixed.has(r.id) ? { ...r, output_url: fixed.get(r.id)! } : r));
 }
 
 function waitNote(rows: GenerationRow[]) {
@@ -444,7 +482,7 @@ export function registerTools(server: McpServer, ctx: Ctx) {
     },
     annotations: READ,
   }, async ({ ids, wait_seconds }) => {
-    const rows = wait_seconds ? await waitFor(ctx, ids, wait_seconds) : await fetchGenerations(ctx, ids);
+    const rows = wait_seconds ? await waitFor(ctx, ids, wait_seconds) : await repairUnpersisted(ctx, await fetchGenerations(ctx, ids));
     const missing = ids.filter((id) => !rows.some((r) => r.id === id));
     return ok({
       generations: rows.map(generationView),
