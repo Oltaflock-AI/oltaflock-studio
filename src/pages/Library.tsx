@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronLeft, FolderTree, LayoutGrid, Search, Star, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, FolderTree, LayoutGrid, Loader2, Search, Star, Upload, ZoomIn, ZoomOut } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AppShell } from '@/components/layout/AppShell';
 import { AnimatedPage } from '@/components/ui/animated-page';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useGenerations } from '@/hooks/useGenerations';
+import { useAuth } from '@/hooks/useAuth';
+import { useMarqueeSelect } from '@/components/library/useMarqueeSelect';
+import { UPLOAD_ACCEPT, uploadProblem, uploadToLibrary } from '@/components/library/uploadToLibrary';
 import { useFolders } from '@/hooks/useFolders';
 import { usePromptLibrary } from '@/hooks/usePromptLibrary';
 import { GridView, DEFAULT_TILE, MAX_TILE, MIN_TILE } from '@/components/library/GridView';
@@ -69,6 +73,47 @@ export default function Library() {
     return () => { el?.removeEventListener('wheel', onWheel); window.removeEventListener('keydown', onKey); };
   }, [view, zoomBy]);
 
+  // Upload from the device: via the button or by dropping files anywhere on the page.
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
+
+  const uploadFiles = async (list: FileList | File[]) => {
+    if (!user?.id) return;
+    const files = Array.from(list);
+    const bad = files.map(uploadProblem).filter((p): p is string => !!p);
+    bad.forEach((p) => toast.error(p));
+    const good = files.filter((f) => !uploadProblem(f));
+    if (!good.length) return;
+    const folderId = scope.kind === 'folder' ? scope.id : null;
+    setUploading((n) => n + good.length);
+    const results = await Promise.allSettled(good.map(async (f) => {
+      try { return await uploadToLibrary(user.id, f, folderId); } finally { setUploading((n) => n - 1); }
+    }));
+    queryClient.invalidateQueries({ queryKey: ['generations', user.id] });
+    const ok = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.length - ok;
+    if (ok) toast.success(`Added ${ok === 1 ? '1 file' : `${ok} files`} to your library`);
+    if (failed) toast.error(`${failed === 1 ? '1 file' : `${failed} files`} could not be uploaded`);
+  };
+
+  const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files');
+  const dropHandlers = {
+    onDragEnter: (e: React.DragEvent) => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth.current += 1; setDragging(true); },
+    onDragOver: (e: React.DragEvent) => { if (hasFiles(e)) e.preventDefault(); },
+    onDragLeave: (e: React.DragEvent) => { if (!hasFiles(e)) return; dragDepth.current -= 1; if (dragDepth.current <= 0) { dragDepth.current = 0; setDragging(false); } },
+    onDrop: (e: React.DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dragDepth.current = 0;
+      setDragging(false);
+      void uploadFiles(e.dataTransfer.files);
+    },
+  };
+
   const isStarred = useCallback((id: string) => !!findByGenerationId(id), [findByGenerationId]);
   const scopedFolder = scope.kind === 'folder' ? folders.find((f) => f.id === scope.id) : undefined;
 
@@ -80,6 +125,7 @@ export default function Library() {
   const selection = useSelection(ids);
   const selected = useMemo(() => items.filter((g) => selection.has(g.id)), [items, selection]);
   const setScope = (s: Scope) => { setScopeState(s); selection.clear(); };
+  const marquee = useMarqueeSelect({ containerRef: scrollRef, enabled: view === 'grid', selectedIds: selection.ids, onSelect: selection.set });
 
   const counts = useMemo(() => ({
     all: generations.length,
@@ -99,7 +145,16 @@ export default function Library() {
   return (
     <AppShell scrollableContent={false}>
       <AnimatedPage className="h-full">
-        <div className="flex h-full w-full flex-col overflow-hidden px-4 pt-5 sm:px-5">
+        <div className="relative flex h-full w-full flex-col overflow-hidden px-4 pt-5 sm:px-5" {...dropHandlers}>
+          {dragging && (
+            <div className="pointer-events-none absolute inset-3 z-30 grid place-items-center rounded-[16px] border-2 border-dashed border-primary/60 bg-background/80 backdrop-blur-sm">
+              <div className="flex flex-col items-center gap-2 text-center">
+                <Upload className="h-7 w-7 text-primary" />
+                <p className="text-[15px] font-medium">Drop to add to {scopedFolder?.name ?? 'your library'}</p>
+                <p className="text-[12.5px] text-muted-foreground">Images and videos, up to 95MB each</p>
+              </div>
+            </div>
+          )}
           <header className="flex shrink-0 flex-wrap items-end justify-between gap-4 pb-4">
             <div className="min-w-0">
               {view === 'grid' && scope.kind !== 'all' ? (
@@ -116,6 +171,24 @@ export default function Library() {
               </p>
             </div>
 
+            <div className="flex items-center gap-2.5">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={UPLOAD_ACCEPT}
+              multiple
+              hidden
+              onChange={(e) => { if (e.target.files?.length) void uploadFiles(e.target.files); e.target.value = ''; }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              title="Upload images or videos from your device (or drop them anywhere here)"
+              className="inline-flex h-[42px] items-center gap-2 rounded-[12px] border border-border bg-card px-4 text-[13.5px] font-medium transition-smooth hover:bg-secondary"
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {uploading ? `Uploading ${uploading}…` : 'Upload'}
+            </button>
             <div className="inline-flex rounded-[12px] border border-border/60 bg-secondary p-[3px]" role="tablist" aria-label="Library view">
               {([['grid', 'Grid', LayoutGrid], ['organize', 'Organize', FolderTree]] as const).map(([id, label, Icon]) => (
                 <button
@@ -132,6 +205,7 @@ export default function Library() {
                   <Icon className={cn('h-4 w-4', view === id && 'text-primary')} /> {label}
                 </button>
               ))}
+            </div>
             </div>
           </header>
 
@@ -206,7 +280,14 @@ export default function Library() {
             </div>
           </div>
 
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto" onClick={(e) => view === 'grid' && e.target === e.currentTarget && selection.clear()}>
+          <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto" onPointerDown={marquee.onPointerDown} onClick={(e) => view === 'grid' && e.target === e.currentTarget && selection.clear()}>
+            {marquee.box && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute z-20 rounded-[4px] border border-primary bg-primary/15"
+                style={{ left: marquee.box.left, top: marquee.box.top, width: marquee.box.width, height: marquee.box.height }}
+              />
+            )}
             {isLoading ? (
               <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(tileSize)}px, 1fr))` }}>
                 {Array.from({ length: 24 }).map((_, i) => <div key={i} className="aspect-square animate-pulse rounded-[8px] bg-muted" />)}

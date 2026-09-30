@@ -74,6 +74,8 @@ export function useSelection(orderedIds: string[]) {
     click,
     toggle: (id: string) => click(id, undefined, true),
     selectAll: () => setSelected(new Set(orderedIds)),
+    /** Replaces the selection outright (marquee drag). */
+    set: (ids: string[]) => setSelected(new Set(ids)),
     clear: () => { setSelected(new Set()); anchor.current = null; },
   }), [selected, click, orderedIds]);
 

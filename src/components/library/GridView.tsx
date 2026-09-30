@@ -49,7 +49,9 @@ function Tile({ g, selection, starred, compact, onOpen }: { g: DbGeneration; sel
       tabIndex={0}
       aria-label={name}
       aria-pressed={selected}
-      draggable={!renaming}
+      data-tile-id={g.id}
+      // Only selected tiles drag to folders; pressing an unselected one starts a marquee.
+      draggable={selected && !renaming}
       onDragStart={(e) => {
         const ids = selected ? selection.ids : [g.id];
         e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(ids));
@@ -71,9 +73,9 @@ function Tile({ g, selection, starred, compact, onOpen }: { g: DbGeneration; sel
       {g.status === 'done' && g.output_url && (
         <span className={cn('absolute inset-0', g.is_nsfw && 'scale-125 blur-2xl saturate-50')}>
           {g.type === 'video' ? (
-            <video src={`${g.output_url}#t=1`} muted playsInline preload="metadata" className="h-full w-full object-cover" aria-hidden="true" />
+            <video src={`${g.output_url}#t=1`} muted playsInline preload="metadata" draggable={false} className="h-full w-full object-cover" aria-hidden="true" />
           ) : (
-            <img src={g.output_url} alt="" loading="lazy" className={cn('h-full w-full object-cover transition-transform duration-300', !selected && 'group-hover:scale-[1.03]')} />
+            <img src={g.output_url} alt="" loading="lazy" draggable={false} className={cn('h-full w-full object-cover transition-transform duration-300', !selected && 'group-hover:scale-[1.03]')} />
           )}
         </span>
       )}
@@ -170,6 +172,7 @@ function FolderCard({ id, name, color, count, cover, coverType, onOpen, onDropId
     <button
       type="button"
       key={id}
+      data-no-marquee
       onClick={onOpen}
       onDragOver={(e) => { if (e.dataTransfer.types.includes(DRAG_TYPE)) { e.preventDefault(); setOver(true); } }}
       onDragLeave={() => setOver(false)}
