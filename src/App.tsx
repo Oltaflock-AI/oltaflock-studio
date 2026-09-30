@@ -18,6 +18,7 @@ const Presets = lazy(() => import("./pages/Presets"));
 const Elements = lazy(() => import("./pages/Elements"));
 const GenerationDetail = lazy(() => import("./pages/GenerationDetail"));
 const Assistant = lazy(() => import("./pages/Assistant"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -95,6 +96,14 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <Assistant />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/oauth/consent"
+                  element={
+                    <ProtectedRoute>
+                      <OAuthConsent />
                     </ProtectedRoute>
                   }
                 />
