@@ -5,6 +5,7 @@
 
 import type { McpServer } from 'npm:@modelcontextprotocol/sdk@1.31.0/server/mcp.js';
 import { z } from 'npm:zod@3.25.76';
+import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
 import { MODEL_CATALOG, getSpec, specBackend } from '../_shared/catalog/index.ts';
 import { fieldValue, validateSpecInput } from '../_shared/catalog/adapters.ts';
 import { specCredits, specPriceText } from '../_shared/catalog/pricing.ts';
@@ -14,6 +15,7 @@ import { optimizePrompt } from '../_shared/brain/index.ts';
 import { fetchKieCredits } from '../_shared/kie-credits.ts';
 import { persistOutput } from '../_shared/persist-output.ts';
 import { MEMORY_CATEGORIES, fetchMemories } from '../_shared/memory.ts';
+import { WIDGET_TOOL_META } from './widget.ts';
 
 // deno-lint-ignore no-explicit-any
 type SupabaseClientLike = any;
@@ -29,30 +31,66 @@ export interface Ctx {
   anonKey: string;
 }
 
-const USD_PER_CREDIT = 0.005;
+export const USD_PER_CREDIT = 0.005;
 const MAX_WAIT_SECONDS = 50;
 const POLL_MS = 3000;
-const ELEMENT_KINDS = ['character', 'product', 'logo', 'place', 'style', 'other'] as const;
+export const ELEMENT_KINDS = ['character', 'product', 'logo', 'place', 'style', 'other'] as const;
 const MODES = ['text-to-image', 'image-to-image', 'text-to-video', 'image-to-video', 'video-to-video'] as const;
-const GENERATION_FIELDS =
+export const GENERATION_FIELDS =
   'id, title, type, model, status, progress, user_prompt, final_prompt, output_url, error_message, folder_id, rating, model_params, created_at';
 
 // ─── Response helpers ────────────────────────────────────────────────────────
 
-function ok(data: Record<string, unknown>) {
+type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
+
+export function ok(data: Record<string, unknown>, extra: Content[] = []) {
   return {
-    content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }],
+    content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }, ...extra] as Content[],
     structuredContent: data,
   };
 }
 
-function fail(message: string) {
+/** Largest image embedded inline; bigger outputs are left as links. */
+const MAX_INLINE_IMAGE_BYTES = 3_500_000;
+const MAX_INLINE_IMAGES = 4;
+const CDN_BASE = 'https://cdn.oltaflock.ai/';
+
+/** Outputs in our bucket get a 1024px JPEG from the storage Worker; others are fetched as-is. */
+function previewUrl(outputUrl: string): string {
+  const api = Deno.env.get('STORAGE_API_URL');
+  if (!api || !outputUrl.startsWith(CDN_BASE)) return outputUrl;
+  return `${api.replace(/\/$/, '')}/preview/${outputUrl.slice(CDN_BASE.length)}?w=1024`;
+}
+
+/**
+ * Finished images as MCP image blocks, so chat clients (Claude, ChatGPT) show
+ * the picture itself rather than a bare URL they won't render.
+ */
+async function imageBlocks(rows: GenerationRow[]): Promise<Content[]> {
+  const images = rows.filter((r) => r.type === 'image' && r.status === 'done' && r.output_url).slice(0, MAX_INLINE_IMAGES);
+  const blocks = await Promise.all(images.map(async (r): Promise<Content | null> => {
+    try {
+      const res = await fetch(previewUrl(r.output_url!), { signal: AbortSignal.timeout(15_000) });
+      if (!res.ok) return null;
+      const mimeType = (res.headers.get('content-type') ?? '').split(';')[0].trim();
+      if (!mimeType.startsWith('image/')) return null;
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      if (bytes.length > MAX_INLINE_IMAGE_BYTES) return null;
+      return { type: 'image', data: encodeBase64(bytes), mimeType };
+    } catch {
+      return null;
+    }
+  }));
+  return blocks.filter((b): b is Content => b !== null);
+}
+
+export function fail(message: string) {
   return { isError: true, content: [{ type: 'text' as const, text: message }] };
 }
 
-const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
-const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
-const DELETE = { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false };
+export const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+export const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
+export const DELETE = { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false };
 
 type ToolResult = ReturnType<typeof ok> | ReturnType<typeof fail>;
 interface ToolConfig<S extends z.ZodRawShape> {
@@ -60,17 +98,18 @@ interface ToolConfig<S extends z.ZodRawShape> {
   description: string;
   inputSchema: S;
   annotations: typeof READ;
+  _meta?: Record<string, unknown>;
 }
 
 /** registerTool with argument types inferred from the zod shape (the SDK's own inference is lost under Deno). */
-function toolRegistrar(server: McpServer) {
+export function toolRegistrar(server: McpServer) {
   return <S extends z.ZodRawShape>(name: string, config: ToolConfig<S>, cb: (args: z.infer<z.ZodObject<S>>) => Promise<ToolResult>) =>
     server.registerTool(name, config as never, cb as never);
 }
 
 // ─── Catalog helpers ─────────────────────────────────────────────────────────
 
-function modelSummary(spec: ModelSpec) {
+export function modelSummary(spec: ModelSpec) {
   return {
     id: spec.id,
     name: spec.name,
@@ -113,7 +152,7 @@ function modelDetail(spec: ModelSpec) {
   };
 }
 
-function unknownModel(id: string) {
+export function unknownModel(id: string) {
   const near = MODEL_CATALOG.filter((m) => m.id.includes(id) || m.name.toLowerCase().includes(id.toLowerCase())).slice(0, 5);
   return `Unknown model "${id}".${near.length ? ` Did you mean: ${near.map((m) => m.id).join(', ')}?` : ''} Call studio_list_models to see valid ids.`;
 }
@@ -134,7 +173,7 @@ function fillMediaSlots(spec: ModelSpec, controls: Record<string, unknown>, urls
 }
 
 /** Fills every field's default so the stored row and the price match what the model receives. */
-function withDefaults(spec: ModelSpec, controls: Record<string, unknown>) {
+export function withDefaults(spec: ModelSpec, controls: Record<string, unknown>) {
   const out = { ...controls };
   for (const f of spec.fields) {
     if (out[f.key] === undefined) {
@@ -145,7 +184,7 @@ function withDefaults(spec: ModelSpec, controls: Record<string, unknown>) {
   return out;
 }
 
-interface ElementRow { id: string; name: string; kind: string; description: string | null; image_urls: string[] }
+export interface ElementRow { id: string; name: string; kind: string; description: string | null; image_urls: string[] }
 
 /** "@Name" → "Name" plus a note describing each element (mirrors the Studio's expandElements). */
 function expandElements(prompt: string, used: ElementRow[]): string {
@@ -160,7 +199,7 @@ function expandElements(prompt: string, used: ElementRow[]): string {
 
 // ─── Generation helpers ──────────────────────────────────────────────────────
 
-interface GenerationRow {
+export interface GenerationRow {
   id: string;
   title: string | null;
   type: string;
@@ -177,7 +216,7 @@ interface GenerationRow {
   created_at: string;
 }
 
-function generationView(g: GenerationRow) {
+export function generationView(g: GenerationRow) {
   return {
     id: g.id,
     title: g.title,
@@ -198,9 +237,22 @@ function generationView(g: GenerationRow) {
   };
 }
 
+/** Generation views with `starred` set from the user's saved library items. */
+export async function viewsOf(ctx: Ctx, rows: GenerationRow[]) {
+  const views = rows.map(generationView);
+  if (!rows.length) return views;
+  const { data } = await ctx.supabase
+    .from('prompt_library_items')
+    .select('source_generation_id')
+    .eq('user_id', ctx.userId)
+    .in('source_generation_id', rows.map((r) => r.id));
+  const starred = new Set(((data ?? []) as Array<{ source_generation_id: string }>).map((r) => r.source_generation_id));
+  return views.map((v) => ({ ...v, starred: starred.has(v.id) }));
+}
+
 const isFinished = (status: string) => status === 'done' || status === 'error';
 
-async function fetchGenerations(ctx: Ctx, ids: string[]): Promise<GenerationRow[]> {
+export async function fetchGenerations(ctx: Ctx, ids: string[]): Promise<GenerationRow[]> {
   const { data, error } = await ctx.supabase.from('generations').select(GENERATION_FIELDS).in('id', ids);
   if (error) throw new Error(error.message);
   return (data ?? []) as GenerationRow[];
@@ -213,7 +265,7 @@ async function fetchGenerations(ctx: Ctx, ids: string[]): Promise<GenerationRow[
  */
 const PERSIST_GRACE_MS = 15_000;
 
-async function waitFor(ctx: Ctx, ids: string[], seconds: number): Promise<GenerationRow[]> {
+export async function waitFor(ctx: Ctx, ids: string[], seconds: number): Promise<GenerationRow[]> {
   const deadline = Date.now() + Math.min(seconds, MAX_WAIT_SECONDS) * 1000;
   const doneAt = new Map<string, number>();
   const settled = (r: GenerationRow) => {
@@ -240,7 +292,7 @@ const isUnpersisted = (r: GenerationRow) => r.status === 'done' && !!r.output_ur
  * Retry the copy for such rows (those given up on in this call, or finished
  * over two minutes ago) so MCP clients never hand out a link that dies.
  */
-async function repairUnpersisted(ctx: Ctx, rows: GenerationRow[], gaveUp: (r: GenerationRow) => boolean = () => false) {
+export async function repairUnpersisted(ctx: Ctx, rows: GenerationRow[], gaveUp: (r: GenerationRow) => boolean = () => false) {
   const old = (r: GenerationRow) => Date.now() - new Date(r.created_at).getTime() > 120_000;
   const targets = rows.filter((r) => isUnpersisted(r) && (gaveUp(r) || old(r))).slice(0, 5);
   if (!targets.length) return rows;
@@ -258,6 +310,114 @@ function waitNote(rows: GenerationRow[]) {
   const pending = rows.filter((r) => !isFinished(r.status)).length;
   if (!pending) return undefined;
   return `${pending} still rendering. Videos usually take 1–5 minutes. Call studio_get_generations with these ids (and wait_seconds) to check again.`;
+}
+
+export interface GenerateArgs {
+  model_id: string;
+  prompt?: string;
+  settings?: Record<string, unknown>;
+  reference_images?: string[];
+  reference_videos?: string[];
+  enhance_prompt?: boolean;
+  title?: string;
+  folder_id?: string;
+  /** Recorded on the row: 'mcp' for the model, 'mcp-app' for buttons in the chat panel. */
+  source?: string;
+}
+
+/**
+ * Creates the generation row and starts the `generate` edge function: the one
+ * path behind studio_generate, Regenerate and the chat panels.
+ */
+export async function startGeneration(ctx: Ctx, args: GenerateArgs): Promise<{ id: string; credits: number; warnings: string[] } | { error: string }> {
+  const spec = getSpec(args.model_id);
+  if (!spec) return { error: unknownModel(args.model_id) };
+
+  const warnings: string[] = [];
+  const controls: Record<string, unknown> = { ...(args.settings ?? {}) };
+
+  // Elements referenced as @Name
+  let prompt = args.prompt ?? '';
+  const mentioned = new Set([...prompt.matchAll(/(^|\s)@([A-Za-z0-9_-]+)/g)].map((m) => m[2].toLowerCase()));
+  if (mentioned.size) {
+    const { data } = await ctx.supabase.from('elements').select('id, name, kind, description, image_urls');
+    const used = ((data ?? []) as ElementRow[]).filter((e) => mentioned.has(e.name.toLowerCase()));
+    const missing = [...mentioned].filter((n) => !used.some((e) => e.name.toLowerCase() === n));
+    if (missing.length) warnings.push(`No element named ${missing.map((n) => `@${n}`).join(', ')} — left as plain text.`);
+    if (used.length) {
+      const left = fillMediaSlots(spec, controls, used.flatMap((e) => e.image_urls), 'image');
+      if (!spec.media.some((m) => m.kind === 'image')) {
+        warnings.push(`${spec.name} takes no reference images, so only the element descriptions were used. Pick an image-to-image / image-to-video / reference model to use their images.`);
+      } else if (left.length) {
+        warnings.push(`${spec.name} had no room for ${left.length} element image(s).`);
+      }
+      prompt = expandElements(prompt, used);
+    }
+  }
+
+  if (args.reference_images?.length) {
+    const left = fillMediaSlots(spec, controls, args.reference_images, 'image');
+    if (left.length === args.reference_images.length) return { error: `${spec.name} does not accept reference images. Use a model with mode image-to-image or image-to-video.` };
+    if (left.length) warnings.push(`${left.length} reference image(s) did not fit ${spec.name}'s slots and were dropped.`);
+  }
+  if (args.reference_videos?.length) {
+    const left = fillMediaSlots(spec, controls, args.reference_videos, 'video');
+    if (left.length === args.reference_videos.length) return { error: `${spec.name} does not accept reference videos. Use a video-to-video model.` };
+    if (left.length) warnings.push(`${left.length} reference video(s) were dropped (no room).`);
+  }
+
+  const problem = validateSpecInput(spec, prompt, controls);
+  if (problem) return { error: `${problem}. Call studio_get_model("${spec.id}") to see its inputs.` };
+
+  const full = withDefaults(spec, controls);
+  const credits = specCredits(spec, full);
+  const isHf = spec.api === 'higgsfield';
+
+  const { data: row, error } = await ctx.supabase
+    .from('generations')
+    .insert({
+      request_id: `job_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      type: spec.output,
+      model: spec.name,
+      user_prompt: args.prompt ?? '',
+      status: 'queued',
+      user_id: ctx.userId,
+      title: args.title ?? null,
+      folder_id: args.folder_id ?? null,
+      model_params: {
+        ...full,
+        source: args.source ?? 'mcp',
+        model_id: spec.id,
+        backend: specBackend(spec),
+        cost_credits: credits,
+        cost_usd: isHf ? null : credits * USD_PER_CREDIT,
+      },
+    })
+    .select('id')
+    .single();
+  if (error || !row) return { error: `Could not create the generation: ${error?.message ?? 'unknown error'}` };
+  const id = (row as { id: string }).id;
+
+  const res = await fetch(`${ctx.supabaseUrl}/functions/v1/generate`, {
+    method: 'POST',
+    headers: { Authorization: ctx.authorization, apikey: ctx.anonKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt,
+      model: spec.id,
+      type: spec.mode,
+      controls: { ...full, cost_credits: credits },
+      generationId: id,
+      enhancePromptEnabled: args.enhance_prompt ?? false,
+      useCase: 'auto',
+    }),
+  });
+  const body = await res.json().catch(() => ({})) as { error?: string };
+  if (!res.ok) {
+    const msg = body.error ?? `Generation failed to start (${res.status})`;
+    await ctx.supabase.from('generations').update({ status: 'error', error_message: msg }).eq('id', id);
+    return { error: msg };
+  }
+  return { id, credits, warnings };
 }
 
 // ─── Tools ───────────────────────────────────────────────────────────────────
@@ -374,94 +534,11 @@ export function registerTools(server: McpServer, ctx: Ctx) {
       wait_seconds: z.number().int().min(0).max(MAX_WAIT_SECONDS).default(0).describe('Wait up to this long for the result before returning'),
     },
     annotations: { ...WRITE, openWorldHint: true },
+    _meta: WIDGET_TOOL_META,
   }, async (args) => {
-    const spec = getSpec(args.model_id);
-    if (!spec) return fail(unknownModel(args.model_id));
-
-    const warnings: string[] = [];
-    const controls: Record<string, unknown> = { ...(args.settings ?? {}) };
-
-    // Elements referenced as @Name
-    let prompt = args.prompt ?? '';
-    const mentioned = new Set([...prompt.matchAll(/(^|\s)@([A-Za-z0-9_-]+)/g)].map((m) => m[2].toLowerCase()));
-    if (mentioned.size) {
-      const { data } = await ctx.supabase.from('elements').select('id, name, kind, description, image_urls');
-      const used = ((data ?? []) as ElementRow[]).filter((e) => mentioned.has(e.name.toLowerCase()));
-      const missing = [...mentioned].filter((n) => !used.some((e) => e.name.toLowerCase() === n));
-      if (missing.length) warnings.push(`No element named ${missing.map((n) => `@${n}`).join(', ')} — left as plain text.`);
-      if (used.length) {
-        const left = fillMediaSlots(spec, controls, used.flatMap((e) => e.image_urls), 'image');
-        if (!spec.media.some((m) => m.kind === 'image')) {
-          warnings.push(`${spec.name} takes no reference images, so only the element descriptions were used. Pick an image-to-image / image-to-video / reference model to use their images.`);
-        } else if (left.length) {
-          warnings.push(`${spec.name} had no room for ${left.length} element image(s).`);
-        }
-        prompt = expandElements(prompt, used);
-      }
-    }
-
-    if (args.reference_images?.length) {
-      const left = fillMediaSlots(spec, controls, args.reference_images, 'image');
-      if (left.length === args.reference_images.length) return fail(`${spec.name} does not accept reference images. Use a model with mode image-to-image or image-to-video.`);
-      if (left.length) warnings.push(`${left.length} reference image(s) did not fit ${spec.name}'s slots and were dropped.`);
-    }
-    if (args.reference_videos?.length) {
-      const left = fillMediaSlots(spec, controls, args.reference_videos, 'video');
-      if (left.length === args.reference_videos.length) return fail(`${spec.name} does not accept reference videos. Use a video-to-video model.`);
-      if (left.length) warnings.push(`${left.length} reference video(s) were dropped (no room).`);
-    }
-
-    const problem = validateSpecInput(spec, prompt, controls);
-    if (problem) return fail(`${problem}. Call studio_get_model("${spec.id}") to see its inputs.`);
-
-    const full = withDefaults(spec, controls);
-    const credits = specCredits(spec, full);
-    const isHf = spec.api === 'higgsfield';
-
-    const { data: row, error } = await ctx.supabase
-      .from('generations')
-      .insert({
-        request_id: `job_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        type: spec.output,
-        model: spec.name,
-        user_prompt: args.prompt ?? '',
-        status: 'queued',
-        user_id: ctx.userId,
-        title: args.title ?? null,
-        folder_id: args.folder_id ?? null,
-        model_params: {
-          ...full,
-          source: 'mcp',
-          model_id: spec.id,
-          backend: specBackend(spec),
-          cost_credits: credits,
-          cost_usd: isHf ? null : credits * USD_PER_CREDIT,
-        },
-      })
-      .select('id')
-      .single();
-    if (error || !row) return fail(`Could not create the generation: ${error?.message ?? 'unknown error'}`);
-    const id = (row as { id: string }).id;
-
-    const res = await fetch(`${ctx.supabaseUrl}/functions/v1/generate`, {
-      method: 'POST',
-      headers: { Authorization: ctx.authorization, apikey: ctx.anonKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompt,
-        model: spec.id,
-        type: spec.mode,
-        controls: { ...full, cost_credits: credits },
-        generationId: id,
-        enhancePromptEnabled: args.enhance_prompt ?? false,
-        useCase: 'auto',
-      }),
-    });
-    const body = await res.json().catch(() => ({})) as { error?: string };
-    if (!res.ok) {
-      const msg = body.error ?? `Generation failed to start (${res.status})`;
-      await ctx.supabase.from('generations').update({ status: 'error', error_message: msg }).eq('id', id);
-      return fail(msg);
-    }
+    const started = await startGeneration(ctx, args);
+    if ('error' in started) return fail(started.error);
+    const { id, credits, warnings } = started;
 
     const rows = args.wait_seconds ? await waitFor(ctx, [id], args.wait_seconds) : await fetchGenerations(ctx, [id]);
     return ok({
@@ -469,7 +546,7 @@ export function registerTools(server: McpServer, ctx: Ctx) {
       credits,
       warnings: warnings.length ? warnings : undefined,
       next: waitNote(rows),
-    });
+    }, await imageBlocks(rows));
   });
 
   tool('studio_get_generations', {
@@ -481,14 +558,15 @@ export function registerTools(server: McpServer, ctx: Ctx) {
       wait_seconds: z.number().int().min(0).max(MAX_WAIT_SECONDS).default(0),
     },
     annotations: READ,
+    _meta: WIDGET_TOOL_META,
   }, async ({ ids, wait_seconds }) => {
     const rows = wait_seconds ? await waitFor(ctx, ids, wait_seconds) : await repairUnpersisted(ctx, await fetchGenerations(ctx, ids));
     const missing = ids.filter((id) => !rows.some((r) => r.id === id));
     return ok({
-      generations: rows.map(generationView),
+      generations: await viewsOf(ctx, rows),
       not_found: missing.length ? missing : undefined,
       next: waitNote(rows),
-    });
+    }, await imageBlocks(rows));
   });
 
   tool('studio_list_generations', {
@@ -503,6 +581,7 @@ export function registerTools(server: McpServer, ctx: Ctx) {
       offset: z.number().int().min(0).default(0),
     },
     annotations: READ,
+    _meta: WIDGET_TOOL_META,
   }, async ({ type, status, folder_id, search, limit, offset }) => {
     let q = ctx.supabase.from('generations').select(GENERATION_FIELDS, { count: 'exact' }).eq('user_id', ctx.userId);
     if (type) q = q.eq('type', type);
@@ -519,7 +598,7 @@ export function registerTools(server: McpServer, ctx: Ctx) {
       total: count ?? rows.length,
       offset,
       has_more: (count ?? 0) > offset + rows.length,
-      generations: rows.map(generationView),
+      generations: await viewsOf(ctx, rows),
     });
   });
 
@@ -728,7 +807,7 @@ export function registerTools(server: McpServer, ctx: Ctx) {
 }
 
 /** Same destinations as the web app's uploadFile: R2 via the storage Worker, else Supabase Storage. */
-async function uploadFile(ctx: Ctx, name: string, blob: Blob): Promise<string> {
+export async function uploadFile(ctx: Ctx, name: string, blob: Blob): Promise<string> {
   const storageApi = Deno.env.get('STORAGE_API_URL')?.replace(/\/$/, '');
   if (storageApi) {
     const res = await fetch(`${storageApi}/o/uploads/${ctx.userId}/${name}`, {

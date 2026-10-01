@@ -11,6 +11,8 @@ import { McpServer } from 'npm:@modelcontextprotocol/sdk@1.31.0/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from 'npm:@modelcontextprotocol/sdk@1.31.0/server/webStandardStreamableHttp.js';
 import { registerTools, type Ctx } from './tools.ts';
 import { INSTRUCTIONS, registerPrompts } from './prompts.ts';
+import { registerWidget } from './widget.ts';
+import { registerAppTools } from './app-tools.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
@@ -93,7 +95,9 @@ Deno.serve(async (req: Request) => {
     { instructions: INSTRUCTIONS },
   );
   registerTools(server, ctx);
+  registerAppTools(server, ctx);
   registerPrompts(server);
+  registerWidget(server);
 
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

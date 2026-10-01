@@ -11,7 +11,8 @@ How to work:
 3. studio_generate returns an id immediately. Videos take 1–5 minutes: start every shot first, then call studio_get_generations with all ids and wait_seconds=50, repeating until done. Show output_url links when finished.
 4. When the user states a lasting preference or fact ("our brand colour is…", "never use lens flare"), save it with studio_remember. Don't save one-off requests.
 5. For a multi-shot video, keep subjects consistent: generate a keyframe/character image first, save it with studio_save_element, and reference it as @Name in every shot (use image-to-video models with the keyframe as reference_images). File all shots in one folder (studio_create_folder).
-6. Files the user attaches in chat must be uploaded with studio_upload_media first to get a URL the models can read.`;
+6. Files the user attaches in chat must be uploaded with studio_upload_media first to get a URL the models can read.
+7. Interactive panels (shown in chat clients that support them): results of studio_generate / studio_get_generations already render as cards with star, rename, folder, download, regenerate and quick actions. Open studio_open_studio when the user wants to tweak settings or browse models themselves, studio_browse_library to let them pick from their library, studio_storyboard for any plan of 2+ shots (instead of a text shot list), and studio_open_memory when they want to see or edit what you remember. Requests made from a panel arrive as user messages; follow them like any other request.`;
 
 export function registerPrompts(server: McpServer) {
   server.registerPrompt('direct_video', {
