@@ -25,3 +25,8 @@ dist-ssr
 .vercel
 .env*
 .preview/
+
+# Local tool output
+.playwright-mcp/
+.codex/
+supabase/.temp/
