@@ -7,6 +7,7 @@ import { fromStudioMode, toStudioMode } from '@/types/generation';
 import { params, specFor } from './generationMeta';
 import { getSpec } from '@catalog/index.ts';
 import { getStyle } from '@/config/stylePresets';
+import { EDIT_MODELS, editPrompt, type PhotoEdit } from '@/config/photoEdits';
 import type { StudioElement } from '@/hooks/useElements';
 
 /** Load a past generation's prompt, mode, provider, model, settings and media back into the composer. */
@@ -48,6 +49,70 @@ export function animateGeneration(g: DbGeneration) {
   store.setRawPrompt('');
   document.getElementById('studio-prompt')?.focus();
   toast.success(`Ready to animate with ${spec.name}. Describe the motion.`);
+}
+
+/** The catalog model a photo edit runs on: its own, else the first edit model in the catalog. */
+export function editSpec(edit: PhotoEdit) {
+  return getSpec(edit.model ?? '') ?? EDIT_MODELS.map(getSpec).find(Boolean);
+}
+
+/** Image URLs attached to the composer right now, so an edit can keep working on them. */
+function attachedImages(): string[] {
+  const { controls, selectedModel } = useGenerationStore.getState();
+  const spec = selectedModel ? getSpec(selectedModel) : undefined;
+  const keys = spec ? spec.media.filter((m) => m.kind === 'image').map((m) => `media.${m.key}`) : [];
+  return keys.flatMap((k) => (controls[k] as string[] | undefined) ?? []).filter(Boolean);
+}
+
+/**
+ * Set the Studio up for a photo edit or tool: switch to its model, keep the
+ * photo (the one passed in, or whatever image is already attached), apply its
+ * settings and write the instruction into the prompt. The user checks the cost
+ * and presses Generate.
+ */
+export function applyPhotoEdit(edit: PhotoEdit, { images, choice }: { images?: string[]; choice?: string } = {}) {
+  const spec = editSpec(edit);
+  if (!spec) {
+    toast.error(`No model for ${edit.name} is available right now`);
+    return false;
+  }
+  const photos = images ?? attachedImages();
+  const store = useGenerationStore.getState();
+  usePreferencesStore.getState().setStudioBackend(specBackend(spec));
+  store.setMode(fromStudioMode(spec.mode));
+  store.setSelectedModel(spec.id as never);
+
+  const slot = spec.media.find((m) => m.kind === 'image');
+  if (slot && photos.length) store.setControl(`media.${slot.key}`, photos.slice(0, slot.max) as never);
+  for (const [key, value] of Object.entries(edit.controls ?? {})) {
+    const field = spec.fields.find((f) => f.key === key);
+    if (field?.options?.some((o) => String(o.value) === value)) {
+      store.setControl(key, field.options.find((o) => String(o.value) === value)!.value as never);
+    }
+  }
+  // A look on top of an edit muddles it; the edit carries its own direction.
+  store.setStylePreset(null);
+  store.setRawPrompt(spec.noPrompt ? '' : editPrompt(edit, choice));
+  usePreferencesStore.getState().noteEditUsed(edit.id);
+
+  if (photos.length) toast.success(`${edit.name} is ready on ${spec.name}`, { description: 'Check the cost and press Generate.', ...studioAction() });
+  else toast.info(`${edit.name} is set up on ${spec.name}`, { description: 'Add your photo with the paperclip, then press Generate.', ...studioAction() });
+  return true;
+}
+
+/** Upscale a finished video with Topaz. */
+export function upscaleVideo(g: DbGeneration, factor: '2' | '4' = '2') {
+  if (!g.output_url || g.type !== 'video') return;
+  const spec = getSpec('topaz-video-upscale');
+  if (!spec) return;
+  const store = useGenerationStore.getState();
+  usePreferencesStore.getState().setStudioBackend(specBackend(spec));
+  store.setMode(fromStudioMode(spec.mode));
+  store.setSelectedModel(spec.id as never);
+  store.setControl(`media.${spec.media[0].key}`, [g.output_url] as never);
+  store.setControl('upscale_factor', factor as never);
+  store.setRawPrompt('');
+  toast.success(`Ready to upscale ${factor}× with ${spec.name}`, { description: 'Check the cost and press Generate.', ...studioAction() });
 }
 
 /**

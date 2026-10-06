@@ -24,6 +24,9 @@ interface PreferencesState {
   /** Style presets used lately, newest first. */
   recentStyles: string[];
   noteStyleUsed: (id: string) => void;
+  /** Photo edits used lately, newest first. */
+  recentEdits: string[];
+  noteEditUsed: (id: string) => void;
   setTheme: (theme: Theme) => void;
   setDefaultMode: (mode: DefaultMode) => void;
   setNotificationSound: (enabled: boolean) => void;
@@ -51,6 +54,9 @@ export const usePreferencesStore = create<PreferencesState>()(
       recentStyles: [],
       noteStyleUsed: (id) =>
         set((s) => ({ recentStyles: [id, ...s.recentStyles.filter((r) => r !== id)].slice(0, 8) })),
+      recentEdits: [],
+      noteEditUsed: (id) =>
+        set((s) => ({ recentEdits: [id, ...s.recentEdits.filter((r) => r !== id)].slice(0, 6) })),
       setTheme: (theme) => {
         localStorage.setItem('theme', theme);
         const root = document.documentElement;
@@ -77,6 +83,7 @@ export const usePreferencesStore = create<PreferencesState>()(
         studioBackend: state.studioBackend,
         favoriteStyles: state.favoriteStyles,
         recentStyles: state.recentStyles,
+        recentEdits: state.recentEdits,
       }),
     }
   )

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { AlertCircle, ChevronLeft, ChevronRight, Copy, Download, ImagePlus, Maximize2, RotateCcw, Sparkles, Loader2 } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, ImagePlus, ImageUpscale, Maximize2, RotateCcw, Sparkles, Loader2, WandSparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGenerations, type DbGeneration } from '@/hooks/useGenerations';
 import { useGenerationProgress } from '@/hooks/useGenerationProgress';
@@ -9,7 +9,13 @@ import { StarButton } from '@/components/library/StarButton';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useGenerate } from '@/hooks/useGenerate';
 import { cn } from '@/lib/utils';
-import { animateGeneration, referenceGeneration } from './generationActions';
+import { animateGeneration, applyPhotoEdit, referenceGeneration, upscaleVideo } from './generationActions';
+import { EDIT_CATEGORIES, PHOTO_EDITS } from '@/config/photoEdits';
+import { EDIT_ICONS } from '@/components/presets/EditCover';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+  DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { downloadGeneration } from '@/lib/downloadGeneration';
 import { ProgressRing } from './GenerationTile';
 
@@ -32,12 +38,62 @@ function ActionBar({ g, onFullscreen }: { g: DbGeneration; onFullscreen: () => v
       {g.type === 'image' && (
         <button type="button" className={GLASS_BTN} onClick={() => animateGeneration(g)}><Sparkles className="h-3.5 w-3.5" /> Animate</button>
       )}
+      {g.type === 'image' && g.output_url && <EditMenu url={g.output_url} />}
+      {g.type === 'video' && g.output_url && (
+        <DropdownMenu>
+          <DropdownMenuTrigger className={GLASS_BTN}><ImageUpscale className="h-3.5 w-3.5" /> Upscale <ChevronDown className="h-3 w-3 opacity-70" /></DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="min-w-[160px]">
+            <DropdownMenuItem onSelect={() => upscaleVideo(g, '2')}>Upscale 2×</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => upscaleVideo(g, '4')}>Upscale 4×</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
       <button type="button" className={GLASS_BTN} onClick={handleRegenerateFromJob} disabled={isSubmitting}>
         {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />} Run again
       </button>
       <StarButton generation={g} size="md" className="h-8 w-8 rounded-full text-white/90 hover:bg-white/15" />
       <button type="button" className={cn(GLASS_BTN, 'w-8 justify-center px-0')} aria-label="Full screen" onClick={onFullscreen}><Maximize2 className="h-3.5 w-3.5" /></button>
     </div>
+  );
+}
+
+/** Photo edits and tools for this image: sets up the composer with it attached. */
+function EditMenu({ url }: { url: string }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className={GLASS_BTN} title="Upscale, retouch or transform this image">
+        <WandSparkles className="h-3.5 w-3.5" /> Edit <ChevronDown className="h-3 w-3 opacity-70" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="center" className="max-h-[70vh] w-[230px] overflow-y-auto">
+        {EDIT_CATEGORIES.map((c, i) => (
+          <div key={c.id}>
+            {i > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuLabel className="text-[11.5px] font-medium text-muted-foreground">{c.label}</DropdownMenuLabel>
+            {PHOTO_EDITS.filter((e) => e.category === c.id).map((e) => {
+              const Icon = EDIT_ICONS[e.icon];
+              const label = <><Icon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />{e.name}</>;
+              return e.choice ? (
+                <DropdownMenuSub key={e.id}>
+                  <DropdownMenuSubTrigger className="text-[13px]">{label}</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="min-w-[200px]">
+                    <DropdownMenuLabel className="text-[11.5px] font-medium text-muted-foreground">{e.choice.label}</DropdownMenuLabel>
+                    {e.choice.options.map((o) => (
+                      <DropdownMenuItem key={o} className="text-[13px]" onSelect={() => applyPhotoEdit(e, { images: [url], choice: o })}>
+                        {o.charAt(0).toUpperCase() + o.slice(1)}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              ) : (
+                <DropdownMenuItem key={e.id} className="text-[13px]" onSelect={() => applyPhotoEdit(e, { images: [url] })}>
+                  {label}
+                </DropdownMenuItem>
+              );
+            })}
+          </div>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

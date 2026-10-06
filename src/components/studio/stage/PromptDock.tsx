@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { StylePicker } from './StylePicker';
+import { EditPicker } from './EditPicker';
 import { useMentions } from './MentionMenu';
 
 const CHIP =
@@ -225,6 +226,11 @@ export function PromptDock() {
               placeholder={output === 'video' ? 'Describe the shot: subject, action, camera, mood… (@ to reference a past generation)' : 'Describe the image: subject, setting, light, style… (@ to reference a past generation)'}
               className="min-h-[56px] w-full resize-none bg-transparent px-1 pt-2.5 text-[15px] leading-relaxed outline-none placeholder:text-muted-foreground/70 disabled:opacity-60"
             />
+          )}
+          {output === 'image' && (
+            <div className="mt-2 shrink-0">
+              <EditPicker chipClassName={CHIP} />
+            </div>
           )}
           {!spec?.noPrompt && (
             <div className="mt-2 shrink-0">

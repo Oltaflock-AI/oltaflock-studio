@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Check, ChevronLeft, ChevronRight, Clapperboard, Clock, ImageIcon, Search, Sparkles, Star, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Clapperboard, Clock, ImageIcon, Search, Sparkles, Star, Wand2, X } from 'lucide-react';
 import {
   PRESET_KINDS, STYLE_CATEGORIES, STYLE_PRESETS, getStyle,
   type PresetKind, type StyleCategory, type StylePreset,
@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StyleCover } from './StyleCover';
+import { EditsTab } from './EditsTab';
+import { PHOTO_EDITS } from '@/config/photoEdits';
 import { cn } from '@/lib/utils';
 
 type Filter = StyleCategory | 'all' | 'starred';
@@ -33,7 +35,8 @@ function matches(s: StylePreset, q: string) {
 export function StylesTab() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const kind: PresetKind = params.get('kind') === 'video' ? 'video' : 'image';
+  const view = params.get('kind') === 'video' ? 'video' : params.get('kind') === 'edits' ? 'edits' : 'image';
+  const kind: PresetKind = view === 'video' ? 'video' : 'image';
   const activeId = useGenerationStore((s) => s.stylePresetId);
   const favorites = usePreferencesStore((s) => s.favoriteStyles);
   const recents = usePreferencesStore((s) => s.recentStyles);
@@ -58,8 +61,8 @@ export function StylesTab() {
   const index = shown.findIndex((s) => s.id === openId);
   const open = getStyle(openId);
 
-  const setKind = (k: PresetKind) => {
-    setParams(k === 'video' ? { kind: 'video' } : {}, { replace: true });
+  const setKind = (k: PresetKind | 'edits') => {
+    setParams(k === 'image' ? {} : { kind: k }, { replace: true });
     setFilter('all');
   };
 
@@ -91,6 +94,35 @@ export function StylesTab() {
     ...STYLE_CATEGORIES.filter((c) => c.kind === kind),
   ];
 
+  const tabs = (
+    <div className="inline-flex w-fit rounded-[12px] bg-muted p-1" role="tablist" aria-label="Preset type">
+      {[...PRESET_KINDS.map((k) => ({ ...k, count: STYLE_PRESETS.filter((s) => s.kind === k.id).length })), { id: 'edits' as const, label: 'Photo edits', count: PHOTO_EDITS.length }].map((k) => {
+        const on = view === k.id;
+        const Icon = k.id === 'video' ? Clapperboard : k.id === 'edits' ? Wand2 : ImageIcon;
+        return (
+          <button
+            key={k.id}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => setKind(k.id)}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-[9px] px-3.5 py-1.5 text-[13px] transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              on ? 'bg-background font-semibold text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {k.label}
+            <span className="text-[11px] font-normal text-muted-foreground">{k.count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  if (view === 'edits') return <EditsTab tabs={tabs} />;
+
   const card = (s: StylePreset) => (
     <StyleCard
       key={s.id}
@@ -106,32 +138,7 @@ export function StylesTab() {
   return (
     <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="inline-flex w-fit rounded-[12px] bg-muted p-1" role="tablist" aria-label="Preset type">
-          {PRESET_KINDS.map((k) => {
-            const on = kind === k.id;
-            const Icon = k.id === 'video' ? Clapperboard : ImageIcon;
-            return (
-              <button
-                key={k.id}
-                type="button"
-                role="tab"
-                aria-selected={on}
-                onClick={() => setKind(k.id)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-[9px] px-3.5 py-1.5 text-[13px] transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  on ? 'bg-background font-semibold text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {k.label}
-                <span className="text-[11px] font-normal text-muted-foreground">
-                  {STYLE_PRESETS.filter((s) => s.kind === k.id).length}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        {tabs}
         <div className="relative w-full sm:w-[280px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
