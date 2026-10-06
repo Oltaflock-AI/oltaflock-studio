@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 import { SettingsCard } from './SettingsCard';
 
 /** Public address of the Oltaflock Studio MCP server (supabase/functions/mcp). */
-export const MCP_SERVER_URL = `${(import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '')}/functions/v1/mcp`;
+export const MCP_SERVER_URL = 'https://studio.oltaflock.ai/mcp';
 
 type Step = { text: React.ReactNode; code?: string };
 
