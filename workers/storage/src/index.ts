@@ -14,10 +14,13 @@
  *   DELETE /o/:kind/:userId/:name   delete one object; same rules
  *   DELETE /u/me                    delete everything the caller owns (account deletion)
  *   POST   /ingest                  copy a remote URL into R2; x-ingest-secret required
+ *   GET    /preview/:kind/:userId/:name  resized JPEG of an image (public, like the bucket);
+ *                                    lets MCP clients show outputs inline without the full file
  */
 
 interface Env {
   BUCKET: R2Bucket;
+  IMAGES: ImagesBinding;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   PUBLIC_BASE_URL: string;
@@ -68,6 +71,14 @@ async function route(request: Request, env: Env): Promise<Response> {
 
   if (request.method === 'POST' && url.pathname === '/ingest') return ingest(request, env);
 
+  if (request.method === 'GET' && parts[0] === 'preview' && parts.length === 4) {
+    const [, kind, userId, name] = parts;
+    if (!(ALL_KINDS as readonly string[]).includes(kind) || !NAME_RE.test(name) || name.includes('..')) {
+      return json({ error: 'Invalid path' }, 400);
+    }
+    return preview(`${kind}/${userId}/${name}`, url, env);
+  }
+
   if (request.method === 'DELETE' && url.pathname === '/u/me') {
     const user = await authenticate(request, env);
     if (!user) return json({ error: 'Unauthorized' }, 401);
@@ -92,6 +103,29 @@ async function route(request: Request, env: Env): Promise<Response> {
   }
 
   return json({ error: 'Not found' }, 404);
+}
+
+const PREVIEW_WIDTHS = [512, 1024, 1536];
+
+async function preview(key: string, url: URL, env: Env): Promise<Response> {
+  const cache = caches.default;
+  const cached = await cache.match(url.toString());
+  if (cached) return new Response(cached.body, cached);
+
+  const object = await env.BUCKET.get(key);
+  if (!object) return json({ error: 'Not found' }, 404);
+  if (!(object.httpMetadata?.contentType ?? '').startsWith('image/')) return json({ error: 'Not an image' }, 415);
+
+  const asked = Number(url.searchParams.get('w')) || 1024;
+  const width = PREVIEW_WIDTHS.reduce((best, w) => (Math.abs(w - asked) < Math.abs(best - asked) ? w : best));
+  const result = await env.IMAGES.input(object.body)
+    .transform({ width, fit: 'scale-down' })
+    .output({ format: 'image/jpeg', quality: 82 });
+  const res = new Response(result.image(), {
+    headers: { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=31536000, immutable' },
+  });
+  await cache.put(url.toString(), res.clone());
+  return res;
 }
 
 async function putObject(request: Request, env: Env, kind: ClientKind, key: string): Promise<Response> {
