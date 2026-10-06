@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import {
-  Box, BookOpen, Clapperboard, Gamepad2, Maximize2, Pickaxe, PersonStanding, Scissors, Shirt, Smile, Sparkles,
-  Trees, UserRound, Video, Wand2, type LucideIcon,
+  Box, BookOpen, Briefcase, Camera, Clapperboard, Cloud, Crosshair, Droplets, Eraser, Expand, Film, Gamepad2, Glasses,
+  Grid3x3, History, Home, IdCard, Maximize2, MessageSquare, Newspaper, Package, Palette, Pickaxe, PersonStanding,
+  Presentation, Scissors, Shirt, Smile, Sparkles, Sun, Trees, Tv, UserRound, Video, Wand2, type LucideIcon,
 } from 'lucide-react';
 import type { PhotoEdit } from '@/config/photoEdits';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,27 @@ export const EDIT_ICONS: Record<PhotoEdit['icon'], LucideIcon> = {
   film: Clapperboard,
   vhs: Video,
   book: BookOpen,
+  restore: History,
+  sun: Sun,
+  eraser: Eraser,
+  expand: Expand,
+  glasses: Glasses,
+  id: IdCard,
+  briefcase: Briefcase,
+  magazine: Newspaper,
+  poster: Film,
+  camera: Camera,
+  crosshair: Crosshair,
+  tv: Tv,
+  anime: Sparkles,
+  cloud: Cloud,
+  pixel: Grid3x3,
+  comic: MessageSquare,
+  package: Package,
+  home: Home,
+  splash: Droplets,
+  billboard: Presentation,
+  palette: Palette,
 };
 
 /** An edit's sample image, or its swatch with the edit's icon until one exists. */

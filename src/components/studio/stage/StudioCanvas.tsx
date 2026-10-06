@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useGenerate } from '@/hooks/useGenerate';
 import { cn } from '@/lib/utils';
 import { animateGeneration, applyPhotoEdit, referenceGeneration, upscaleVideo } from './generationActions';
-import { EDIT_CATEGORIES, PHOTO_EDITS } from '@/config/photoEdits';
+import { EDIT_CATEGORIES, PHOTO_EDITS, type PhotoEdit } from '@/config/photoEdits';
 import { EDIT_ICONS } from '@/components/presets/EditCover';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
@@ -57,40 +57,45 @@ function ActionBar({ g, onFullscreen }: { g: DbGeneration; onFullscreen: () => v
   );
 }
 
-/** Photo edits and tools for this image: sets up the composer with it attached. */
+/** Photo edits and tools for this image: sets up the composer with it attached. Tools inline, the rest by category. */
 function EditMenu({ url }: { url: string }) {
+  const item = (e: PhotoEdit) => {
+    const Icon = EDIT_ICONS[e.icon];
+    const label = <><Icon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />{e.name}</>;
+    return e.choice ? (
+      <DropdownMenuSub key={e.id}>
+        <DropdownMenuSubTrigger className="text-[13px]">{label}</DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className="max-h-[60vh] min-w-[220px] overflow-y-auto">
+          <DropdownMenuLabel className="text-[11.5px] font-medium text-muted-foreground">{e.choice.label}</DropdownMenuLabel>
+          {e.choice.options.map((o) => (
+            <DropdownMenuItem key={o} className="text-[13px]" onSelect={() => applyPhotoEdit(e, { images: [url], choice: o })}>
+              {o.charAt(0).toUpperCase() + o.slice(1)}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+    ) : (
+      <DropdownMenuItem key={e.id} className="text-[13px]" onSelect={() => applyPhotoEdit(e, { images: [url] })}>
+        {label}
+      </DropdownMenuItem>
+    );
+  };
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className={GLASS_BTN} title="Upscale, retouch or transform this image">
+      <DropdownMenuTrigger className={GLASS_BTN} title="Upscale, fix, retouch or transform this image">
         <WandSparkles className="h-3.5 w-3.5" /> Edit <ChevronDown className="h-3 w-3 opacity-70" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="center" className="max-h-[70vh] w-[230px] overflow-y-auto">
-        {EDIT_CATEGORIES.map((c, i) => (
-          <div key={c.id}>
-            {i > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuLabel className="text-[11.5px] font-medium text-muted-foreground">{c.label}</DropdownMenuLabel>
-            {PHOTO_EDITS.filter((e) => e.category === c.id).map((e) => {
-              const Icon = EDIT_ICONS[e.icon];
-              const label = <><Icon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />{e.name}</>;
-              return e.choice ? (
-                <DropdownMenuSub key={e.id}>
-                  <DropdownMenuSubTrigger className="text-[13px]">{label}</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="min-w-[200px]">
-                    <DropdownMenuLabel className="text-[11.5px] font-medium text-muted-foreground">{e.choice.label}</DropdownMenuLabel>
-                    {e.choice.options.map((o) => (
-                      <DropdownMenuItem key={o} className="text-[13px]" onSelect={() => applyPhotoEdit(e, { images: [url], choice: o })}>
-                        {o.charAt(0).toUpperCase() + o.slice(1)}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              ) : (
-                <DropdownMenuItem key={e.id} className="text-[13px]" onSelect={() => applyPhotoEdit(e, { images: [url] })}>
-                  {label}
-                </DropdownMenuItem>
-              );
-            })}
-          </div>
+      <DropdownMenuContent align="center" className="w-[230px]">
+        <DropdownMenuLabel className="text-[11.5px] font-medium text-muted-foreground">Quick tools</DropdownMenuLabel>
+        {PHOTO_EDITS.filter((e) => e.category === 'tools').map(item)}
+        <DropdownMenuSeparator />
+        {EDIT_CATEGORIES.filter((c) => c.id !== 'tools').map((c) => (
+          <DropdownMenuSub key={c.id}>
+            <DropdownMenuSubTrigger className="text-[13px]">{c.label}</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="max-h-[70vh] w-[230px] overflow-y-auto">
+              {PHOTO_EDITS.filter((e) => e.category === c.id).map(item)}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
