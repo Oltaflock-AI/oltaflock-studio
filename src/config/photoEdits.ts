@@ -24,7 +24,7 @@ export const EDIT_CATEGORIES: Array<{ id: EditCategory; label: string; blurb: st
 ];
 
 /** Identity-preserving edit models, best first. The first one in the catalog wins. */
-export const EDIT_MODELS = ['nano-banana-pro-i2i', 'nano-banana-2-edit', 'seedream-5-pro-edit', 'gpt-image-2-edit'];
+export const EDIT_MODELS = ['nano-banana-2.1-edit', 'nano-banana-2-edit', 'seedream-5-pro-edit', 'gpt-image-2-edit'];
 
 export interface EditChoice {
   /** What the user is picking, e.g. "Expression". */

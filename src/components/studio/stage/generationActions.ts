@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import { specBackend, specsForMode } from '@catalog/index.ts';
+import { RETIRED_MODELS, specBackend, specsForMode } from '@catalog/index.ts';
 import type { DbGeneration } from '@/hooks/useGenerations';
 import { useGenerationStore } from '@/store/generationStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
@@ -14,9 +14,9 @@ import type { StudioElement } from '@/hooks/useElements';
 export function reuseGeneration(g: DbGeneration) {
   const spec = specFor(g);
   const store = useGenerationStore.getState();
-  if (!spec) {
+  if (!spec || RETIRED_MODELS.has(spec.id)) {
     store.setRawPrompt(g.user_prompt);
-    toast.info('Prompt loaded. That model is no longer in the catalog, so pick another.');
+    toast.info(`Prompt loaded. ${spec ? `${spec.name} has been retired` : 'That model is no longer in the catalog'}, so pick another.`);
     return;
   }
   usePreferencesStore.getState().setStudioBackend(specBackend(spec));
@@ -148,7 +148,7 @@ export function applyStylePreset(id: string | null) {
  * Add a past generation's output as reference media for the next generation.
  * Uses the current model if it has a free slot of the right kind; otherwise
  * switches to a model that takes references, preferring the same family
- * (Nano Banana Pro → Nano Banana Pro Edit) and the current provider.
+ * (Nano Banana 2.1 → Nano Banana 2.1 Edit) and the current provider.
  */
 export function referenceGeneration(g: DbGeneration) {
   if (!g.output_url || g.status !== 'done') return;

@@ -104,7 +104,7 @@ ALWAYS name a shot size and one camera move — otherwise Wan auto-cuts even in 
   topaz: `Upscaler — no creative prompt is used. If a prompt is required, keep the user's text unchanged.`,
 
   // ─── IMAGE ───────────────────────────────────────────────────────────────
-  'nano-banana': `Nano Banana / Nano Banana Pro (Google Gemini image). Narrative sentences, never keyword lists. Start with a strong verb (Create / Edit / Combine / Restyle). Formula: [Subject] + [Action] + [Location/context] + [Composition] + [Style]. Example: "Create a fashion editorial of a model in a tailored brown dress, posing with a confident statuesque stance, against a seamless deep cherry-red backdrop. Medium-full shot, center-framed. Shot on medium-format film, pronounced grain, high saturation."
+  'nano-banana': `Nano Banana 2 / 2.1 (Google Gemini image). Narrative sentences, never keyword lists. Start with a strong verb (Create / Edit / Combine / Restyle). Formula: [Subject] + [Action] + [Location/context] + [Composition] + [Style]. Example: "Create a fashion editorial of a model in a tailored brown dress, posing with a confident statuesque stance, against a seamless deep cherry-red backdrop. Medium-full shot, center-framed. Shot on medium-format film, pronounced grain, high saturation."
 With references: say each image's role ("Use Image 1 for the character, Image 2 for the outfit") + relationship + new scenario. Edits: direct change + "keep everything else the same".
 Text: exact words in quotes + font style + placement. Creative-director levers: lighting setup, camera/lens (f/1.8, macro), film stock. Positive framing only.`,
 

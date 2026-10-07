@@ -782,7 +782,7 @@ export const VIDEO_CLASSIC_SPECS: ModelSpec[] = [
     name: 'HappyHorse 1.1',
     provider: 'Alibaba',
     mode: 'text-to-video',
-    bestFor: 'Clips up to 15s in 9 aspect ratios (4:5, 21:9…) — cheaper per second than HappyHorse 1.0.',
+    bestFor: 'Clips up to 15s in 9 aspect ratios (4:5, 21:9…).',
     tags: ['1080p', 'Up to 15s', '9 ratios'],
     api: 'market',
     kieModel: 'happyhorse-1-1/text-to-video',

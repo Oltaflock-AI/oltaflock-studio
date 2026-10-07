@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getSpec } from '../_shared/catalog/index.ts';
+import { RETIRED_MODELS, activeSpec } from '../_shared/catalog/index.ts';
 import { API_ENDPOINTS, KIE_BASE, buildInput, buildRequestBody, validateSpecInput } from '../_shared/catalog/adapters.ts';
 import type { ModelSpec } from '../_shared/catalog/types.ts';
 import { optimizePrompt } from '../_shared/brain/index.ts';
@@ -65,9 +65,10 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error: 'Missing: model, generationId' }, { status: 400, headers: corsHeaders });
     }
 
-    const spec = getSpec(model);
+    const spec = activeSpec(model);
     if (!spec) {
-      return Response.json({ error: `Unknown model: ${model}` }, { status: 400, headers: corsHeaders });
+      const error = RETIRED_MODELS.has(model) ? `${model} has been retired. Pick another model.` : `Unknown model: ${model}`;
+      return Response.json({ error }, { status: 400, headers: corsHeaders });
     }
 
     const controls = normalizeLegacy(spec, rawControls, imageUrls);

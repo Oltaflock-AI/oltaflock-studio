@@ -1,6 +1,6 @@
 import { format, isToday, isYesterday } from 'date-fns';
 import { getSpec } from '@catalog/index.ts';
-import { ALL_MODELS } from '@/types/generation';
+import { KNOWN_MODELS } from '@/types/generation';
 import { formatCredits } from '@/config/pricing';
 import type { DbGeneration } from '@/hooks/useGenerations';
 import { getStyle } from '@/config/stylePresets';
@@ -29,7 +29,7 @@ export function params(g: DbGeneration): Record<string, unknown> {
 
 export function specFor(g: DbGeneration) {
   const p = params(g);
-  const id = (typeof p.model_id === 'string' && p.model_id) || ALL_MODELS.find((m) => m.displayName === g.model)?.id;
+  const id = (typeof p.model_id === 'string' && p.model_id) || KNOWN_MODELS.find((m) => m.displayName === g.model)?.id;
   return id ? getSpec(id) : undefined;
 }
 

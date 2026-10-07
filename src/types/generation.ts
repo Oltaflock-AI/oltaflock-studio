@@ -1,4 +1,4 @@
-import { MODEL_CATALOG } from '@catalog/index.ts';
+import { ALL_SPECS, MODEL_CATALOG } from '@catalog/index.ts';
 import type { StudioMode } from '@catalog/types.ts';
 
 // Store-level mode. 'image'/'video' are the text-to-* modes (legacy names kept
@@ -27,7 +27,7 @@ export function fromStudioMode(mode: StudioMode): GenerationMode {
 }
 
 export const MODEL_API_NAMES: Record<string, string> = Object.fromEntries(
-  MODEL_CATALOG.map((m) => [m.id, m.kieModel ?? m.api]),
+  ALL_SPECS.map((m) => [m.id, m.kieModel ?? m.api]),
 );
 
 // Model Configurations
@@ -247,14 +247,17 @@ export interface JobEntry {
 export type HistoryEntry = JobEntry;
 
 // Model registry, derived from the catalog.
-const toConfig = (m: (typeof MODEL_CATALOG)[number]): ModelConfig => ({
+const toConfig = (m: (typeof ALL_SPECS)[number]): ModelConfig => ({
   id: m.id,
   displayName: m.name,
   mode: fromStudioMode(m.mode),
   generationTypes: [m.mode],
 });
 
+/** Models on offer, for pickers. */
 export const ALL_MODELS: ModelConfig[] = MODEL_CATALOG.map(toConfig);
+/** Every model ever offered, retired ones included, for reading past generations. */
+export const KNOWN_MODELS: ModelConfig[] = ALL_SPECS.map(toConfig);
 export const IMAGE_MODELS = ALL_MODELS.filter((m) => m.mode === 'image');
 export const VIDEO_MODELS = ALL_MODELS.filter((m) => m.mode === 'video');
 export const IMAGE_TO_IMAGE_MODELS = ALL_MODELS.filter((m) => m.mode === 'image-to-image');
@@ -265,10 +268,10 @@ export const VIDEO_TO_VIDEO_MODELS = ALL_MODELS.filter((m) => m.mode === 'video-
 export function findModelConfig(model: string, modelParams?: Record<string, unknown> | null, type?: GenerationType) {
   const id = modelParams?.model_id as string | undefined;
   return (
-    (id && ALL_MODELS.find((m) => m.id === id)) ||
-    ALL_MODELS.find((m) => m.id === model) ||
-    (type && ALL_MODELS.find((m) => m.displayName === model && m.generationTypes.includes(type))) ||
-    ALL_MODELS.find((m) => m.displayName === model)
+    (id && KNOWN_MODELS.find((m) => m.id === id)) ||
+    KNOWN_MODELS.find((m) => m.id === model) ||
+    (type && KNOWN_MODELS.find((m) => m.displayName === model && m.generationTypes.includes(type))) ||
+    KNOWN_MODELS.find((m) => m.displayName === model)
   );
 }
 

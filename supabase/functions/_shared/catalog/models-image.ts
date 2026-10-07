@@ -87,12 +87,34 @@ const wanImageFields = (pro: boolean): FieldSpec[] => [
 export const IMAGE_SPECS: ModelSpec[] = [
   // ─── Google — Nano Banana & Imagen 4 ──────────────────────────────────────
   {
+    id: 'nano-banana-2.1',
+    family: 'nano-banana',
+    name: 'Nano Banana 2.1',
+    provider: 'Google',
+    mode: 'text-to-image',
+    bestFor: 'The newest Nano Banana: photoreal and text-heavy images up to 4K, with stronger character consistency, at half the price of Nano Banana 2.',
+    tags: ['Newest', 'Text rendering', '4K', 'Value'],
+    api: 'market',
+    kieModel: 'nano-banana-2-1',
+    output: 'image',
+    promptMax: 20000,
+    fields: [
+      ratio('aspect_ratio', RATIOS_NB2, 'auto'),
+      nbResolution,
+      { ...nbFormat, default: 'jpg' },
+    ],
+    media: [refImages('image_input', 14, 30)],
+    pricing: { by: 'resolution', table: { '1K': 4, '2K': 6, '4K': 9 } },
+    featured: true,
+    isNew: true,
+  },
+  {
     id: 'nano-banana-2',
     family: 'nano-banana',
     name: 'Nano Banana 2',
     provider: 'Google',
     mode: 'text-to-image',
-    bestFor: 'Everyday photoreal and text-heavy images up to 4K at under half the price of Nano Banana Pro.',
+    bestFor: 'Everyday photoreal and text-heavy images up to 4K at a mid price.',
     tags: ['Text rendering', '4K', 'Value', 'Optional refs'],
     api: 'market',
     kieModel: 'nano-banana-2',
@@ -105,8 +127,7 @@ export const IMAGE_SPECS: ModelSpec[] = [
     ],
     media: [refImages('image_input', 14, 30)],
     pricing: { by: 'resolution', table: { '1K': 8, '2K': 12, '4K': 18 } },
-    featured: true,
-    isNew: true,
+
   },
   {
     id: 'nano-banana-pro',

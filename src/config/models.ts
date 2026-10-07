@@ -5,8 +5,8 @@
 // These are original marks (a color + initials), not the providers'
 // real logos — the providers' actual trademarks aren't ours to reproduce.
 
-import { MODEL_CATALOG, familyLeads } from '@catalog/index.ts';
-import { ALL_MODELS } from '@/types/generation';
+import { ALL_SPECS, familyLeads, getSpec } from '@catalog/index.ts';
+import { KNOWN_MODELS } from '@/types/generation';
 
 export interface ModelIdentity {
   label: string;
@@ -71,7 +71,8 @@ function familyColor(family: string) {
 }
 
 function familyLabel(family: string): string {
-  const lead = familyLeads().find((s) => s.family === family);
+  // Active models first, then retired ones so old generations keep a proper name.
+  const lead = familyLeads().find((s) => s.family === family) ?? ALL_SPECS.find((s) => s.family === family);
   return lead ? lead.name.replace(/\s+·\s.*$/, '').replace(/\s+(Edit|Image to Video|Text to Video|I2V|T2V)$/i, '') : family;
 }
 
@@ -89,7 +90,7 @@ function buildIdentity(family: string): ModelIdentity {
 }
 
 export const MODEL_FAMILIES: Record<string, ModelIdentity> = Object.fromEntries(
-  [...new Set(MODEL_CATALOG.map((m) => m.family))].map((f) => [f, buildIdentity(f)]),
+  [...new Set(ALL_SPECS.map((m) => m.family))].map((f) => [f, buildIdentity(f)]),
 );
 
 const FALLBACK: ModelIdentity = { label: 'Model', initials: '?', badgeBg: '#3A3A40', badgeText: LIGHT };
@@ -100,8 +101,8 @@ const FALLBACK: ModelIdentity = { label: 'Model', initials: '?', badgeBg: '#3A3A
  * ('Kling 3.0'), since both appear in real data.
  */
 export function getModelIdentity(model: string): ModelIdentity {
-  const id = ALL_MODELS.find((m) => m.id === model || m.displayName === model)?.id ?? model;
-  const spec = MODEL_CATALOG.find((m) => m.id === id);
+  const id = KNOWN_MODELS.find((m) => m.id === model || m.displayName === model)?.id ?? model;
+  const spec = getSpec(id);
   if (spec) return MODEL_FAMILIES[spec.family] ?? FALLBACK;
   return MODEL_FAMILIES[id] ?? FALLBACK;
 }

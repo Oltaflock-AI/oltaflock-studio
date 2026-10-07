@@ -9,7 +9,7 @@
 
 import type { McpServer } from 'npm:@modelcontextprotocol/sdk@1.31.0/server/mcp.js';
 import { z } from 'npm:zod@3.25.76';
-import { MODEL_CATALOG, getSpec } from '../_shared/catalog/index.ts';
+import { MODEL_CATALOG, activeSpec } from '../_shared/catalog/index.ts';
 import { specCredits, specPriceText } from '../_shared/catalog/pricing.ts';
 import { fetchKieCredits } from '../_shared/kie-credits.ts';
 import { MEMORY_CATEGORIES } from '../_shared/memory.ts';
@@ -66,7 +66,7 @@ export function registerAppTools(server: McpServer, ctx: Ctx) {
     annotations: READ,
     _meta: WIDGET_TOOL_META,
   }, async (prefill) => {
-    if (prefill.model_id && !getSpec(prefill.model_id)) return fail(unknownModel(prefill.model_id));
+    if (prefill.model_id && !activeSpec(prefill.model_id)) return fail(unknownModel(prefill.model_id));
     return panel(
       'The Studio panel is open in the chat with your prefill. The user can adjust and generate from it (they confirm the credit cost first). ' +
         'Generations they start there are reported back to you.',
@@ -116,7 +116,7 @@ export function registerAppTools(server: McpServer, ctx: Ctx) {
     const ids = shots.map((s) => s.generation_id).filter((id): id is string => !!id);
     const rows = ids.length ? await viewsOf(ctx, await fetchGenerations(ctx, ids)) : [];
     const planned = shots.map((s, i) => {
-      const spec = getSpec(s.model_id);
+      const spec = activeSpec(s.model_id);
       const credits = spec ? specCredits(spec, withDefaults(spec, s.settings ?? {})) : null;
       return {
         index: i + 1,
@@ -184,7 +184,7 @@ export function registerAppTools(server: McpServer, ctx: Ctx) {
     annotations: READ,
     _meta: APP_ONLY_META,
   }, async ({ model_id }) => {
-    const spec = getSpec(model_id);
+    const spec = activeSpec(model_id);
     if (!spec) return fail(unknownModel(model_id));
     return ok({
       id: spec.id,
@@ -242,7 +242,7 @@ export function registerAppTools(server: McpServer, ctx: Ctx) {
     const { data } = await ctx.supabase.from('generations').select(GENERATION_FIELDS).eq('id', id).maybeSingle();
     const g = data as GenerationRow | null;
     if (!g) return fail(`No generation ${id} in your library.`);
-    const spec = getSpec((g.model_params?.model_id as string | undefined) ?? '');
+    const spec = activeSpec((g.model_params?.model_id as string | undefined) ?? '');
     if (!spec) return fail('This item was uploaded or made with a model that is no longer available, so it cannot be regenerated.');
     const started = await startGeneration(ctx, {
       model_id: spec.id,

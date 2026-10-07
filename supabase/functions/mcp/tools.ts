@@ -6,7 +6,7 @@
 import type { McpServer } from 'npm:@modelcontextprotocol/sdk@1.31.0/server/mcp.js';
 import { z } from 'npm:zod@3.25.76';
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
-import { MODEL_CATALOG, getSpec, specBackend } from '../_shared/catalog/index.ts';
+import { MODEL_CATALOG, RETIRED_MODELS, activeSpec, specBackend } from '../_shared/catalog/index.ts';
 import { fieldValue, validateSpecInput } from '../_shared/catalog/adapters.ts';
 import { specCredits, specPriceText } from '../_shared/catalog/pricing.ts';
 import { USE_CASES } from '../_shared/catalog/use-cases.ts';
@@ -153,6 +153,7 @@ function modelDetail(spec: ModelSpec) {
 }
 
 export function unknownModel(id: string) {
+  if (RETIRED_MODELS.has(id)) return `Model "${id}" has been retired. Call studio_list_models to pick a current one.`;
   const near = MODEL_CATALOG.filter((m) => m.id.includes(id) || m.name.toLowerCase().includes(id.toLowerCase())).slice(0, 5);
   return `Unknown model "${id}".${near.length ? ` Did you mean: ${near.map((m) => m.id).join(', ')}?` : ''} Call studio_list_models to see valid ids.`;
 }
@@ -330,7 +331,7 @@ export interface GenerateArgs {
  * path behind studio_generate, Regenerate and the chat panels.
  */
 export async function startGeneration(ctx: Ctx, args: GenerateArgs): Promise<{ id: string; credits: number; warnings: string[] } | { error: string }> {
-  const spec = getSpec(args.model_id);
+  const spec = activeSpec(args.model_id);
   if (!spec) return { error: unknownModel(args.model_id) };
 
   const warnings: string[] = [];
@@ -457,7 +458,7 @@ export function registerTools(server: McpServer, ctx: Ctx) {
     inputSchema: { model_id: z.string().describe('Model id from studio_list_models') },
     annotations: READ,
   }, async ({ model_id }) => {
-    const spec = getSpec(model_id);
+    const spec = activeSpec(model_id);
     return spec ? ok(modelDetail(spec)) : fail(unknownModel(model_id));
   });
 
@@ -470,7 +471,7 @@ export function registerTools(server: McpServer, ctx: Ctx) {
     },
     annotations: READ,
   }, async ({ model_id, settings }) => {
-    const spec = getSpec(model_id);
+    const spec = activeSpec(model_id);
     if (!spec) return fail(unknownModel(model_id));
     const credits = specCredits(spec, settings ?? {});
     return ok({ model_id, credits, usd: Math.round(credits * USD_PER_CREDIT * 1000) / 1000, pricing: specPriceText(spec) });
@@ -501,7 +502,7 @@ export function registerTools(server: McpServer, ctx: Ctx) {
     },
     annotations: { ...READ, idempotentHint: false, openWorldHint: true },
   }, async ({ model_id, idea, use_case, settings }) => {
-    const spec = getSpec(model_id);
+    const spec = activeSpec(model_id);
     if (!spec) return fail(unknownModel(model_id));
     const result = await optimizePrompt({
       spec, prompt: idea, useCase: use_case ?? 'auto', controls: settings ?? {}, userId: ctx.userId, supabase: ctx.supabase,
