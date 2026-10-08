@@ -173,7 +173,7 @@ export function StylePicker({ chipClassName }: { chipClassName: string }) {
                   aria-label={fav ? `Unstar ${s.name}` : `Star ${s.name}`}
                   className={cn(
                     'absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-black/45 text-white backdrop-blur transition-opacity',
-                    fav ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover:opacity-100',
+                    fav ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 touch:opacity-100',
                   )}
                 >
                   <Star className={cn('h-3 w-3', fav && 'fill-amber-400 text-amber-400')} />

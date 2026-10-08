@@ -156,7 +156,7 @@ function BrowseDialog({
                     )}
                     <span className={cn(
                       'absolute left-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full border-2 text-[10.5px] font-bold',
-                      on ? 'border-primary bg-primary text-primary-foreground' : 'border-white/90 bg-black/25 opacity-0 group-hover:opacity-100',
+                      on ? 'border-primary bg-primary text-primary-foreground' : 'border-white/90 bg-black/25 opacity-0 group-hover:opacity-100 touch:opacity-100',
                     )}>
                       {on ? order + 1 : ''}
                     </span>
