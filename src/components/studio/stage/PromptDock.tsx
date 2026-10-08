@@ -24,12 +24,16 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { useElementSize } from '@/hooks/useElementSize';
 import { StylePicker } from './StylePicker';
 import { EditPicker } from './EditPicker';
 import { useMentions } from './MentionMenu';
 
 const CHIP =
   'inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[9px] border border-border/80 bg-card px-2.5 text-[12.5px] text-foreground/90 transition-smooth hover:border-foreground/25 hover:text-foreground disabled:opacity-50 data-[state=open]:border-foreground/30 dark:bg-transparent';
+
+/** Below this dock width the prompt tools move to their own row. */
+const NARROW_DOCK_WIDTH = 680;
 
 /** Settings worth a chip of their own, in priority order. The rest live under "All settings". */
 const QUICK_KEYS = ['aspect_ratio', 'resolution', 'duration', 'num_images', 'quality', 'image_size', 'size'];
@@ -96,7 +100,7 @@ function AttachedMedia() {
             type="button"
             aria-label="Remove"
             onClick={() => setControl(key, (controls[key] as string[]).filter((u) => u !== url))}
-            className="absolute right-0.5 top-0.5 grid h-4 w-4 place-items-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+            className="absolute right-0.5 top-0.5 grid h-4 w-4 place-items-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 touch:h-5 touch:w-5 touch:opacity-100"
           >
             <X className="h-2.5 w-2.5" />
           </button>
@@ -117,6 +121,8 @@ export function PromptDock() {
   const backend = usePreferencesStore((s) => s.studioBackend);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { width } = useElementSize(rootRef);
   const mentions = useMentions(textareaRef, brain.rawPrompt, brain.setRawPrompt);
 
   const studioMode = toStudioMode(mode);
@@ -147,8 +153,85 @@ export function PromptDock() {
 
   const go = (m: typeof studioMode) => m !== studioMode && setMode(fromStudioMode(m));
 
+  // Edits, Style and Optimize sit beside the prompt. When the dock is too narrow for that
+  // (tablet portrait) they get their own row, with the Image/Video switch, so the prompt
+  // and the model chips keep a usable width.
+  const narrow = width > 0 && width < NARROW_DOCK_WIDTH;
+  const toolSlot = narrow ? 'shrink-0' : 'mt-2 shrink-0';
+  const outputToggle = (
+    <div className="inline-flex shrink-0 rounded-[10px] bg-secondary p-0.5" role="group" aria-label="Output">
+      {(['image', 'video'] as const).map((o) => {
+        const Icon = o === 'image' ? ImageIcon : Video;
+        return (
+          <button
+            key={o}
+            type="button"
+            aria-pressed={output === o}
+            onClick={() => go(o === 'image' ? 'text-to-image' : 'text-to-video')}
+            className={cn(
+              'inline-flex h-7 items-center gap-1.5 rounded-[8px] px-2.5 text-[12.5px] transition-smooth',
+              output === o ? 'bg-card font-medium text-foreground shadow-sm dark:bg-muted' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <Icon className={cn('h-3.5 w-3.5', output === o && 'text-primary')} />
+            {o === 'image' ? 'Image' : 'Video'}
+          </button>
+        );
+      })}
+    </div>
+  );
+  const tools = (
+    <>
+      {output === 'image' && (
+        <div className={toolSlot}>
+          <EditPicker chipClassName={CHIP} />
+        </div>
+      )}
+      {!spec?.noPrompt && (
+        <div className={toolSlot}>
+          <StylePicker chipClassName={CHIP} />
+        </div>
+      )}
+      {!spec?.noPrompt && (
+        <div className={cn(toolSlot, 'inline-flex items-center rounded-[9px] bg-accent text-accent-foreground')}>
+          <button
+            type="button"
+            onClick={brain.optimize}
+            disabled={brain.disabled || !brain.rawPrompt.trim()}
+            className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-l-[9px] pl-2.5 pr-2 text-[12.5px] font-medium hover:brightness-[0.97] disabled:opacity-50 dark:hover:brightness-125"
+            title={spec ? `Rewrite for ${spec.name}` : 'Rewrite with Prompt Brain'}
+          >
+            {brain.busy === 'text' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+            {brain.busy === 'text' ? 'Thinking…' : 'Optimize'}
+          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="grid h-8 w-6 place-items-center rounded-r-[9px] border-l border-accent-foreground/15 hover:brightness-[0.97]" aria-label="Prompt Brain options">
+              <ChevronDown className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="w-[240px]">
+              <DropdownMenuLabel className="text-[11.5px] font-medium text-muted-foreground">What are you making?</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={brain.useCase} onValueChange={brain.setBrainUseCase}>
+                {brain.useCases.map((u) => (
+                  <DropdownMenuRadioItem key={u.id} value={u.id} className="text-[13px]">{u.label}</DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+              <button
+                type="button"
+                onClick={() => brain.analyzeImage()}
+                className="mt-1 flex w-full items-center gap-2 border-t border-border px-2 py-2 text-left text-[13px] hover:bg-secondary"
+              >
+                {brain.busy === 'image' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
+                {brain.firstImage ? 'Write prompt from my upload' : 'Write prompt from an image…'}
+              </button>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+    </>
+  );
+
   return (
-    <div className="relative">
+    <div ref={rootRef} className="relative">
       {mentions.menu}
       <AnimatePresence>
         {brain.suggestion && (
@@ -227,76 +310,15 @@ export function PromptDock() {
               className="min-h-[56px] w-full resize-none bg-transparent px-1 pt-2.5 text-[15px] leading-relaxed outline-none placeholder:text-muted-foreground/70 disabled:opacity-60"
             />
           )}
-          {output === 'image' && (
-            <div className="mt-2 shrink-0">
-              <EditPicker chipClassName={CHIP} />
-            </div>
-          )}
-          {!spec?.noPrompt && (
-            <div className="mt-2 shrink-0">
-              <StylePicker chipClassName={CHIP} />
-            </div>
-          )}
-          {!spec?.noPrompt && (
-              <div className="mt-2 inline-flex shrink-0 items-center rounded-[9px] bg-accent text-accent-foreground">
-                <button
-                  type="button"
-                  onClick={brain.optimize}
-                  disabled={brain.disabled || !brain.rawPrompt.trim()}
-                  className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-l-[9px] pl-2.5 pr-2 text-[12.5px] font-medium hover:brightness-[0.97] disabled:opacity-50 dark:hover:brightness-125"
-                  title={spec ? `Rewrite for ${spec.name}` : 'Rewrite with Prompt Brain'}
-                >
-                  {brain.busy === 'text' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-                  {brain.busy === 'text' ? 'Thinking…' : 'Optimize'}
-                </button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="grid h-8 w-6 place-items-center rounded-r-[9px] border-l border-accent-foreground/15 hover:brightness-[0.97]" aria-label="Prompt Brain options">
-                    <ChevronDown className="h-3 w-3" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="top" align="start" className="w-[240px]">
-                    <DropdownMenuLabel className="text-[11.5px] font-medium text-muted-foreground">What are you making?</DropdownMenuLabel>
-                    <DropdownMenuRadioGroup value={brain.useCase} onValueChange={brain.setBrainUseCase}>
-                      {brain.useCases.map((u) => (
-                        <DropdownMenuRadioItem key={u.id} value={u.id} className="text-[13px]">{u.label}</DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                    <button
-                      type="button"
-                      onClick={() => brain.analyzeImage()}
-                      className="mt-1 flex w-full items-center gap-2 border-t border-border px-2 py-2 text-left text-[13px] hover:bg-secondary"
-                    >
-                      {brain.busy === 'image' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanSearch className="h-3.5 w-3.5" />}
-                      {brain.firstImage ? 'Write prompt from my upload' : 'Write prompt from an image…'}
-                    </button>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
+          {!narrow && tools}
 
         </div>
 
+        {narrow && <div className="flex flex-wrap items-center gap-1.5 px-1 pt-1">{outputToggle}{tools}</div>}
+
         <div className="mt-1 flex items-center gap-1.5 px-1 pb-0.5">
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none]">
-            <div className="inline-flex shrink-0 rounded-[10px] bg-secondary p-0.5" role="group" aria-label="Output">
-              {(['image', 'video'] as const).map((o) => {
-                const Icon = o === 'image' ? ImageIcon : Video;
-                return (
-                  <button
-                    key={o}
-                    type="button"
-                    aria-pressed={output === o}
-                    onClick={() => go(o === 'image' ? 'text-to-image' : 'text-to-video')}
-                    className={cn(
-                      'inline-flex h-7 items-center gap-1.5 rounded-[8px] px-2.5 text-[12.5px] transition-smooth',
-                      output === o ? 'bg-card font-medium text-foreground shadow-sm dark:bg-muted' : 'text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    <Icon className={cn('h-3.5 w-3.5', output === o && 'text-primary')} />
-                    {o === 'image' ? 'Image' : 'Video'}
-                  </button>
-                );
-              })}
-            </div>
+            {!narrow && outputToggle}
 
             {sources.length > 1 && source && (
               <DropdownMenu>

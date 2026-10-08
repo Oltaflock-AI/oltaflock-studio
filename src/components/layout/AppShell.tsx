@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useUserCredits } from '@/hooks/useUserCredits';
 import { useGenerationStore } from '@/store/generationStore';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
 import logoMark from '@/assets/logo-mark.png';
 
@@ -31,7 +32,7 @@ interface AppShellProps {
   children: ReactNode;
   /** Set false for pages (like Studio) that manage their own scroll/height internally. */
   scrollableContent?: boolean;
-  /** Icon-only rail, for pages (like Assistant) that need the horizontal space. */
+  /** Icon-only rail, for pages (like Assistant) that need the horizontal space. Always on below 1280px (tablets). */
   compactNav?: boolean;
 }
 
@@ -67,10 +68,11 @@ export function AppShell({ children, scrollableContent = true, compactNav = fals
   };
 
   const isActive = (item: NavItem) => location.pathname === item.to;
+  const wide = useMediaQuery('(min-width: 1280px)');
 
-  if (compactNav) {
+  if (compactNav || !wide) {
     return (
-      <div className="h-screen w-screen flex overflow-hidden bg-background text-foreground">
+      <div className="h-dvh w-screen flex overflow-hidden bg-background text-foreground">
         <aside className="w-[68px] shrink-0 flex flex-col items-center gap-6 py-5 bg-sidebar border-r border-sidebar-border">
           <RailTip label="Oltaflock Studio">
             <NavLink to="/" className="h-9 w-9 flex items-center justify-center">
@@ -130,7 +132,7 @@ export function AppShell({ children, scrollableContent = true, compactNav = fals
   }
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-background text-foreground">
+    <div className="h-dvh w-screen flex overflow-hidden bg-background text-foreground">
       <aside className="w-[232px] shrink-0 flex flex-col gap-7 px-3.5 py-5 bg-sidebar border-r border-sidebar-border">
         <div className="flex items-center justify-between px-2">
           <NavLink to="/" className="flex items-center gap-2">

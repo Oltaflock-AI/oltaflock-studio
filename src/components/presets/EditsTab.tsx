@@ -173,7 +173,7 @@ function EditCard({ edit, onOpen, onUse }: { edit: PhotoEdit; onOpen: () => void
           onClick={onUse}
           className={cn(
             'absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11.5px] font-semibold text-black shadow-sm backdrop-blur',
-            'opacity-0 transition-opacity hover:bg-white group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'opacity-0 transition-opacity hover:bg-white group-hover:opacity-100 touch:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           )}
         >
           <Sparkles className="h-3 w-3" /> Use
