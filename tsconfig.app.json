@@ -24,8 +24,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@catalog/*": ["./supabase/functions/_shared/catalog/*"]
+      "@catalog/*": ["./supabase/functions/_shared/catalog/*"],
+      "@brand/*": ["./supabase/functions/_shared/brand/*"]
     }
   },
-  "include": ["src", "supabase/functions/_shared/catalog"]
+  "include": ["src", "supabase/functions/_shared/catalog", "supabase/functions/_shared/brand"]
 }

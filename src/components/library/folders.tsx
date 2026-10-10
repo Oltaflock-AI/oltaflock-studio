@@ -10,7 +10,7 @@ import {
 import { cn } from '@/lib/utils';
 
 /** MIME type used when dragging generations onto a folder. */
-export const DRAG_TYPE = 'application/x-oltaflock-generations';
+export const DRAG_TYPE = 'application/x-promunch-generations';
 
 export function FolderDot({ color, className }: { color: string | null; className?: string }) {
   return <FolderIcon className={cn('h-4 w-4 shrink-0', className)} style={{ color: color ?? 'currentColor' }} fill={color ?? 'none'} fillOpacity={0.18} />;

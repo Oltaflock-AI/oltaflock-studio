@@ -188,7 +188,7 @@ export function PromptCardPanel({ versions, index, onIndexChange: setIndex, atta
     for (const [k, v] of Object.entries(controls)) store.setControl(k, v);
     store.setRawPrompt(prompt);
     store.setEnhancePromptEnabled(false); // already written for this model
-    navigate('/');
+    navigate('/create');
     toast.success('Loaded into Studio');
   };
 

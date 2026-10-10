@@ -1,4 +1,4 @@
-// Tools exposed by the Oltaflock Studio MCP server. All reads and writes go
+// Tools exposed by the PROMUNCH Studio MCP server. All reads and writes go
 // through `ctx.supabase` (the caller's token), so RLS scopes everything to the
 // signed-in user. Generation itself is delegated to the existing `generate`
 // edge function, so MCP jobs behave exactly like jobs started in the Studio.
@@ -6,6 +6,7 @@
 import type { McpServer } from 'npm:@modelcontextprotocol/sdk@1.31.0/server/mcp.js';
 import { z } from 'npm:zod@3.25.76';
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
+import { APP_URL, CDN_BASE, STORAGE_API } from '../_shared/site.ts';
 import { MODEL_CATALOG, RETIRED_MODELS, activeSpec, specBackend } from '../_shared/catalog/index.ts';
 import { fieldValue, validateSpecInput } from '../_shared/catalog/adapters.ts';
 import { specCredits, specPriceText } from '../_shared/catalog/pricing.ts';
@@ -53,13 +54,11 @@ export function ok(data: Record<string, unknown>, extra: Content[] = []) {
 /** Largest image embedded inline; bigger outputs are left as links. */
 const MAX_INLINE_IMAGE_BYTES = 3_500_000;
 const MAX_INLINE_IMAGES = 4;
-const CDN_BASE = 'https://cdn.oltaflock.ai/';
 
 /** Outputs in our bucket get a 1024px JPEG from the storage Worker; others are fetched as-is. */
 function previewUrl(outputUrl: string): string {
-  const api = Deno.env.get('STORAGE_API_URL');
-  if (!api || !outputUrl.startsWith(CDN_BASE)) return outputUrl;
-  return `${api.replace(/\/$/, '')}/preview/${outputUrl.slice(CDN_BASE.length)}?w=1024`;
+  if (!outputUrl.startsWith(CDN_BASE)) return outputUrl;
+  return `${STORAGE_API}/preview/${outputUrl.slice(CDN_BASE.length)}?w=1024`;
 }
 
 /**
@@ -234,7 +233,7 @@ export function generationView(g: GenerationRow) {
     rating: g.rating,
     credits: (g.model_params?.cost_credits as number | undefined) ?? null,
     created_at: g.created_at,
-    studio_url: `https://studio.oltaflock.ai/generation/${g.id}`,
+    studio_url: `${APP_URL}/generation/${g.id}`,
   };
 }
 
@@ -430,7 +429,7 @@ export function registerTools(server: McpServer, ctx: Ctx) {
   tool('studio_list_models', {
     title: 'List models',
     description:
-      'List the image and video models available in Oltaflock Studio, with what each is best for, its price in credits and which inputs it accepts. ' +
+      'List the image and video models available in PROMUNCH Studio, with what each is best for, its price in credits and which inputs it accepts. ' +
       'Filter by output or mode. Use the returned `id` with studio_get_model and studio_generate.',
     inputSchema: {
       output: z.enum(['image', 'video']).optional().describe('Only image or only video models'),
@@ -515,7 +514,7 @@ export function registerTools(server: McpServer, ctx: Ctx) {
   tool('studio_generate', {
     title: 'Generate image or video',
     description:
-      'Start one image or video generation. It is saved to the user\'s Oltaflock library and charged in credits. ' +
+      'Start one image or video generation. It is saved to the team\'s PROMUNCH Studio library and charged in credits. ' +
       'Write "@Name" in the prompt to use one of the user\'s saved elements (its reference images are attached automatically). ' +
       'Pass public URLs in reference_images / reference_videos for image-to-image, image-to-video (first frame) or video-to-video. ' +
       'Returns the generation id right away; set wait_seconds (max 50) to wait for the result. ' +
@@ -655,7 +654,7 @@ export function registerTools(server: McpServer, ctx: Ctx) {
   tool('studio_list_memories', {
     title: 'Read creative memory',
     description:
-      "What Oltaflock remembers about the user: their style, brands/clients, recurring subjects, technical defaults, dislikes and workflow. " +
+      "What PROMUNCH Studio remembers about the user: their style, brands/clients, recurring subjects, technical defaults, dislikes and workflow. " +
       'Read this at the start of any creative task and apply it by default.',
     inputSchema: { category: z.enum(MEMORY_CATEGORIES).optional() },
     annotations: READ,
@@ -667,7 +666,7 @@ export function registerTools(server: McpServer, ctx: Ctx) {
   tool('studio_remember', {
     title: 'Save to memory',
     description:
-      'Save a lasting fact or preference about the user (shared with the Oltaflock Assistant and Prompt Brain). ' +
+      'Save a lasting fact or preference about the user (shared with the PROMUNCH Studio Assistant and Prompt Brain). ' +
       'Use for durable things ("brand colour is #229DE7", "hates lens flare"), not one-off requests. One fact per call.',
     inputSchema: {
       content: z.string().min(3).max(400),

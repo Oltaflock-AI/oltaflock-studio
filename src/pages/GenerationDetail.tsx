@@ -216,7 +216,7 @@ function GenerationDetailContent({ id }: { id: string | undefined }) {
           <Link to="/library?tab=history">Back to history</Link>
         </Button>
         <Button asChild variant="secondary" className="rounded-[11px]">
-          <Link to="/">Open Studio</Link>
+          <Link to="/create">Open Studio</Link>
         </Button>
       </StateMessage>
     );
@@ -267,7 +267,7 @@ function GenerationDetailView({ generation }: { generation: DbGeneration }) {
     await retry();
     // retry() selects the newly created generation on success.
     const selected = useGenerationStore.getState().selectedJobId;
-    if (selected && selected !== generation.id) navigate('/');
+    if (selected && selected !== generation.id) navigate('/create');
   };
 
   const handleDelete = async () => {

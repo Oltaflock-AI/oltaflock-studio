@@ -9,6 +9,7 @@ import { PreferencesSection } from '@/components/settings/PreferencesSection';
 import { AccountSection, DangerZoneSection } from '@/components/settings/AccountSection';
 import { PlanSection } from '@/components/settings/PlanSection';
 import { ConnectAISection } from '@/components/settings/ConnectAISection';
+import { TeamSection } from '@/components/settings/TeamSection';
 
 const Settings = () => {
   const { hash } = useLocation();
@@ -25,7 +26,7 @@ const Settings = () => {
       <div className="mx-auto w-full max-w-[1520px] px-4 py-7 sm:px-8 flex flex-col gap-5">
         <header className="flex flex-col gap-0.5">
           <h1 className="font-serif text-[28px] font-medium leading-tight">Settings</h1>
-          <p className="text-[13px] text-muted-foreground">Profile, security, credits and connected apps</p>
+          <p className="text-[13px] text-muted-foreground">Profile, team, security, credits and connected apps</p>
         </header>
 
         <motion.div
@@ -38,6 +39,9 @@ const Settings = () => {
           <div className="flex min-w-0 flex-col gap-[18px]">
             <motion.div variants={staggerItem}>
               <ProfileSection />
+            </motion.div>
+            <motion.div id="team" variants={staggerItem} className="scroll-mt-6">
+              <TeamSection />
             </motion.div>
             <motion.div variants={staggerItem}>
               <SecuritySection />

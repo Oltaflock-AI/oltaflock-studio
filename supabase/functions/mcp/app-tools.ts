@@ -1,4 +1,4 @@
-// Tools behind the Oltaflock Studio chat panels (MCP Apps).
+// Tools behind the PROMUNCH Studio chat panels (MCP Apps).
 //
 // Two kinds:
 // - Panel openers the model calls (studio_open_studio, studio_browse_library,
@@ -52,7 +52,7 @@ export function registerAppTools(server: McpServer, ctx: Ctx) {
   tool('studio_open_studio', {
     title: 'Open the Studio panel',
     description:
-      'Show an interactive Oltaflock Studio composer in the chat: the user picks a model, writes or tweaks the prompt, sets aspect ratio / duration / ' +
+      'Show an interactive PROMUNCH Studio composer in the chat: the user picks a model, writes or tweaks the prompt, sets aspect ratio / duration / ' +
       'references, sees the credit cost and generates from the panel. Prefill it with your suggestion. Use when the user wants to tweak things ' +
       'themselves, asks to "open the studio", or is exploring models. Generations started in the panel are reported back to you.',
     inputSchema: {
@@ -77,7 +77,7 @@ export function registerAppTools(server: McpServer, ctx: Ctx) {
   tool('studio_browse_library', {
     title: 'Browse library panel',
     description:
-      "Show the user's Oltaflock library as an interactive grid in the chat (folders, search, image/video filter). They can open, star, rename, " +
+      "Show the team's PROMUNCH Studio library as an interactive grid in the chat (folders, search, image/video filter). They can open, star, rename, " +
       'file, download and pick items to use as references. Use studio_list_generations instead when you need the data yourself.',
     inputSchema: {
       folder_id: z.string().uuid().optional(),
@@ -146,7 +146,7 @@ export function registerAppTools(server: McpServer, ctx: Ctx) {
     title: 'Open memory & elements panel',
     description:
       "Show the user's creative memory (style, brands, dislikes…) and saved elements (characters, products…) as an editable panel in the chat, " +
-      'where they can add, edit, pin and delete them. Use when the user wants to see or manage what Oltaflock remembers.',
+      'where they can add, edit, pin and delete them. Use when the user wants to see or manage what PROMUNCH Studio remembers.',
     inputSchema: { tab: z.enum(['memory', 'elements']).default('memory') },
     annotations: READ,
     _meta: WIDGET_TOOL_META,

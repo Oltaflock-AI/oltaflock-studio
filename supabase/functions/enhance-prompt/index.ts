@@ -1,5 +1,5 @@
 // supabase/functions/enhance-prompt/index.ts
-// Oltaflock Creative Studio — Prompt Brain preview endpoint.
+// PROMUNCH Studio — Prompt Brain preview endpoint.
 //   type: 'text'  — rewrite the user's prompt for the selected model + use case
 //   type: 'image' — analyze a base64 image (+ optional prompt) and write a prompt
 // The knowledge base lives in ../_shared/brain.

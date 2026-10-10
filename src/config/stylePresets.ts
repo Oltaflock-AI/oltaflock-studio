@@ -11,15 +11,17 @@
 export type PresetKind = 'image' | 'video';
 
 export type StyleCategory =
-  | 'light' | 'retro' | 'film' | 'editorial' | 'art'
-  | 'camera' | 'pace' | 'format';
+  | 'promunch' | 'light' | 'retro' | 'film' | 'editorial' | 'art'
+  | 'promunch-motion' | 'camera' | 'pace' | 'format';
 
 export const STYLE_CATEGORIES: Array<{ id: StyleCategory; label: string; kind: PresetKind }> = [
+  { id: 'promunch', label: 'PROMUNCH looks', kind: 'image' },
   { id: 'light', label: 'Light & mood', kind: 'image' },
   { id: 'retro', label: 'Retro & eras', kind: 'image' },
   { id: 'film', label: 'Film & camera', kind: 'image' },
   { id: 'editorial', label: 'Editorial', kind: 'image' },
   { id: 'art', label: 'Art & dream', kind: 'image' },
+  { id: 'promunch-motion', label: 'PROMUNCH ads', kind: 'video' },
   { id: 'camera', label: 'Camera moves', kind: 'video' },
   { id: 'pace', label: 'Time & pace', kind: 'video' },
   { id: 'format', label: 'Formats', kind: 'video' },
@@ -66,6 +68,98 @@ export interface StylePreset {
 type Draft = Omit<StylePreset, 'kind'>;
 
 const IMAGE_LOOKS: Draft[] = [
+  // PROMUNCH house looks: how the brand's snacks are shown everywhere.
+  {
+    id: 'pm-crunch-burst',
+    name: 'Crunch Burst',
+    category: 'promunch',
+    tagline: 'Beans and spices exploding around the pack',
+    notes: ['Hero pack', 'Mid-air', 'Hard light'],
+    prompt: 'PROMUNCH hero product style: the snack pack as the sharp focal point, roasted edamame beans and crunchies bursting through the air around it, flecks of spice and seasoning frozen mid-air, crisp hard studio light with defined shadows, saturated bold background colour, high contrast, appetising roasted texture, never oily or fried-looking',
+    aspect: '4:5',
+    swatch: 'radial-gradient(110% 90% at 50% 40%, #FFD29E 0%, #FF8A3D 40%, #E2401C 100%)',
+    texture: 'flash',
+    ink: 'light',
+    isNew: true,
+  },
+  {
+    id: 'pm-bold-block',
+    name: 'Bold Colour Block',
+    category: 'promunch',
+    tagline: 'Flat brand colour, big type, pack front and centre',
+    notes: ['Graphic', 'Social', 'Clean'],
+    prompt: 'PROMUNCH graphic social style: flat solid colour-block background, the snack pack front and centre with a crisp drop shadow, generous margins, room for one huge confident headline, minimal props, clean modern D2C brand aesthetic, punchy and high contrast',
+    aspect: '4:5',
+    swatch: 'linear-gradient(135deg, #1F9D6B 0%, #1F9D6B 50%, #FFE66D 50%, #FFE66D 100%)',
+    texture: 'none',
+    ink: 'light',
+    isNew: true,
+  },
+  {
+    id: 'pm-desi-moment',
+    name: 'Desi Snack Moment',
+    category: 'promunch',
+    tagline: 'Real Indian everyday moments with the pack',
+    notes: ['Lifestyle', 'Warm', 'Candid'],
+    prompt: 'PROMUNCH lifestyle style: a candid everyday Indian moment (chai break, office desk, gym bench, college canteen, family couch), young modern Indians snacking from the pack, natural warm daylight, real homes and places, genuine expressions, shallow depth of field, the pack clearly visible and in focus',
+    aspect: '4:5',
+    swatch: 'linear-gradient(160deg, #F7D9A8 0%, #E9A15B 45%, #9A5B2E 100%)',
+    texture: 'grain',
+    ink: 'dark',
+    isNew: true,
+  },
+  {
+    id: 'pm-macro-crunch',
+    name: 'Macro Crunch',
+    category: 'promunch',
+    tagline: 'Up close on the roast, the seasoning and the snap',
+    notes: ['Macro', 'Texture', 'Appetite appeal'],
+    prompt: 'PROMUNCH macro food style: extreme close-up of roasted edamame beans or soya crunchies, every crack, blister and grain of seasoning visible, crisp directional light raking across the texture, shallow depth of field with creamy bokeh, warm appetising colour, dry roasted finish, no oil sheen',
+    aspect: '1:1',
+    swatch: 'radial-gradient(90% 90% at 40% 40%, #C9E08A 0%, #7FAF3C 45%, #3F5F1E 100%)',
+    texture: 'grain',
+    ink: 'light',
+    isNew: true,
+  },
+  {
+    id: 'pm-gym-fuel',
+    name: 'Gym Fuel',
+    category: 'promunch',
+    tagline: 'Gritty gym light, sweat and a pack in hand',
+    notes: ['Fitness', 'Moody', 'Hard light'],
+    prompt: 'PROMUNCH fitness style: modern Indian gym, dramatic overhead and rim light, deep shadows, chalk dust and a hint of sweat, athletic young Indians refuelling with the snack pack, gritty energetic sports-ad mood, sharp detail on the pack',
+    aspect: '4:5',
+    swatch: 'linear-gradient(160deg, #111827 0%, #374151 55%, #FF5A1F 100%)',
+    texture: 'grain',
+    ink: 'light',
+    isNew: true,
+  },
+  {
+    id: 'pm-festive-gifting',
+    name: 'Festive Gifting',
+    category: 'promunch',
+    tagline: 'Diyas, marigolds and a gift box of packs',
+    notes: ['Festive', 'Gifting', 'Rich'],
+    prompt: 'PROMUNCH festive gifting style: an elegant gift box or hamper of snack packs, warm diya and fairy-light glow, marigolds and subtle festive textiles, rich jewel tones with gold accents, premium and tasteful, not kitsch, soft bokeh background',
+    aspect: '4:5',
+    swatch: 'radial-gradient(100% 90% at 50% 30%, #FBBF24 0%, #C2410C 50%, #7A1F3D 100%)',
+    texture: 'halation',
+    ink: 'light',
+    isNew: true,
+  },
+  {
+    id: 'pm-marketplace-white',
+    name: 'Marketplace White',
+    category: 'promunch',
+    tagline: 'Clean packshot on white for Amazon and Blinkit',
+    notes: ['E-commerce', 'Pure white', 'Square'],
+    prompt: 'e-commerce packshot style: the product centred on a pure white (#FFFFFF) seamless background, filling about 85% of the frame, soft even studio lighting, gentle natural contact shadow, true-to-life colours, razor-sharp label, no props, no added text',
+    aspect: '1:1',
+    swatch: 'linear-gradient(180deg, #FFFFFF 0%, #F2F2F4 80%, #E3E6EC 100%)',
+    texture: 'none',
+    ink: 'dark',
+    isNew: true,
+  },
   // Light & mood
   {
     id: 'golden-hour',
@@ -557,6 +651,49 @@ const IMAGE_LOOKS: Draft[] = [
  * shows the preset (a slow push-in, an orbit, a timelapse…).
  */
 const VIDEO_PRESETS: Draft[] = [
+  // PROMUNCH ad moves
+  {
+    id: 'pm-pack-drop',
+    name: 'Pack Drop',
+    category: 'promunch-motion',
+    tagline: 'The pack lands, the snack explodes out',
+    notes: ['Hero reveal', 'Slow motion', 'Crunch SFX'],
+    prompt: 'camera: low hero angle, the snack pack drops into frame and lands with a punch, roasted beans and spices burst outward in slow motion, quick speed ramp back to real time, crisp crunch and whoosh sound effects, upbeat beat drop, ends on a clean pack shot',
+    aspect: '9:16',
+    swatch: 'linear-gradient(170deg, #111827 0%, #FF5A1F 60%, #FFD29E 100%)',
+    texture: 'flash',
+    ink: 'light',
+    motion: 'ramp',
+    isNew: true,
+  },
+  {
+    id: 'pm-bowl-pour',
+    name: 'Bowl Pour',
+    category: 'promunch-motion',
+    tagline: 'Macro pour into a bowl with loud crunch',
+    notes: ['Macro', 'ASMR', 'Satisfying'],
+    prompt: 'camera: macro slow-motion shot of roasted snacks pouring from the pack into a bowl, beans tumbling and bouncing, seasoning dust in the light, close satisfying ASMR crunch sounds, slow push-in, shallow depth of field',
+    aspect: '9:16',
+    swatch: 'linear-gradient(160deg, #3F5F1E 0%, #7FAF3C 50%, #F7D9A8 100%)',
+    texture: 'grain',
+    ink: 'light',
+    motion: 'push',
+    isNew: true,
+  },
+  {
+    id: 'pm-snack-swap',
+    name: 'Snack Swap',
+    category: 'promunch-motion',
+    tagline: 'Whip-pan from junk snack to PROMUNCH',
+    notes: ['Before/after', 'Whip pan', 'Punchline'],
+    prompt: 'camera: a hand reaches for a greasy chips packet, fast whip pan transition, the hand now holds the PROMUNCH pack instead, quick cuts, playful comedic timing, bright natural light, upbeat Indian-pop beat, ends on the pack with a confident nod',
+    aspect: '9:16',
+    swatch: 'linear-gradient(90deg, #9CA3AF 0%, #9CA3AF 45%, #1F9D6B 55%, #FFE66D 100%)',
+    texture: 'none',
+    ink: 'light',
+    motion: 'whip',
+    isNew: true,
+  },
   // Camera moves
   {
     id: 'slow-push-in',

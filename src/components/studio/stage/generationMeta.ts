@@ -124,5 +124,5 @@ export function displayTitle(g: DbGeneration): string {
 
 /** Filename-safe slug of the generation's name. */
 export function fileSlug(g: DbGeneration): string {
-  return displayTitle(g).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'oltaflock-output';
+  return displayTitle(g).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'promunch-output';
 }

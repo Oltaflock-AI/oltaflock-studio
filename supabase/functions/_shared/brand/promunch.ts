@@ -1,69 +1,105 @@
 /**
- * PROMUNCH (promunch.in): high-protein roasted edamame and soya snacks from
- * Dewas/Indore. Products, claims and lines are taken from promunch.in; check
- * them with the Promunch team before anything goes to print, and edit here
- * when packs, claims or offers change.
+ * PROMUNCH (promunch.in): high-protein roasted edamame and soya snacks by
+ * Vippy Industries Limited, Dewas (MP). Products, claims, prices and lines are
+ * from promunch.in and its marketplace listings (researched Oct 2026). Pack
+ * colours come from descriptions of product photos, not from artwork files:
+ * add each pack's photo as an Element so the real pack is used.
+ * Edit here when packs, claims or offers change.
  */
 
-import type { Brief, BrandJob, BrandKit, BrandProduct, JobContext, Shot } from './types';
+import type { Brief, BrandJob, BrandKit, BrandProduct, JobContext, Shot } from './types.ts';
 
-const EDAMAME_CLAIMS = ['42–45g protein per 100g', 'Roasted, not fried', 'Roasted in olive oil', 'No palm oil, no maida', 'No added sugar', 'Rich in fibre', 'Gluten free'];
-const SOYA_CLAIMS = ['High protein', 'Roasted, not fried', 'No palm oil', 'Vegan', 'Gluten free'];
+const EDAMAME_CLAIMS = [
+  'Complete plant protein with all 9 essential amino acids',
+  'Roasted in olive oil, not fried',
+  'No palm oil, no maida',
+  'No MSG, no preservatives',
+  'No added sugar',
+  'High fibre',
+  '100% vegan, naturally gluten-free',
+];
+const CRUNCHIES_CLAIMS = ['48g protein and 18g fibre per 100g', 'Roasted, not fried', 'No palm oil', 'No artificial flavours or preservatives', 'Vegan, gluten-free, non-GMO'];
+const STICKS_CLAIMS = ['High protein', 'Baked, not fried', 'No palm oil, no maida', 'No artificial preservatives'];
 
-const edamame = (id: string, flavour: string, element: string, protein: string, taste: string): BrandProduct => ({
+const edamame = (id: string, flavour: string, element: string, protein: string, taste: string, pack: string, color: string): BrandProduct => ({
   id: `edamame-${id}`,
   line: 'Roasted Edamame Beans',
   flavour,
   element,
-  description: `PROMUNCH Roasted Edamame Beans, ${flavour} flavour: crunchy roasted green soybeans, ${taste}. Stand-up pouch with the PROMUNCH logo, the flavour name and the protein claim on the front.`,
-  claims: [`${protein} protein per 100g`, ...EDAMAME_CLAIMS.slice(1)],
-  sizes: ['25g', 'Pack of 2', 'Pack of 3'],
+  description: `PROMUNCH Roasted Edamame Beans, ${flavour}: crunchy dry-roasted green edamame beans, ${taste}. 100g resealable stand-up pouch, ${pack}, with the PROMUNCH wordmark, the flavour name and a "${protein} protein" callout on the front.`,
+  claims: [`${protein} protein per 100g`, ...EDAMAME_CLAIMS],
+  sizes: ['25g', '100g', 'Pack of 2', 'Pack of 3'],
+  color,
 });
 
-const crunchies = (id: string, flavour: string, element: string, taste: string): BrandProduct => ({
+const crunchies = (id: string, flavour: string, element: string, taste: string, pack: string, color: string): BrandProduct => ({
   id: `crunchies-${id}`,
   line: 'Soya Crunchies',
   flavour,
   element,
-  description: `PROMUNCH Soya Crunchies, ${flavour} flavour: bite-size roasted soya crunchies, ${taste}. Stand-up pouch with the PROMUNCH logo and the flavour name on the front.`,
-  claims: SOYA_CLAIMS,
+  description: `PROMUNCH Soya Crunchies, ${flavour}: bite-size roasted soya crunchies, ${taste}. Sold in a 150g or 270g jar ${pack} and 30g pouches, with the PROMUNCH wordmark and "Only the Good Stuff" label.`,
+  claims: CRUNCHIES_CLAIMS,
   sizes: ['30g', '150g', '270g'],
+  color,
 });
 
 const PRODUCTS: BrandProduct[] = [
-  edamame('masala-mania', 'Masala Mania', 'MasalaMania', '42g', 'tossed in a bold Indian masala'),
-  edamame('himalayan-rock-salt', 'Himalayan Rock Salt', 'HimalayanRockSalt', '45g', 'lightly seasoned with pink Himalayan rock salt'),
-  edamame('indori-chatka', 'Indori Chatka', 'IndoriChatka', '42g', 'with a tangy-spicy Indori street-food chatka'),
-  crunchies('noodle-masala', 'Noodle Masala', 'NoodleMasala', 'with the taste of a classic Indian instant-noodle masala'),
-  crunchies('tangy-pudina', 'Tangy Pudina', 'TangyPudina', 'with a tangy mint (pudina) seasoning'),
-  crunchies('peri-peri', 'Peri Peri', 'PeriPeri', 'with a hot peri peri chilli seasoning'),
-  crunchies('cheese-onion', 'Cheese & Onion', 'CheeseOnion', 'with a cheese and onion seasoning'),
+  edamame('himalayan-rock-salt', 'Himalayan Rock Salt', 'HimalayanRockSalt', '45g', 'pure and naturally crunchy, lightly seasoned with pink Himalayan rock salt', 'blue and white with a yellow protein roundel', '#1F5FBF'),
+  edamame('masala-mania', 'Masala Mania', 'MasalaMania', '42g', 'bold and spicy, tossed in an Indian masala', 'orange and white', '#F26B1D'),
+  edamame('indori-chatka', 'Indori Chatka', 'IndoriChatka', '42g', 'tangy and irresistibly crunchy, inspired by Indore street-food flavours', 'purple', '#6B3FA0'),
+  crunchies('peri-peri', 'Peri Peri', 'PeriPeri', 'with a hot peri peri chilli seasoning', 'with a red lid', '#E1251B'),
+  crunchies('noodle-masala', 'Noodle Masala', 'NoodleMasala', 'with a classic Indian noodle-masala seasoning', '', '#F2A51D'),
+  crunchies('tangy-pudina', 'Tangy Pudina', 'TangyPudina', 'with a tangy mint (pudina) seasoning', 'with a bright green label', '#2E9E4F'),
+  crunchies('cheese-onion', 'Cheese & Onion', 'CheeseOnion', 'with a cheese and onion seasoning', 'with a blue lid', '#2D6FD6'),
   {
     id: 'sticks-chatpata-masala',
     line: 'Soya Sticks',
     flavour: 'Chatpata Masala',
     element: 'SticksChatpata',
-    description: 'PROMUNCH Soya Sticks, Chatpata Masala flavour: crunchy roasted soya sticks with a chatpata Indian masala. Pouch with the PROMUNCH logo and flavour name.',
-    claims: SOYA_CLAIMS,
+    description: 'PROMUNCH Soya Sticks, Chatpata Masala: crunchy baked soya sticks with a chatpata Indian masala. 100g pack with the PROMUNCH wordmark and "No maida · No palm oil".',
+    claims: STICKS_CLAIMS,
     sizes: ['100g'],
+    color: '#D9480F',
   },
   {
     id: 'sticks-cream-onion',
     line: 'Soya Sticks',
     flavour: 'Cream & Onion',
     element: 'SticksCreamOnion',
-    description: 'PROMUNCH Soya Sticks, Cream & Onion flavour: crunchy roasted soya sticks with a cream and onion seasoning. Pouch with the PROMUNCH logo and flavour name.',
-    claims: SOYA_CLAIMS,
+    description: 'PROMUNCH Soya Sticks, Cream & Onion: crunchy baked soya sticks with a cream and onion seasoning. 100g pack with the PROMUNCH wordmark and "No maida · No palm oil".',
+    claims: STICKS_CLAIMS,
     sizes: ['100g'],
+    color: '#4C9A6A',
   },
   {
     id: 'chips-peri-peri',
     line: 'Soya Chips',
     flavour: 'Peri Peri',
     element: 'ChipsPeriPeri',
-    description: 'PROMUNCH Soya Chips, Peri Peri flavour: thin, crunchy roasted soya chips with a peri peri chilli seasoning. Pouch with the PROMUNCH logo and flavour name.',
-    claims: SOYA_CLAIMS,
+    description: 'PROMUNCH Soya Chips, Peri Peri: thin, crunchy baked soya chips with a peri peri chilli seasoning, in a pink jar with the PROMUNCH wordmark.',
+    claims: STICKS_CLAIMS,
     sizes: ['100g'],
+    color: '#E0567A',
+  },
+  {
+    id: 'hamper-corporate-diwali',
+    line: 'Gift Hampers',
+    flavour: 'Corporate Diwali Hamper',
+    element: 'DiwaliHamper',
+    description: 'PROMUNCH Corporate Diwali Gift Hamper (500g): a festive gift box with roasted edamame packs in all three flavours, soya chips, beetroot chips and a greeting card. ₹999.',
+    claims: ['Edamame in 3 flavours, soya chips and beetroot chips', 'Healthy corporate gifting'],
+    sizes: ['500g box'],
+    color: '#B83280',
+  },
+  {
+    id: 'hamper-diwali-box',
+    line: 'Gift Hampers',
+    flavour: 'Diwali Snack Box',
+    element: 'DiwaliSnackBox',
+    description: 'PROMUNCH Diwali Snack Box (380g): a pink and purple festive gift box ("Celebrate the Joy Within") with roasted edamame, soya sticks and chips, and beetroot chips. ₹555.',
+    claims: ['Edamame, soya sticks and chips, beetroot chips', 'Healthy festive gifting'],
+    sizes: ['380g box'],
+    color: '#7B3FA0',
   },
 ];
 
@@ -107,6 +143,14 @@ const SCENES = [
   'Sprinkled on a fresh salad bowl',
 ];
 
+/** Per-100g comparison published on promunch.in ("The math is brutal."), Oct 2026. */
+const COMPARE = [
+  { key: 'promunch', name: 'PROMUNCH Edamame', protein: 42.9, fibre: 12.3, kcal: 428, fat: 15.86 },
+  { key: 'chips', name: 'Potato chips', protein: 7.2, fibre: 5.2, kcal: 537, fat: 33.1 },
+  { key: 'makhana', name: 'Makhana', protein: 7.8, fibre: 11.8, kcal: 480, fat: 18.5 },
+  { key: 'peanuts', name: 'Peanuts', protein: 23.1, fibre: 5.38, kcal: 558, fat: 40.26 },
+];
+
 // ─── Jobs ────────────────────────────────────────────────────────────────────
 
 const JOBS: BrandJob[] = [
@@ -127,7 +171,7 @@ const JOBS: BrandJob[] = [
         key: 'kind', label: 'Post type', type: 'choice', custom: true,
         options: ['Product hero', 'Offer / discount', 'Protein fact vs other snacks', 'Snacking moment', 'Witty one-liner', 'Festival greeting'],
       },
-      { key: 'headline', label: 'Headline', type: 'text', required: true, placeholder: 'Hits harder than your shake.', suggestions: ['Hits harder than your shake.', 'Crunch happens here.', 'The math is brutal.', 'Quietly retiring your snack drawer.'] },
+      { key: 'headline', label: 'Headline', type: 'text', required: true, placeholder: 'Hits harder than your shake.', suggestions: ['Chips could never.', 'Hits harder than your shake.', 'The math is brutal.', 'Your 4pm just got better.'] },
       { key: 'sub', label: 'Supporting line', type: 'text', placeholder: '45g plant protein per 100g. Roasted, not fried.' },
       { key: 'cta', label: 'Call to action or code', type: 'text', placeholder: 'Shop now at promunch.in', suggestions: ['Shop now at promunch.in', '10% off above ₹399 · code PROMUNCH10', '15% off above ₹499 · code PROTEIN15'] },
       { key: 'scene', label: 'Look', type: 'choice', custom: true, options: SCENES },
@@ -161,7 +205,7 @@ const JOBS: BrandJob[] = [
       { key: 'topic', label: 'What is the carousel about?', type: 'text', required: true, placeholder: '5 reasons edamame beats your usual namkeen' },
       {
         key: 'slides', label: 'Slide text, one slide per line', type: 'textarea', required: true,
-        placeholder: 'Your snack drawer is lying to you\n45g protein per 100g. Chips: 6g.\nRoasted in olive oil. Never fried.\nNo palm oil. No maida.\nTry all 3 flavours at promunch.in',
+        placeholder: 'Your snack drawer is lying to you\n42.9g protein per 100g. Chips: 7.2g.\nRoasted in olive oil. Never fried.\nNo palm oil. No maida.\nTry all 3 flavours at promunch.in',
         help: 'The first line is the cover, the last is the call to action. 3 to 8 lines.',
       },
       { key: 'style', label: 'Look', type: 'choice', custom: true, options: ['Bold colour blocks with big type', 'Clean minimal with lots of white space', 'Food photography with text overlays', 'Comic / sticker style, playful'] },
@@ -278,6 +322,113 @@ const JOBS: BrandJob[] = [
       ];
     },
     tip: 'Check the claims against the actual pack and FSSAI label before uploading to a marketplace.',
+  },
+
+  {
+    id: 'comparison',
+    name: 'Comparison card',
+    category: 'social',
+    tagline: '"The math is brutal." PROMUNCH vs the usual snacks',
+    notes: ['Infographic', 'Site numbers', '4:5 or 1:1'],
+    icon: 'chart',
+    swatch: 'linear-gradient(150deg, #141414 0%, #141414 55%, #FFC72C 55%, #FFC72C 100%)',
+    ink: 'light',
+    qualities: ['final', 'draft'],
+    fields: [
+      {
+        key: 'against', label: 'Compare against', type: 'choice',
+        options: ['Chips, makhana and peanuts', 'Potato chips', 'Makhana', 'Peanuts', 'Regular namkeen'],
+      },
+      { key: 'nutrient', label: 'Lead with', type: 'choice', options: ['Protein', 'Fibre', 'Calories and fat'] },
+      { key: 'headline', label: 'Headline', type: 'text', placeholder: 'The math is brutal.', suggestions: ['The math is brutal.', 'Makhana who?', 'Chips could never.'] },
+      { key: 'shape', label: 'Shape', type: 'choice', options: ['4:5 feed', '1:1 square', '9:16 story'] },
+    ],
+    plan: (b) => {
+      const against = text(b, 'against') || 'Chips, makhana and peanuts';
+      const lead = text(b, 'nutrient') || 'Protein';
+      const rows = COMPARE.filter((r) => r.name === 'PROMUNCH Edamame' || against.toLowerCase().includes(r.key));
+      const regular = against === 'Regular namkeen';
+      const numbers = regular
+        ? 'PROMUNCH: 14g protein and 100 kcal per serving; regular namkeen: 2g protein and 170 kcal per serving (as shown on promunch.in).'
+        : rows.map((r) => `${r.name}: ${r.protein}g protein, ${r.fibre}g fibre, ${r.kcal} kcal, ${r.fat}g fat per 100g`).join('; ') + '.';
+      const shape = text(b, 'shape') || '4:5 feed';
+      return [{
+        label: shape,
+        prompt: [
+          `A bold comparison infographic for PROMUNCH roasted edamame in the brand's challenger style, leading with ${lead.toLowerCase()}.`,
+          `Show PROMUNCH clearly winning with big numbers and simple bar or card graphics; the losing snacks look plain and greyed out next to it. Include the PROMUNCH pack. ${regular ? '' : 'Footnote in small type: "*Per 100g. Values are typical and subject to natural variation."'}`,
+          `Use exactly these figures and no others: ${numbers}`,
+          'Flat graphic design, strong grid, high contrast, ink black and protein yellow with the pack\'s own colours.',
+          copy([['headline', text(b, 'headline') || 'The math is brutal.']]),
+        ].join(' '),
+        output: 'image',
+        aspect: shape.split(' ')[0],
+      }];
+    },
+    tip: 'Uses the per-100g figures published on promunch.in. Check them against the current pack before posting.',
+  },
+  {
+    id: 'aplus-banner',
+    name: 'Amazon A+ banner',
+    category: 'social',
+    tagline: 'Wide A+ content modules: why, use case, compare, combo',
+    notes: ['Wide', 'Amazon / Flipkart', '3 modules'],
+    icon: 'cart',
+    swatch: 'linear-gradient(90deg, #FFC72C 0%, #FFE08A 60%, #F26B1D 100%)',
+    ink: 'dark',
+    qualities: ['final', 'draft'],
+    fields: [
+      { ...PRODUCT_FIELD, allowRange: false },
+      { key: 'modules', label: 'Modules', type: 'choice', options: ['Why it, use cases, compare', 'Why it only', 'Use cases only', 'Combo / variety pack'] },
+    ],
+    plan: (b, ctx) => {
+      const p = ctx.product;
+      const name = p ? `${p.flavour} ${p.line}` : 'roasted edamame';
+      const pack = `${subject(ctx)}. ${packRule(ctx)}`;
+      const module = (label: string, body: string): Shot => ({
+        label,
+        prompt: `A wide Amazon A+ content banner (about 1464 × 600) for PROMUNCH ${name}. ${body} ${pack} Clean marketplace-safe layout, generous margins, legible at phone size, brand colours from the pack.`,
+        output: 'image',
+        aspect: '21:9',
+      });
+      const why = module('Why PROMUNCH', `Title "Why PROMUNCH ${p?.flavour ?? ''}" with four benefit icons and the pack. ${copy((p?.claims ?? []).slice(0, 4).map((c, i) => [`benefit ${i + 1}`, c] as [string, string]))}`);
+      const uses = module('Use cases', `Four small lifestyle vignettes in a row: post-workout, office desk at 3pm, chai time, tiffin box, each with a one-word label. ${copy([['labels', 'Gym · Desk · Chai · Tiffin']])}`);
+      const compare = module('Compare', `Comparison strip: PROMUNCH edamame ${COMPARE[0].protein}g protein per 100g vs chips ${COMPARE[1].protein}g, makhana ${COMPARE[2].protein}g, peanuts ${COMPARE[3].protein}g, as simple bars. ${copy([['title', 'The math is brutal.']])}`);
+      const combo = module('Variety pack', `The three edamame flavours side by side (Himalayan Rock Salt, Masala Mania, Indori Chatka) with their colours. ${copy([['title', 'Pick your crunch.']])}`);
+      const picked = text(b, 'modules') || 'Why it, use cases, compare';
+      if (picked.startsWith('Why it only')) return [why];
+      if (picked.startsWith('Use')) return [uses];
+      if (picked.startsWith('Combo')) return [combo];
+      return [why, { ...uses, matchFirst: true }, { ...compare, matchFirst: true }];
+    },
+  },
+  {
+    id: 'blog-banner',
+    name: 'Blog header',
+    category: 'social',
+    tagline: 'Featured image for a promunch.in blog post',
+    notes: ['16:9', 'SEO posts', '2 takes'],
+    icon: 'post',
+    swatch: 'linear-gradient(150deg, #FFF8EE 0%, #FFE08A 60%, #2E9E4F 100%)',
+    ink: 'dark',
+    qualities: ['final', 'draft'],
+    fields: [
+      PRODUCT_FIELD,
+      { key: 'title', label: 'Blog post title', type: 'text', required: true, placeholder: 'Edamame vs Makhana vs Peanuts vs Chips' },
+      { key: 'text', label: 'Put the title on the image?', type: 'choice', options: ['No text', 'Yes, the title'] },
+    ],
+    plan: (b, ctx) => {
+      const prompt = [
+        `A wide featured image for a PROMUNCH blog post titled "${text(b, 'title')}".`,
+        `Editorial food photography that illustrates the topic, featuring ${subject(ctx)}. ${packRule(ctx)}`,
+        'Bright, natural light, Indian setting, appetising, uncluttered; leave calm space on one side.',
+        text(b, 'text').startsWith('Yes') ? copy([['title', text(b, 'title')]]) : 'No text on the image.',
+      ].join(' ');
+      return [
+        { label: 'Take 1', prompt, output: 'image', aspect: '16:9' },
+        { label: 'Take 2', prompt: `${prompt} Different composition.`, output: 'image', aspect: '16:9' },
+      ];
+    },
   },
 
   // Print
@@ -604,24 +755,61 @@ export const PROMUNCH: BrandKit = {
   id: 'promunch',
   name: 'PROMUNCH',
   website: 'promunch.in',
-  summary: 'Indian high-protein snack brand: roasted edamame beans and roasted soya crunchies, sticks and chips. Guilt-free snacking that tastes like a snack and works like a supplement.',
-  voice: 'Punchy, witty and confident, a little cheeky. Short lines. Plain English with the odd Hindi word (chatka, namkeen, chatpata). Brags with numbers, never with hype words.',
-  audience: 'Urban Indians 18–40: gym-goers, working professionals and parents swapping chips, namkeen and biscuits for something with protein.',
-  palette: [],
+  summary: 'PROMUNCH ("your munchy pal", "King of Protein Snacks") is India\'s high-protein namkeen brand from Vippy Industries, Dewas: roasted edamame beans with up to 45g plant protein per 100g, plus roasted soya crunchies, sticks and chips. Roasted in olive oil, no palm oil, no maida. It tastes like a snack and works like a supplement.',
+  voice: 'Challenger and deadpan. Short declarative lines with full stops on fragments ("Chips could never.", "In olive oil."). Numbers are the punchline ("The math is brutal."). Teases the alternatives (chips, makhana, peanuts, protein bars, shakes, "regular namkeen") without naming competitor brands. Desi everyday life in English: namkeen, cutting chai, mathri, tiffin, dadi, the 3pm/4pm slump, Netflix at 11pm. Cheeky and self-aware ("Eat the whole pack. We literally don\'t care."). Gifting copy turns warm and festive.',
+  audience: 'Urban Indians 18–40: gym-goers and HYROX types, office workers fighting the 4pm slump, students, and parents packing tiffins, swapping chips, makhana and namkeen for real protein. Also companies buying Diwali gift hampers.',
+  // Provisional: taken from the logo and pack colours seen in product photos.
+  // Replace with the hex codes from PROMUNCH's brand guide (also update the
+  // matching tokens in src/index.css).
+  palette: [
+    { name: 'PROMUNCH red', hex: '#E1251B' },
+    { name: 'Ink', hex: '#141414' },
+    { name: 'Cream', hex: '#FFF8EE' },
+    { name: 'Protein yellow', hex: '#FFC72C' },
+    { name: 'Masala orange', hex: '#F26B1D' },
+    { name: 'Rock-salt blue', hex: '#1F5FBF' },
+    { name: 'Chatka purple', hex: '#6B3FA0' },
+    { name: 'Edamame green', hex: '#2E9E4F' },
+  ],
+  fonts: { display: 'Archivo Black', body: 'Assistant' },
   logoElement: 'PromunchLogo',
-  taglines: ['Hits harder than your shake.', 'Crunch happens here.', 'The math is brutal.', 'Quietly retiring your snack drawer.', 'Pick your crunch.', 'Tastes like a snack, works like a supplement.'],
-  occasions: ['Post-gym refuel', 'Desk snacking at 3pm', 'Movie night on the couch', 'Chai-time namkeen', 'On the go', 'Between meetings', 'Tiffin box', 'Sprinkled on a salad'],
+  taglines: [
+    'Chips could never.',
+    'The math is brutal.',
+    'Hits harder than your shake.',
+    'Pick your crunch.',
+    'Crunch happens here.',
+    'Your 4pm just got better.',
+    'Stop killing your cravings. Start feeding them.',
+    "We didn't reinvent namkeen. We just stopped lying about it.",
+    'Quietly retiring your snack drawer.',
+    'Makhana who?',
+    'Tastes like food, not chalk.',
+    'King of Protein Snacks.',
+  ],
+  occasions: [
+    'Post-workout: refuel the gains',
+    '3pm desk slump: desk fuel, zero crash',
+    'Movie night: couch companion',
+    'Chai time: the new namkeen',
+    'On the move: bag it and bounce',
+    'On a salad: swap the croutons',
+    'Tiffin box: lunchbox MVP',
+    'Between meetings: mind the gap',
+  ],
   offers: [
     { code: 'PROMUNCH10', text: '10% off on orders above ₹399' },
     { code: 'PROTEIN15', text: '15% off on orders above ₹499' },
   ],
   rules: [
     'Write the brand name as PROMUNCH, in capitals.',
-    'Food looks roasted and crunchy, never oily or fried.',
-    'Only use nutrition numbers and claims given in the brief.',
-    'Indian people, settings and food culture, modern and aspirational.',
+    'Food looks dry-roasted and crunchy, never oily or fried.',
+    'Only use nutrition numbers and claims from this brand kit or the brief, exactly as written.',
+    'Indian people, places and food culture: modern, young, real.',
+    'Headlines are short and punchy; a "★" eyebrow line above a headline is a house style.',
+    'Flavour colours: Himalayan Rock Salt is blue, Masala Mania is orange, Indori Chatka is purple.',
   ],
-  avoid: ['oily or deep-fried looking food', 'junk-food cues', 'misspelt brand or flavour names', 'invented nutrition numbers', 'competitor brands or logos', 'medical or weight-loss promises'],
+  avoid: ['oily or deep-fried looking food', 'misspelt brand or flavour names', 'invented nutrition numbers or prices', 'competitor brand names or logos', 'medical or disease claims (diabetes, PCOS, weight-loss promises)', 'returns or free-shipping promises'],
   products: PRODUCTS,
   jobs: JOBS,
 };

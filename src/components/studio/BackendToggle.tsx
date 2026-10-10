@@ -48,7 +48,7 @@ export function BackendToggle() {
               )}
             >
               <span
-                className={cn('h-1.5 w-1.5 rounded-full', b === 'kie' ? 'bg-sky-500' : 'bg-lime-500', !active && 'opacity-40')}
+                className={cn('h-1.5 w-1.5 rounded-full', b === 'kie' ? 'bg-brand-red' : 'bg-brand-green', !active && 'opacity-40')}
                 aria-hidden="true"
               />
               {BACKEND_LABELS[b]}

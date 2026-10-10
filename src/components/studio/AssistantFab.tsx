@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import logoMark from '@/assets/logo-mark.png';
 
 /** Floating round shortcut to the model Assistant, pinned bottom-right of the Studio. */
 export function AssistantFab({ className }: { className?: string }) {
@@ -17,7 +16,7 @@ export function AssistantFab({ className }: { className?: string }) {
         className
       )}
     >
-      <img src={logoMark} alt="" className="h-6 w-6 object-contain brightness-0 invert" />
+      <span className="font-display text-[15px] tracking-[-0.04em] text-primary-foreground" aria-hidden="true">PM</span>
     </Link>
   );
 }

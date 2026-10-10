@@ -59,7 +59,7 @@ class Bridge {
       const res = await Promise.race([
         this.request('ui/initialize', {
           protocolVersion: PROTOCOL,
-          appInfo: { name: 'oltaflock-studio', version: '2.0.0' },
+          appInfo: { name: 'promunch-studio', version: '1.0.0' },
           appCapabilities: { availableDisplayModes: ['inline', 'fullscreen'] },
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500)),

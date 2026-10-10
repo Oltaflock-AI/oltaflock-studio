@@ -1,4 +1,24 @@
-project_id = "xynnkyipiwkvbavquypo"
+# Local id only. Link the hosted PROMUNCH project with:
+#   supabase link --project-ref <promunch-project-ref>
+project_id = "promunch-studio"
+
+[auth]
+site_url = "https://studio.promunch.in"
+additional_redirect_urls = ["https://studio.promunch.in/**", "http://localhost:8080/**"]
+# Invite only: admins invite people from Settings → Team (team-admin function).
+enable_signup = false
+
+[auth.email.template.invite]
+subject = "You're invited to PROMUNCH Studio"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.magic_link]
+subject = "Your PROMUNCH Studio sign-in link"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.recovery]
+subject = "Reset your PROMUNCH Studio password"
+content_path = "./supabase/templates/recovery.html"
 
 [functions.generate]
 verify_jwt = false
@@ -31,4 +51,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.mcp]
+verify_jwt = false
+
+[functions.team-admin]
+verify_jwt = false
+
+[functions.brand-copy]
 verify_jwt = false

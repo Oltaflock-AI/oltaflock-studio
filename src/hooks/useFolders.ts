@@ -25,7 +25,8 @@ export interface FolderWithCount extends Folder {
 const TABLE = 'generation_folders' as never;
 const EMPTY: Folder[] = [];
 
-export const FOLDER_COLORS = ['#0E84D6', '#7C5CFF', '#E0567A', '#F08A24', '#1F9D6B', '#6B7280'];
+// PROMUNCH red, masala orange, protein yellow, edamame green, rock-salt blue, chatka purple.
+export const FOLDER_COLORS = ['#E1251B', '#F26B1D', '#E0A800', '#2E9E4F', '#1F5FBF', '#6B3FA0'];
 
 /** The signed-in user's library folders, with live counts from their generations. */
 export function useFolders() {

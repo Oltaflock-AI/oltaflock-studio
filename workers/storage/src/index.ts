@@ -1,5 +1,5 @@
 /**
- * oltaflock-storage — R2 gateway for Oltaflock Studio.
+ * promunch-studio-storage — R2 gateway for PROMUNCH Studio.
  *
  * Reads are NOT served here: the bucket is exposed on PUBLIC_BASE_URL (R2 custom
  * domain), which is cached and has no egress fees. This Worker only handles writes.

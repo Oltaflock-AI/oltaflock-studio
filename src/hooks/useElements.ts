@@ -53,7 +53,7 @@ export function useElements() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: key });
   const friendly = (e: { message?: string; code?: string }) =>
-    e.code === '23505' ? new Error('You already have an element with that name') : new Error(e.message ?? 'Something went wrong');
+    e.code === '23505' ? new Error('Your team already has an element with that name') : new Error(e.message ?? 'Something went wrong');
 
   const create = useMutation({
     mutationFn: async (input: ElementInput) => {

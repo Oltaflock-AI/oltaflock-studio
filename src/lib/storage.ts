@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
  * File storage for user uploads and avatars.
  *
  * When VITE_STORAGE_API_URL is set, files go to Cloudflare R2 through the
- * oltaflock-storage Worker. When it is unset, they go to Supabase Storage as
+ * storage Worker (workers/storage). When it is unset, they go to Supabase Storage as
  * before, so unsetting the variable is the rollback.
  */
 const STORAGE_API_URL = (import.meta.env.VITE_STORAGE_API_URL as string | undefined)?.replace(/\/$/, '');

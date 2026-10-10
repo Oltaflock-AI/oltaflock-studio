@@ -56,7 +56,7 @@ export function ThemeToggle() {
           variant="ghost"
           size="sm"
           aria-label="Change theme"
-          className="h-8 w-8 p-0 hover:bg-accent rounded-lg transition-smooth overflow-hidden"
+          className="h-8 w-8 p-0 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground rounded-lg transition-smooth overflow-hidden"
         >
           <AnimatePresence mode="wait">
             <motion.div

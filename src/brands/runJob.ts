@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { startGeneration } from '@/lib/startGeneration';
 import { matchFirstNote, type PlannedShot } from './compose';
-import type { BrandJob, BrandKit } from './types';
+import type { BrandJob, BrandKit, Brief } from '@brand/types.ts';
 
 /** Stored in model_params so the brand page can group a run's results. */
 export interface BrandRunMeta {
@@ -12,6 +12,9 @@ export interface BrandRunMeta {
   shot_label: string;
   shot_index: number;
   shot_total: number;
+  /** The brief's text fields, for writing captions later. */
+  brief: Record<string, string>;
+  product_id: string | null;
 }
 
 export const isBrandRun = (params: Record<string, unknown> | null | undefined, brandId: string) =>
@@ -38,6 +41,8 @@ interface RunJobInput {
   brand: BrandKit;
   job: BrandJob;
   planned: PlannedShot[];
+  brief: Brief;
+  productId?: string;
   folderId: string | null;
   /** Called once per shot as it starts (or fails to start). */
   onShot?: (index: number, result: { id?: string; error?: string }) => void;
@@ -48,8 +53,11 @@ interface RunJobInput {
  * shot to finish and get its result as an extra reference, so a carousel or
  * ad set shares one look. Resolves once every shot has been submitted.
  */
-export async function runJob({ userId, brand, job, planned, folderId, onShot }: RunJobInput): Promise<{ runId: string; ids: string[]; errors: string[] }> {
+export async function runJob({ userId, brand, job, planned, brief, productId, folderId, onShot }: RunJobInput): Promise<{ runId: string; ids: string[]; errors: string[] }> {
   const runId = crypto.randomUUID();
+  const briefText = Object.fromEntries(
+    Object.entries(brief).filter((e): e is [string, string] => typeof e[1] === 'string' && !!e[1].trim()).map(([k, v]) => [k, v.slice(0, 600)]),
+  );
   const ids: string[] = [];
   const errors: string[] = [];
 
@@ -69,6 +77,8 @@ export async function runJob({ userId, brand, job, planned, folderId, onShot }: 
       shot_label: p.shot.label,
       shot_index: p.index,
       shot_total: planned.length,
+      brief: briefText,
+      product_id: productId ?? null,
     };
     try {
       const id = await startGeneration({
@@ -122,7 +132,9 @@ export async function upscaleForPrint({ userId, sourceId, outputUrl, factor, tit
     prompt: '',
     controls: { upscale_factor: factor, 'media.images': [outputUrl] },
     extraParams: {
-      ...(params?.source === 'brand' ? { source: 'brand', brand: params.brand, job: params.job, run_id: params.run_id, shot_index: params.shot_index, shot_total: params.shot_total } : {}),
+      ...(params?.source === 'brand'
+        ? { source: 'brand', brand: params.brand, job: params.job, run_id: params.run_id, shot_index: params.shot_index, shot_total: params.shot_total, brief: params.brief, product_id: params.product_id }
+        : {}),
       shot_label: `${String(params?.shot_label ?? 'Image')} · ${factor}× for print`,
       upscaled_from: sourceId,
     },

@@ -1,4 +1,4 @@
-// Oltaflock Studio MCP server — lets Claude, ChatGPT and other MCP clients
+// PROMUNCH Studio MCP server — lets Claude, ChatGPT and other MCP clients
 // generate images/videos, read the library, and use the user's creative memory
 // and elements, all as the signed-in user.
 //
@@ -13,6 +13,8 @@ import { registerTools, type Ctx } from './tools.ts';
 import { INSTRUCTIONS, registerPrompts } from './prompts.ts';
 import { registerWidget } from './widget.ts';
 import { registerAppTools } from './app-tools.ts';
+import { APP_URL } from '../_shared/site.ts';
+import { BRAND } from '../_shared/brand/index.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
@@ -39,8 +41,8 @@ function protectedResourceMetadata(): Response {
     resource: MCP_URL,
     authorization_servers: [`${SUPABASE_URL}/auth/v1`],
     bearer_methods_supported: ['header'],
-    resource_name: 'Oltaflock Studio',
-    resource_documentation: 'https://studio.oltaflock.ai',
+    resource_name: `${BRAND.name} Studio`,
+    resource_documentation: APP_URL,
   }, { headers: corsHeaders });
 }
 
@@ -72,14 +74,14 @@ Deno.serve(async (req: Request) => {
   }
 
   const authorization = req.headers.get('Authorization') ?? '';
-  if (!authorization.toLowerCase().startsWith('bearer ')) return unauthorized('Sign in to Oltaflock Studio to continue');
+  if (!authorization.toLowerCase().startsWith('bearer ')) return unauthorized(`Sign in to ${BRAND.name} Studio to continue`);
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authorization } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data, error } = await supabase.auth.getUser();
-  if (error || !data?.user) return unauthorized('Your Oltaflock Studio session expired — reconnect the connector');
+  if (error || !data?.user) return unauthorized(`Your ${BRAND.name} Studio session expired — reconnect the connector`);
 
   const ctx: Ctx = {
     userId: data.user.id,
@@ -91,7 +93,7 @@ Deno.serve(async (req: Request) => {
   };
 
   const server = new McpServer(
-    { name: 'oltaflock-studio', title: 'Oltaflock Studio', version: '1.0.0' },
+    { name: 'promunch-studio', title: `${BRAND.name} Studio`, version: '1.0.0' },
     { instructions: INSTRUCTIONS },
   );
   registerTools(server, ctx);

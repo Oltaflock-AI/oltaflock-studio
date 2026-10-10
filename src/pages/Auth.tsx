@@ -6,21 +6,31 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ThemeToggle } from '@/components/studio/ThemeToggle';
 import { Loader2, Mail, Lock, ArrowLeft } from 'lucide-react';
-import logoMark from '@/assets/logo-mark.png';
 import { toast } from 'sonner';
+import { BrandMark } from '@/components/brand/BrandMark';
+import { BrandMarquee } from '@/components/brand/BrandMarquee';
+import { IDENTITY } from '@/brands/identity';
 import { cn } from '@/lib/utils';
 
-type AuthMode = 'password' | 'magic-link';
+type AuthMode = 'magic-link' | 'password';
 
 const inputClass =
-  'h-11 rounded-[10px] bg-muted/40 border-border pl-10 text-[13px] placeholder:text-muted-foreground/70';
-const labelClass = 'text-[11.5px] font-normal text-muted-foreground';
+  'h-11 rounded-[10px] bg-card border-border pl-10 text-[14px] placeholder:text-muted-foreground/70';
+const labelClass = 'text-[12px] font-semibold text-muted-foreground';
 const primaryBtnClass =
-  'w-full h-11 rounded-[11px] text-[13px] font-semibold shadow-[0_8px_20px_hsl(var(--primary)/0.3)] transition-[filter,transform] hover:brightness-110 active:scale-[0.98]';
+  'w-full h-11 rounded-[11px] text-[14px] font-bold uppercase tracking-[0.04em] transition-[filter,transform] hover:brightness-110 active:scale-[0.98]';
 const linkBtnClass =
-  'text-primary hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm disabled:opacity-50';
+  'font-semibold text-primary hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm disabled:opacity-50';
+
+/** Supabase's wording when an email isn't on the team, in plain words. */
+function friendly(message: string) {
+  if (/signups? not allowed|not allowed for otp|invite only|database error saving new user|user not found/i.test(message)) {
+    return `This email isn't on the ${IDENTITY.wordmark} team yet. Ask your admin for an invite.`;
+  }
+  if (/invalid login credentials/i.test(message)) return 'Wrong email or password. Try a sign-in link instead.';
+  return message;
+}
 
 function GoogleIcon() {
   return (
@@ -35,38 +45,27 @@ function GoogleIcon() {
 
 function BrandPanel() {
   return (
-    <aside
-      className="relative hidden lg:flex lg:w-1/2 max-w-[720px] shrink-0 flex-col justify-between overflow-hidden bg-[#0E2436] p-12"
-      aria-label="Oltaflock Studio"
-    >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_15%,rgba(122,196,245,0.18),transparent_55%)]"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_85%_90%,rgba(34,157,231,0.14),transparent_50%)]"
-      />
+    <aside className="relative hidden lg:flex lg:w-1/2 max-w-[760px] shrink-0 flex-col justify-between overflow-hidden bg-brand-ink text-brand-cream" aria-label={IDENTITY.appName}>
+      <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 h-[420px] w-[420px] rounded-full bg-brand-red/90" />
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 -left-20 h-[360px] w-[360px] rounded-full bg-brand-yellow/90" />
 
-      <div className="relative flex items-center gap-2.5">
-        <img src={logoMark} alt="" className="h-7 w-7 object-contain" />
-        <span className="font-serif text-[21px] font-medium text-[#F5F5F2]">Oltaflock</span>
+      <div className="relative p-12">
+        <BrandMark tone="dark" />
       </div>
 
-      <div className="relative flex max-w-[480px] flex-col gap-4">
-        <h1 className="font-serif text-[38px] font-medium leading-[1.2] text-[#F5F5F2]">
-          Every model.
+      <div className="relative flex max-w-[520px] flex-col gap-4 px-12">
+        <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-brand-yellow">★ {IDENTITY.appName}</p>
+        <h1 className="font-display text-[46px] uppercase leading-[0.98] tracking-[-0.02em]">
+          Posts, packs and posters.
           <br />
-          One canvas.
+          <span className="text-brand-yellow">No designer queue.</span>
         </h1>
-        <p className="text-sm leading-relaxed text-[#B9C7D2]">
-          Text, image and video generation from every model we use — one prompt bar, one library, one team.
+        <p className="text-[15px] leading-relaxed text-brand-cream/75">
+          Make on-brand creative with the real packs, the real claims and the PROMUNCH voice. Review it together, ship it the same day.
         </p>
       </div>
 
-      <p className="relative text-[11px] uppercase tracking-[0.14em] text-[#8FA3B0]">
-        Creative Studio · Internal use only
-      </p>
+      <BrandMarquee className="relative bg-brand-red py-3 text-[13px] text-white" />
     </aside>
   );
 }
@@ -86,15 +85,13 @@ function SentState({ message, onReset }: { message: string; onReset: () => void 
 }
 
 export default function Auth() {
-  const { user, loading, signIn, signUp, signInWithGoogle, signInWithMagicLink, resetPassword } = useAuth();
+  const { user, loading, signIn, signInWithGoogle, signInWithMagicLink, resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mode, setMode] = useState<AuthMode>('password');
-  const [magicLinkEmail, setMagicLinkEmail] = useState('');
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [mode, setMode] = useState<AuthMode>('magic-link');
+  const [linkSent, setLinkSent] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
   const [resetSent, setResetSent] = useState(false);
 
   if (loading) {
@@ -105,50 +102,29 @@ export default function Auth() {
     );
   }
 
-  if (user) {
-    return <Navigate to="/" replace />;
-  }
+  if (user) return <Navigate to="/" replace />;
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const run = async (action: () => Promise<{ error: Error | null }>, onDone?: () => void) => {
     setIsSubmitting(true);
-    const { error } = await signIn(email, password);
+    const { error } = await action();
     setIsSubmitting(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success('Signed in successfully');
-    }
+    if (error) toast.error(friendly(error.message));
+    else onDone?.();
   };
 
-  const handleSignUp = async (e: React.FormEvent | React.MouseEvent) => {
+  const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
+    run(() => signIn(email, password));
+  };
 
-    // Validate inputs before sending to Supabase
-    if (!email || !email.includes('@')) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
+  const handleMagicLink = (e: React.FormEvent) => {
+    e.preventDefault();
+    run(() => signInWithMagicLink(email), () => setLinkSent(true));
+  };
 
-    // Restrict signup to @oltaflock.ai domain only
-    if (!email.toLowerCase().endsWith('@oltaflock.ai')) {
-      toast.error('Sign up is restricted to @oltaflock.ai email addresses only');
-      return;
-    }
-
-    if (!password || password.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
-    }
-
-    setIsSubmitting(true);
-    const { error } = await signUp(email, password);
-    setIsSubmitting(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success('Account created! You are now signed in.');
-    }
+  const handleResetPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    run(() => resetPassword(email), () => setResetSent(true));
   };
 
   const handleGoogle = async () => {
@@ -156,88 +132,30 @@ export default function Auth() {
     const { error } = await signInWithGoogle();
     if (error) {
       setIsSubmitting(false);
-      toast.error(error.message);
+      toast.error(friendly(error.message));
     }
     // On success the browser redirects to Google; keep the loading state.
-  };
-
-  const handleMagicLink = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!magicLinkEmail.toLowerCase().endsWith('@oltaflock.ai')) {
-      toast.error('Magic link is restricted to @oltaflock.ai email addresses');
-      return;
-    }
-
-    setIsSubmitting(true);
-    const { error } = await signInWithMagicLink(magicLinkEmail);
-    setIsSubmitting(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      setMagicLinkSent(true);
-      toast.success('Magic link sent! Check your email.');
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!resetEmail || !resetEmail.includes('@')) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
-
-    setIsSubmitting(true);
-    const { error } = await resetPassword(resetEmail);
-    setIsSubmitting(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      setResetSent(true);
-      toast.success('Password reset email sent! Check your inbox.');
-    }
-  };
-
-  const switchMode = (next: AuthMode) => {
-    // Carry the typed email across so users don't have to re-enter it.
-    if (next === 'magic-link' && !magicLinkEmail && email) setMagicLinkEmail(email);
-    if (next === 'password' && !email && magicLinkEmail) setEmail(magicLinkEmail);
-    setMode(next);
-  };
-
-  const openResetPassword = () => {
-    if (!resetEmail && email) setResetEmail(email);
-    setShowResetPassword(true);
-  };
-
-  const closeResetPassword = () => {
-    setShowResetPassword(false);
-    setResetSent(false);
-    setResetEmail('');
   };
 
   const submitLabel = (label: string) =>
     isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" aria-label="Working" /> : label;
 
-  const googleButton = (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={handleGoogle}
-      disabled={isSubmitting}
-      className="h-11 w-full gap-2.5 rounded-[11px] border-border bg-muted/50 text-[13px] font-medium hover:bg-muted transition-[filter,transform,background-color] active:scale-[0.98]"
-    >
-      <GoogleIcon />
-      Continue with Google
-    </Button>
-  );
-
-  const divider = (
-    <div className="flex items-center gap-3" aria-hidden="true">
-      <div className="h-px flex-1 bg-border" />
-      <span className="text-[11px] text-muted-foreground">or</span>
-      <div className="h-px flex-1 bg-border" />
+  const emailField = (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor="email" className={labelClass}>Work email</Label>
+      <div className="relative">
+        <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input
+          id="email"
+          type="email"
+          autoComplete="email"
+          placeholder="you@promunch.in"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className={inputClass}
+          required
+        />
+      </div>
     </div>
   );
 
@@ -249,166 +167,96 @@ export default function Auth() {
         <div className="flex flex-col gap-1">
           <button
             type="button"
-            onClick={closeResetPassword}
+            onClick={() => { setShowResetPassword(false); setResetSent(false); }}
             className="mb-3 -ml-1 inline-flex w-fit items-center gap-1.5 rounded-md px-1 py-0.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             Back to sign in
           </button>
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-primary">Account recovery</p>
-          <h2 className="font-serif text-2xl font-medium">Reset password</h2>
-          <p className="text-[12.5px] text-muted-foreground">
-            Enter your email to receive a password reset link
-          </p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">★ Account recovery</p>
+          <h2 className="font-display text-[26px] uppercase leading-tight">Reset password</h2>
+          <p className="text-[13px] text-muted-foreground">We'll email you a link to set a new one.</p>
         </div>
-
         {resetSent ? (
-          <SentState message="Check your email for the password reset link" onReset={() => setResetSent(false)} />
+          <SentState message="Check your email for the reset link." onReset={() => setResetSent(false)} />
         ) : (
           <form onSubmit={handleResetPassword} className="flex flex-col gap-5">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="reset-email" className={labelClass}>Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                <Input
-                  id="reset-email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@oltaflock.ai"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  className={inputClass}
-                  required
-                />
-              </div>
-            </div>
-            <Button type="submit" className={primaryBtnClass} disabled={isSubmitting}>
-              {submitLabel('Send reset link')}
-            </Button>
+            {emailField}
+            <Button type="submit" className={primaryBtnClass} disabled={isSubmitting}>{submitLabel('Send reset link')}</Button>
           </form>
         )}
-      </>
-    );
-  } else if (mode === 'magic-link') {
-    formContent = (
-      <>
-        <div className="flex flex-col gap-1">
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-primary">Passwordless</p>
-          <h2 className="font-serif text-2xl font-medium">Sign in with a magic link</h2>
-          <p className="text-[12.5px] text-muted-foreground">
-            We'll email a one-time sign-in link to your @oltaflock.ai address
-          </p>
-        </div>
-
-        {googleButton}
-        {divider}
-
-        {magicLinkSent ? (
-          <SentState message="Check your email for the magic link" onReset={() => setMagicLinkSent(false)} />
-        ) : (
-          <form onSubmit={handleMagicLink} className="flex flex-col gap-5">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="magic-email" className={labelClass}>Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                <Input
-                  id="magic-email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@oltaflock.ai"
-                  value={magicLinkEmail}
-                  onChange={(e) => setMagicLinkEmail(e.target.value)}
-                  className={inputClass}
-                  required
-                />
-              </div>
-            </div>
-            <Button type="submit" className={primaryBtnClass} disabled={isSubmitting}>
-              {submitLabel('Send magic link')}
-            </Button>
-          </form>
-        )}
-
-        <p className="text-center text-[11.5px] text-muted-foreground">
-          or{' '}
-          <button type="button" onClick={() => switchMode('password')} className={linkBtnClass}>
-            sign in with a password instead
-          </button>
-        </p>
       </>
     );
   } else {
     formContent = (
       <>
         <div className="flex flex-col gap-1">
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-primary">Creative Studio</p>
-          <h2 className="font-serif text-2xl font-medium">Welcome back</h2>
-          <p className="text-[12.5px] text-muted-foreground">Sign in with your @oltaflock.ai account</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">★ Team only</p>
+          <h2 className="font-display text-[30px] uppercase leading-[1.02]">Welcome back, muncher.</h2>
+          <p className="text-[13px] text-muted-foreground">Sign in with the email your {IDENTITY.wordmark} admin invited.</p>
         </div>
 
-        {googleButton}
-        {divider}
+        {mode === 'magic-link' && linkSent ? (
+          <SentState message={`Check ${email || 'your inbox'} for a sign-in link.`} onReset={() => setLinkSent(false)} />
+        ) : (
+          <form onSubmit={mode === 'magic-link' ? handleMagicLink : handleSignIn} className="flex flex-col gap-5">
+            {emailField}
+            {mode === 'password' && (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className={labelClass}>Password</Label>
+                  <button type="button" onClick={() => setShowResetPassword(true)} className={cn(linkBtnClass, 'text-[11.5px]')}>
+                    Forgot password?
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={inputClass}
+                    required
+                    minLength={6}
+                  />
+                </div>
+              </div>
+            )}
+            <Button type="submit" className={primaryBtnClass} disabled={isSubmitting}>
+              {submitLabel(mode === 'magic-link' ? 'Email me a sign-in link' : 'Sign in')}
+            </Button>
+          </form>
+        )}
 
-        <form onSubmit={handleSignIn} className="flex flex-col gap-5">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="email" className={labelClass}>Email</Label>
-            <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@oltaflock.ai"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={inputClass}
-                required
-              />
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password" className={labelClass}>Password</Label>
-              <button type="button" onClick={openResetPassword} className={cn(linkBtnClass, 'text-[11px]')}>
-                Forgot password?
-              </button>
-            </div>
-            <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={inputClass}
-                required
-                minLength={6}
-              />
-            </div>
-          </div>
-          <Button type="submit" className={primaryBtnClass} disabled={isSubmitting}>
-            {submitLabel('Sign in')}
-          </Button>
-        </form>
-
-        <p className="text-center text-[11.5px] text-muted-foreground">
+        <p className="text-center text-[12px] text-muted-foreground">
           or{' '}
-          <button type="button" onClick={() => switchMode('magic-link')} className={linkBtnClass}>
-            send me a magic link instead
+          <button type="button" onClick={() => setMode(mode === 'magic-link' ? 'password' : 'magic-link')} className={linkBtnClass}>
+            {mode === 'magic-link' ? 'use a password instead' : 'email me a link instead'}
           </button>
         </p>
 
-        <div className="h-px bg-border" aria-hidden="true" />
+        <div className="flex items-center gap-3" aria-hidden="true">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-[11px] text-muted-foreground">or</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
 
-        <p className="text-center text-[11.5px] leading-relaxed text-muted-foreground">
-          New here? Sign up is restricted to{' '}
-          <span className="font-semibold text-foreground/80">@oltaflock.ai</span> addresses. Enter your email and a
-          password above, then{' '}
-          <button type="button" onClick={handleSignUp} disabled={isSubmitting} className={linkBtnClass}>
-            create an account
-          </button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleGoogle}
+          disabled={isSubmitting}
+          className="h-11 w-full gap-2.5 rounded-[11px] border-border bg-card text-[13.5px] font-semibold hover:bg-muted active:scale-[0.98]"
+        >
+          <GoogleIcon />
+          Continue with Google
+        </Button>
+
+        <p className="text-center text-[12px] leading-relaxed text-muted-foreground">
+          New to the team? {IDENTITY.appName} is invite only. Ask an admin to invite you from Settings → Team.
         </p>
       </>
     );
@@ -417,18 +265,8 @@ export default function Auth() {
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <BrandPanel />
-
       <main className="relative flex flex-1 flex-col items-center justify-center px-4 py-16 sm:px-8">
-        <div className="absolute right-4 top-4 sm:right-8 sm:top-7">
-          <ThemeToggle />
-        </div>
-
-        {/* Compact brand mark when the brand panel is collapsed */}
-        <div className="mb-10 flex items-center gap-2.5 lg:hidden">
-          <img src={logoMark} alt="" className="h-7 w-7 object-contain" />
-          <span className="font-serif text-xl font-medium">Oltaflock</span>
-        </div>
-
+        <div className="mb-10 lg:hidden"><BrandMark /></div>
         <motion.div
           key={showResetPassword ? 'reset' : mode}
           variants={scaleIn}
@@ -438,8 +276,9 @@ export default function Auth() {
         >
           {formContent}
         </motion.div>
-
-        <p className="mt-10 text-center text-[11px] text-muted-foreground">Authorized personnel only</p>
+        <p className="mt-10 text-center text-[11.5px] text-muted-foreground">
+          Trouble signing in? Write to <a href={`mailto:${IDENTITY.supportEmail}`} className="font-semibold text-foreground/80 hover:underline">{IDENTITY.supportEmail}</a>
+        </p>
       </main>
     </div>
   );

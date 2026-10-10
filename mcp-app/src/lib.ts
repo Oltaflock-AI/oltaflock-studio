@@ -30,18 +30,18 @@ export interface ModelSummary {
 
 export const isPending = (g: Generation) => g.status === 'queued' || g.status === 'running';
 
-const CDN = 'https://cdn.oltaflock.ai/';
+const CDN = 'https://studio-cdn.promunch.in/';
 /** Resized JPEG from the storage Worker for images in our bucket; the original otherwise. */
 export function previewUrl(url: string | null, width: number): string {
   if (!url) return '';
-  return url.startsWith(CDN) ? `https://storage-api.oltaflock.ai/preview/${url.slice(CDN.length)}?w=${width}` : url;
+  return url.startsWith(CDN) ? `https://studio-storage.promunch.in/preview/${url.slice(CDN.length)}?w=${width}` : url;
 }
 
 export const titleOf = (g: Pick<Generation, 'title' | 'prompt'>) => g.title?.trim() || g.prompt?.trim().slice(0, 60) || 'Untitled';
 
 export function fileNameOf(g: Generation) {
   const ext = g.output_url?.split('?')[0].split('.').pop() || (g.type === 'video' ? 'mp4' : 'png');
-  return `${titleOf(g).replace(/[^\w\- ]+/g, '').trim().slice(0, 60) || 'oltaflock'}.${ext}`;
+  return `${titleOf(g).replace(/[^\w\- ]+/g, '').trim().slice(0, 60) || 'promunch'}.${ext}`;
 }
 
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;

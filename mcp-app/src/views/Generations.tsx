@@ -16,7 +16,7 @@ export function GenerationsView({ initial }: { initial: Generation[] }) {
   const add = (g: Generation) => setItems((list) => [g, ...list]);
 
   const pick = async (g: Generation, i: number) => {
-    const text = `I pick #${i + 1}: “${titleOf(g)}” (Oltaflock generation ${g.id}, ${g.output_url}).`;
+    const text = `I pick #${i + 1}: “${titleOf(g)}” (PROMUNCH Studio generation ${g.id}, ${g.output_url}).`;
     host.updateContext(text, { picked_generation_id: g.id });
     try { await host.sendMessage(text); } catch (e) { toast(e instanceof Error ? e.message : String(e), 'error'); }
   };

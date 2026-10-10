@@ -1,5 +1,5 @@
 // Copies a generated output from the provider's (temporary) URL into R2 via the
-// oltaflock-storage Worker. Fail-open: returns null when unconfigured or on any
+// storage Worker. Fail-open: returns null when unconfigured or on any
 // error, and the caller keeps the original URL.
 export async function persistOutput(
   outputUrl: string,

@@ -6,6 +6,7 @@ import { fieldValue, mediaValue, visibleFields, visibleMedia } from '../catalog/
 import { USE_CASES } from '../catalog/use-cases.ts';
 import { CORE_RULES, FAMILY_GUIDES, USE_CASE_GUIDES, MODE_RULES } from './knowledge.ts';
 import { fetchMemories, memoryBlock } from '../memory.ts';
+import { BRAND, brandContext } from '../brand/index.ts';
 
 const PRIMARY_MODEL = Deno.env.get('BRAIN_MODEL') || 'claude-sonnet-5';
 const FALLBACK_MODEL = 'claude-sonnet-4-20250514';
@@ -147,7 +148,8 @@ export async function optimizePrompt(input: BrainInput): Promise<BrainResult | n
   const [examples, memories] = supabase && userId
     ? await Promise.all([fetchRatedExamples(supabase, userId, spec), fetchMemories(supabase, userId, 40)])
     : ['', []];
-  const system = buildSystemPrompt(spec, useCase, controls, examples + memoryBlock(memories));
+  // Every prompt in PROMUNCH Studio is for PROMUNCH, so the brain always knows the brand.
+  const system = buildSystemPrompt(spec, useCase, controls, `${examples}${memoryBlock(memories)}\n\n${brandContext(BRAND)}`);
 
   const direction = prompt.trim()
     ? `User's idea:\n"""${prompt.trim()}"""`

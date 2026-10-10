@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Check, ChevronDown, Copy, ExternalLink, Plus, Sparkles } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
@@ -7,7 +6,8 @@ import { ElementDialog } from '@/components/elements/ElementDialog';
 import { BriefDialog } from '@/components/brand/BriefDialog';
 import { JobCover } from '@/components/brand/JobCover';
 import { RecentRuns } from '@/components/brand/RecentRuns';
-import { ACTIVE_BRAND, JOB_CATEGORIES, type BrandJob, type BrandKit, type BrandProduct, type JobCategory } from '@/brands';
+import { CampaignCalendar } from '@/components/brand/CampaignCalendar';
+import { BRAND, JOB_CATEGORIES, type BrandJob, type BrandKit, type BrandProduct, type Brief, type CampaignIdea, type JobCategory } from '@/brands';
 import { useBrandAssets } from '@/brands/useBrandAssets';
 import { cn } from '@/lib/utils';
 
@@ -15,13 +15,21 @@ type Filter = JobCategory | 'all';
 
 /** The brand workspace: pick a job, fill in a short brief, get on-brand work. */
 export default function BrandStudio() {
-  if (!ACTIVE_BRAND) return <Navigate to="/" replace />;
-  return <Workspace brand={ACTIVE_BRAND} />;
+  return <Workspace brand={BRAND} />;
 }
 
 function Workspace({ brand }: { brand: BrandKit }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [openJob, setOpenJob] = useState<BrandJob | null>(null);
+  const [preset, setPreset] = useState<{ brief?: Brief; productId?: string } | null>(null);
+  const open = (job: BrandJob, withPreset: { brief?: Brief; productId?: string } | null = null) => {
+    setPreset(withPreset);
+    setOpenJob(job);
+  };
+  const openIdea = (idea: CampaignIdea) => {
+    const job = brand.jobs.find((j) => j.id === idea.jobId);
+    if (job) open(job, { brief: idea.brief, productId: idea.productId });
+  };
   // A product to add pack shots for; null is the logo; undefined is closed.
   const [adding, setAdding] = useState<BrandProduct | null | undefined>(undefined);
 
@@ -48,6 +56,8 @@ function Workspace({ brand }: { brand: BrandKit }) {
         </header>
 
         <BrandSetup brand={brand} onAdd={setAdding} />
+
+        <CampaignCalendar brand={brand} onIdea={openIdea} />
 
         <section className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -79,7 +89,7 @@ function Workspace({ brand }: { brand: BrandKit }) {
                   <span className="font-normal text-muted-foreground">{c.blurb}</span>
                 </h3>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                  {jobs.map((j) => <JobCard key={j.id} job={j} onOpen={() => setOpenJob(j)} />)}
+                  {jobs.map((j) => <JobCard key={j.id} job={j} onOpen={() => open(j)} />)}
                 </div>
               </div>
             );
@@ -97,6 +107,7 @@ function Workspace({ brand }: { brand: BrandKit }) {
       <BriefDialog
         brand={brand}
         job={openJob}
+        preset={preset}
         onOpenChange={(o) => !o && setOpenJob(null)}
         onAddPackShot={setAdding}
         onStarted={() => document.getElementById('brand-recent')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}

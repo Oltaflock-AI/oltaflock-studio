@@ -228,12 +228,12 @@ export function attachReferences(
 
 /** Outside the Studio, offer a jump back to it (client-side, keeping the composer state). */
 function studioAction() {
-  if (window.location.pathname === '/') return undefined;
+  if (window.location.pathname === '/create') return undefined;
   return {
     action: {
       label: 'Open Studio',
       onClick: () => {
-        window.history.pushState({}, '', '/');
+        window.history.pushState({}, '', '/create');
         window.dispatchEvent(new PopStateEvent('popstate'));
       },
     },

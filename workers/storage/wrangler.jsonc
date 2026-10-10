@@ -1,19 +1,19 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "oltaflock-storage",
+  "name": "promunch-studio-storage",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "images": { "binding": "IMAGES" },
   "r2_buckets": [
-    { "binding": "BUCKET", "bucket_name": "oltaflock-studio" }
+    { "binding": "BUCKET", "bucket_name": "promunch-studio" }
   ],
   "routes": [
-    { "pattern": "storage-api.oltaflock.ai", "custom_domain": true }
+    { "pattern": "studio-storage.promunch.in", "custom_domain": true }
   ],
   "vars": {
-    "SUPABASE_URL": "https://xynnkyipiwkvbavquypo.supabase.co",
-    "PUBLIC_BASE_URL": "https://cdn.oltaflock.ai",
-    "ALLOWED_ORIGINS": "https://studio.oltaflock.ai,http://localhost:8080"
+    "SUPABASE_URL": "https://YOUR-PROMUNCH-PROJECT-REF.supabase.co",
+    "PUBLIC_BASE_URL": "https://studio-cdn.promunch.in",
+    "ALLOWED_ORIGINS": "https://studio.promunch.in,http://localhost:8080"
   }
   // Secrets (wrangler secret put): SUPABASE_ANON_KEY, INGEST_SECRET
 }

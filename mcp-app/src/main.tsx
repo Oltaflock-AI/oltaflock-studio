@@ -53,7 +53,7 @@ function App() {
   const full = host.displayMode === 'fullscreen';
 
   let body;
-  if (!result) body = <div className="loading"><Spinner /> {ready ? 'Waiting for Oltaflock Studio…' : 'Connecting…'}</div>;
+  if (!result) body = <div className="loading"><Spinner /> {ready ? 'Waiting for PROMUNCH Studio…' : 'Connecting…'}</div>;
   else if (result.isError) body = <Empty><span className="danger-text">{errorText(result)}</span></Empty>;
   else if (top?.kind === 'composer') body = <ComposerView key={stack.length} prefill={top.prefill as ComposerPrefill} />;
   else if (top?.kind === 'library') body = <LibraryView key={stack.length} filters={top.filters as never} />;
@@ -65,7 +65,7 @@ function App() {
         <header className="bar-top">
           {stack.length > 0
             ? <button type="button" className="link" onClick={nav.pop}><ChevronLeft width={14} height={14} /> Back</button>
-            : <span className="brand"><img src={LOGO_DATA_URI} alt="" />Oltaflock Studio</span>}
+            : <span className="brand"><img src={LOGO_DATA_URI} alt="" />PROMUNCH Studio</span>}
           <span className="grow" />
           {host.canFullscreen && (
             <button type="button" className="link" onClick={() => host.setDisplayMode(full ? 'inline' : 'fullscreen')}>

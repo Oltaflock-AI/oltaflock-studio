@@ -118,7 +118,7 @@ export function LibraryView({ filters }: { filters?: { folder_id?: string; type?
         <div className="selection-bar">
           <span><b>{selected.size}</b> selected</span>
           <span className="grow" />
-          <button type="button" className="btn primary sm" disabled={!!busy} onClick={() => send('Use these from my Oltaflock library as references for what we make next:')}>
+          <button type="button" className="btn primary sm" disabled={!!busy} onClick={() => send('Use these from my PROMUNCH Studio library as references for what we make next:')}>
             <MessageSquarePlus width={13} height={13} /> Use in chat
           </button>
           {picked.some((g) => g.type === 'image') && (

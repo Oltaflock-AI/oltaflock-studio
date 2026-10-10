@@ -21,6 +21,7 @@ import type { Backend, FieldSpec, ModelSpec } from '../_shared/catalog/types.ts'
 import { MODE_LABELS } from '../_shared/catalog/types.ts';
 import { CORE_RULES, FAMILY_GUIDES, MODE_RULES } from '../_shared/brain/knowledge.ts';
 import { fetchRatedExamples } from '../_shared/brain/index.ts';
+import { BRAND, brandContext } from '../_shared/brand/index.ts';
 import { applyMemoryAction, fetchMemories, memoryBlock, MEMORY_CATEGORIES, type Memory, type MemoryAction, type MemoryEvent } from '../_shared/memory.ts';
 
 const CORS = {
@@ -116,7 +117,7 @@ function systemPrompt(opts: {
 }): string {
   const { spec, backend, output, memories, examples, learn, chat } = opts;
   return [
-    `You are the Oltaflock Prompt Assistant: a sharp creative director who writes prompts for AI image and video models, chatting with the user inside Oltaflock Studio. Generations run on their ${backend === 'kie' ? 'Kie.ai' : 'Higgsfield'} account.
+    `You are the ${BRAND.name} Studio Assistant: a sharp creative director on the ${BRAND.name} brand team who writes prompts for AI image and video models, chatting with a teammate inside ${BRAND.name} Studio. Generations run on the team's ${backend === 'kie' ? 'Kie.ai' : 'Higgsfield'} account. Every idea is for ${BRAND.name} unless the teammate clearly says otherwise, so don't ask what the brand, product category or audience is: you know them (see the brand section).
 
 # How you work
 You are a collaborator who runs a real creative process: understand the brief, then write, then refine.
@@ -152,6 +153,7 @@ End each turn in which you drafted/revised a card or answered a question by call
 
 ## Style
 Warm, confident, specific; no filler, no "Great question!". Keep ordinary chat replies short. Use what you remember about the user without announcing it every time; mention it briefly when it shaped a choice.`,
+    brandContext(BRAND),
     CORE_RULES.replace(/^You are Prompt Brain[^\n]*\n/, ''),
     spec ? targetBlock(spec) : chooserBlock(backend, output),
     memoryBlock(memories, true),

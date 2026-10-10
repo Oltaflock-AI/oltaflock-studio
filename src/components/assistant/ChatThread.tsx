@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 import { useMemories, type Attachment, type AssistantMessage, type AssistantStatus, type BriefQuestion, type MemoryEvent, type PromptCard } from '@/hooks/useAssistant';
 import { BriefForm } from '@/components/assistant/BriefForm';
 import { cn } from '@/lib/utils';
-import logoMark from '@/assets/logo-mark.png';
 
 /** Light formatting for chat text: paragraphs, headings, bullet and numbered lists, **bold** and *italic*. */
 function RichText({ text }: { text: string }) {
@@ -150,8 +149,8 @@ function Attachments({ items }: { items: Attachment[] }) {
 
 function AssistantAvatar() {
   return (
-    <span className="mt-0.5 h-8 w-8 shrink-0 rounded-full bg-foreground ring-4 ring-background flex items-center justify-center shadow-[0_2px_8px_-2px_hsl(240_10%_10%/0.35)]">
-      <img src={logoMark} alt="" className="h-4 w-4 object-contain brightness-0 invert dark:invert-0" />
+    <span className="mt-0.5 h-8 w-8 shrink-0 rounded-full bg-primary ring-4 ring-background flex items-center justify-center font-display text-[11px] tracking-[-0.04em] text-primary-foreground" aria-hidden="true">
+      PM
     </span>
   );
 }

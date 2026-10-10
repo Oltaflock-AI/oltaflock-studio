@@ -4,7 +4,8 @@ const corsHeaders = {
 };
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!;
-const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'Oltaflock Studio <studio@oltaflock.ai>';
+const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'PROMUNCH Studio <studio@promunch.in>';
+const APP_URL = (Deno.env.get('SITE_URL') || 'https://studio.promunch.in').replace(/\/$/, '');
 
 interface EmailRequest {
   to: string | string[];
@@ -14,68 +15,61 @@ interface EmailRequest {
   replyTo?: string;
 }
 
+// PROMUNCH layout: ink header with the wordmark, cream body, red button.
+const FONT = "'Assistant', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+const button = (href: string, label: string) =>
+  `<a href="${href}" style="display: inline-block; background: #E1251B; color: #fff; padding: 13px 26px; border-radius: 10px; text-decoration: none; font-size: 14px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;">${label}</a>`;
+const p = (html: string) => `<p style="color: #3d3a36; font-size: 15px; line-height: 1.6; margin: 0 0 14px;">${html}</p>`;
+const layout = (title: string, body: string) => `
+  <div style="background: #FFF8EE; padding: 32px 12px; font-family: ${FONT};">
+    <div style="max-width: 560px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; border: 1px solid #efe4d3;">
+      <div style="background: #141414; padding: 22px 28px;">
+        <div style="font-family: 'Archivo Black', ${FONT}; font-size: 24px; color: #FFF8EE; letter-spacing: -0.02em;">PROMUNCH</div>
+        <div style="font-size: 10px; font-weight: 800; letter-spacing: .22em; color: #E1251B; text-transform: uppercase; margin-top: 4px;">Your munchy pal · Studio</div>
+      </div>
+      <div style="padding: 30px 28px;">
+        <h1 style="font-family: 'Archivo Black', ${FONT}; font-size: 24px; color: #141414; margin: 0 0 16px; text-transform: uppercase; letter-spacing: -0.01em;">${title}</h1>
+        ${body}
+      </div>
+    </div>
+    <p style="max-width: 560px; margin: 16px auto 0; color: #8a8278; font-size: 12px; text-align: center;">PROMUNCH Studio · for the PROMUNCH team only</p>
+  </div>`;
+
 // Email templates
 const templates = {
   welcome: (name: string) => ({
-    subject: 'Welcome to Oltaflock Creative Studio',
-    html: `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 40px 20px;">
-        <h1 style="font-size: 24px; font-weight: 600; color: #111; margin-bottom: 8px;">Welcome to Oltaflock Creative Studio</h1>
-        <p style="color: #555; font-size: 15px; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #555; font-size: 15px; line-height: 1.6;">Your account has been created and you've been granted <strong>1,000 credits</strong> to get started.</p>
-        <p style="color: #555; font-size: 15px; line-height: 1.6;">You can generate images and videos using our AI models. Each generation costs a certain number of credits based on the model and settings you choose.</p>
-        <div style="margin: 32px 0;">
-          <a href="https://studio.oltaflock.ai" style="background: #111; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500;">Open Studio</a>
-        </div>
-        <p style="color: #999; font-size: 13px;">For internal use only. Do not share access credentials.</p>
-      </div>
-    `,
+    subject: "You're in: PROMUNCH Studio",
+    html: layout(`Welcome, ${name}`, [
+      p("You're on the PROMUNCH Studio team. Make posts, posters, pack ideas and reels with the real packs and the brand rules built in."),
+      p('Start from Home: pick a job, fill in the brief, and send it for review when it looks right.'),
+      `<div style="margin: 26px 0 8px;">${button(`${APP_URL}/`, 'Open PROMUNCH Studio')}</div>`,
+    ].join('')),
   }),
 
   generation_complete: (name: string, model: string, outputUrl: string) => ({
-    subject: `Your ${model} generation is ready`,
-    html: `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 40px 20px;">
-        <h1 style="font-size: 24px; font-weight: 600; color: #111; margin-bottom: 8px;">Generation Complete</h1>
-        <p style="color: #555; font-size: 15px; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #555; font-size: 15px; line-height: 1.6;">Your <strong>${model}</strong> generation is ready.</p>
-        <div style="margin: 24px 0;">
-          <img src="${outputUrl}" alt="Generated output" style="max-width: 100%; border-radius: 12px; border: 1px solid #eee;" />
-        </div>
-        <div style="margin: 32px 0;">
-          <a href="${outputUrl}" style="background: #111; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500;">View Output</a>
-        </div>
-        <p style="color: #999; font-size: 13px;">Oltaflock Creative Studio</p>
-      </div>
-    `,
+    subject: `Ready: your ${model} result`,
+    html: layout('It\'s ready', [
+      p(`Hi ${name}, your <strong>${model}</strong> result is done.`),
+      `<div style="margin: 20px 0;"><img src="${outputUrl}" alt="Your result" style="max-width: 100%; border-radius: 12px; border: 1px solid #efe4d3;" /></div>`,
+      `<div style="margin: 24px 0 8px;">${button(outputUrl, 'View it')}</div>`,
+    ].join('')),
   }),
 
   low_credits: (name: string, balance: number) => ({
-    subject: 'Low credit balance - Oltaflock Studio',
-    html: `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 40px 20px;">
-        <h1 style="font-size: 24px; font-weight: 600; color: #111; margin-bottom: 8px;">Low Credit Balance</h1>
-        <p style="color: #555; font-size: 15px; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #555; font-size: 15px; line-height: 1.6;">Your Oltaflock Studio credit balance is down to <strong>${balance} credits</strong>.</p>
-        <p style="color: #555; font-size: 15px; line-height: 1.6;">Please contact your admin to get more credits added to your account.</p>
-        <p style="color: #999; font-size: 13px;">Oltaflock Creative Studio</p>
-      </div>
-    `,
+    subject: 'Credits running low · PROMUNCH Studio',
+    html: layout('Credits running low', [
+      p(`Hi ${name}, the team's balance is down to <strong>${balance} credits</strong>.`),
+      p('Ask your admin to top up the Kie.ai account so the team can keep making.'),
+    ].join('')),
   }),
 
   password_reset: (name: string, resetLink: string) => ({
-    subject: 'Reset your password - Oltaflock Studio',
-    html: `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 40px 20px;">
-        <h1 style="font-size: 24px; font-weight: 600; color: #111; margin-bottom: 8px;">Reset Your Password</h1>
-        <p style="color: #555; font-size: 15px; line-height: 1.6;">Hi ${name},</p>
-        <p style="color: #555; font-size: 15px; line-height: 1.6;">Click the button below to reset your password.</p>
-        <div style="margin: 32px 0;">
-          <a href="${resetLink}" style="background: #111; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500;">Reset Password</a>
-        </div>
-        <p style="color: #999; font-size: 13px;">If you didn't request this, ignore this email. This link expires in 1 hour.</p>
-      </div>
-    `,
+    subject: 'Reset your password · PROMUNCH Studio',
+    html: layout('Reset your password', [
+      p(`Hi ${name}, use the button below to set a new password.`),
+      `<div style="margin: 24px 0 14px;">${button(resetLink, 'Reset password')}</div>`,
+      p('<span style="color: #8a8278; font-size: 13px;">Didn\'t ask for this? Ignore this email. The link expires in 1 hour.</span>'),
+    ].join('')),
   }),
 };
 

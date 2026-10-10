@@ -13,7 +13,7 @@ import { applyLibraryItem } from '@/components/studio/applyLibraryItem';
 import { STUDIO_EYEBROW, STUDIO_MEDIA_CARD } from '@/components/layout/studioSurface';
 import { cn } from '@/lib/utils';
 import type { LibraryItem } from '@/types/library';
-import logoMark from '@/assets/logo-mark.png';
+import { BrandBadge } from '@/components/brand/BrandMark';
 
 const STEPS = [
   { num: '1', title: 'Choose a model', detail: 'Kling, Seedance, Grok, Flux and more.' },
@@ -57,12 +57,12 @@ export function StudioOnboarding() {
       className="min-h-full flex flex-col items-center justify-center gap-7 px-6 py-10 text-center"
     >
       <motion.div variants={staggerItem} className="flex flex-col items-center gap-2">
-        <img src={logoMark} alt="" className="h-[38px] w-[38px] object-contain mb-1.5" />
-        <h2 className="font-serif font-medium text-[30px] leading-tight">
-          {firstName ? `Welcome to Oltaflock, ${firstName}` : 'Welcome to Oltaflock'}
+        <BrandBadge className="mb-1.5" />
+        <h2 className="font-serif text-[28px] uppercase leading-tight">
+          {firstName ? `Let's make something, ${firstName}` : "Let's make something"}
         </h2>
         <p className="text-[13.5px] text-muted-foreground">
-          Let&apos;s make your first generation — pick a starting point or jump straight in.
+          This is Create: any model, any idea. For ready-made PROMUNCH posts, posters and packs, start from Home.
         </p>
       </motion.div>
 

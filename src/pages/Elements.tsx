@@ -12,9 +12,9 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const IDEAS = [
-  { name: 'Peanut', kind: 'Character', text: 'Your mascot, pet or recurring model, the same face every time.' },
-  { name: 'CrunchyBag', kind: 'Product', text: 'A pack shot that has to look exactly right in every ad.' },
-  { name: 'Logo', kind: 'Logo', text: 'Your brand mark, ready to drop into any scene.' },
+  { name: 'MasalaMania', kind: 'Product', text: 'A clear front photo of the pouch, so every ad shows the real pack.' },
+  { name: 'PromunchLogo', kind: 'Logo', text: 'The PROMUNCH logo, ready to drop into any design.' },
+  { name: 'DiwaliHamper', kind: 'Product', text: 'The gift box, for festive posts and corporate gifting decks.' },
 ];
 
 /** Reusable references: name them once, then "@Name" in any prompt. */
@@ -31,7 +31,7 @@ export default function Elements() {
     const prompt = store.rawPrompt.trim();
     store.setRawPrompt(prompt ? `${prompt} @${e.name} ` : `@${e.name} `);
     referenceElement(e, { quiet: true });
-    navigate('/');
+    navigate('/create');
     toast.success(`@${e.name} is in your prompt`, { description: 'Its images are attached as references.' });
   };
 
@@ -54,9 +54,9 @@ export default function Elements() {
       <div className="flex w-full flex-col gap-5 px-4 pb-10 pt-5 sm:px-5">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="font-serif text-[28px] font-medium leading-tight">Elements</h1>
+            <h1 className="font-serif text-[28px] font-medium leading-tight">Packs & assets</h1>
             <p className="mt-0.5 text-[13px] text-muted-foreground">
-              Characters, products and logos you reuse. Type <span className="font-mono text-foreground">@Name</span> in any prompt to bring one in.
+              The team's shared pack shots, logo and recurring faces. Type <span className="font-mono text-foreground">@Name</span> in any prompt to bring one in.
             </p>
           </div>
           <button

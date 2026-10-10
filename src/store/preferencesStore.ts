@@ -73,7 +73,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       setNotificationSound: (notificationSound) => set({ notificationSound }),
     }),
     {
-      name: 'oltaflock-preferences',
+      name: 'promunch-studio-preferences',
       partialize: (state) => ({
         theme: state.theme,
         defaultMode: state.defaultMode,

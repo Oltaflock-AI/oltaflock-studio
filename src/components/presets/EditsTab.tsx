@@ -42,7 +42,7 @@ export function EditsTab({ tabs }: { tabs: React.ReactNode }) {
 
   const use = (edit: PhotoEdit, choice?: string) => {
     // Go first so the toast knows we're in the Studio and skips its "Open Studio" button.
-    navigate('/');
+    navigate('/create');
     applyPhotoEdit(edit, { choice });
   };
 

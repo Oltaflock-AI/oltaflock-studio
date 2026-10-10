@@ -11,7 +11,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   technical: 'Technical defaults', dislike: 'Dislikes', workflow: 'Workflow',
 };
 
-/** What Oltaflock remembers (memory) and the saved references (elements), editable in place. */
+/** What PROMUNCH Studio remembers (memory) and the saved references (elements), editable in place. */
 export function MemoryView({ tab: initialTab, categories }: { tab: 'memory' | 'elements'; categories: string[] }) {
   const [tab, setTab] = useState(initialTab);
   return (

@@ -73,7 +73,7 @@ export function StylesTab() {
         ? 'Added to every video you generate until you clear it.'
         : 'Added to everything you generate until you clear it.',
     });
-    navigate('/');
+    navigate('/create');
   };
 
   const stop = () => {
@@ -175,7 +175,7 @@ export function StylesTab() {
             <p className="truncate text-[14px] font-medium">{active.name}</p>
           </div>
           <Button size="sm" variant="ghost" onClick={stop} className="h-8 rounded-[9px]">Clear</Button>
-          <Button size="sm" onClick={() => navigate('/')} className="h-8 rounded-[9px]">Open Studio</Button>
+          <Button size="sm" onClick={() => navigate('/create')} className="h-8 rounded-[9px]">Open Studio</Button>
         </div>
       )}
 

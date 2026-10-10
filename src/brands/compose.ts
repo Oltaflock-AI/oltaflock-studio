@@ -1,7 +1,7 @@
 import { getSpec } from '@catalog/index.ts';
 import type { FieldSpec, ModelSpec } from '@catalog/types.ts';
 import { calculateCost } from '@/config/pricing';
-import type { BrandJob, BrandKit, BrandProduct, Brief, JobContext, Quality, Shot } from './types';
+import type { BrandJob, BrandKit, BrandProduct, Brief, JobContext, Quality, Shot } from '@brand/types.ts';
 
 /** Images go to Nano Banana 2.1 (up to 14 references, good text); video to Seedance 2.0. */
 const IMAGE_MODEL = 'nano-banana-2.1';

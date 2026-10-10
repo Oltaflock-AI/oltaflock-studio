@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useElements, type StudioElement } from '@/hooks/useElements';
 import type { BrandAssets } from './compose';
-import type { BrandKit, BrandProduct } from './types';
+import type { BrandKit, BrandProduct } from '@brand/types.ts';
 
 /**
  * The brand's pack shots and logo, read from the user's Elements by name

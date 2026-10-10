@@ -406,7 +406,7 @@ function References({ refs, setRefs, max }: { refs: string[]; setRefs: (fn: (r: 
 
   const upload = (file: File) => run('upload', async () => {
     if (!file.type.startsWith('image/')) throw new Error('Pick an image file');
-    if (file.size > 3 * 1024 * 1024) throw new Error('Images up to 3 MB can be uploaded here. For bigger files, use Upload in the Oltaflock library.');
+    if (file.size > 3 * 1024 * 1024) throw new Error('Images up to 3 MB can be uploaded here. For bigger files, use Upload in the PROMUNCH Studio library.');
     const r = await host.callTool<{ url: string }>('studio_upload_media', { base64: await toBase64(file), mime_type: file.type, filename: file.name });
     add(r.url);
   });

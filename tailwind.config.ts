@@ -67,6 +67,16 @@ export default {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
   			},
+  			brand: {
+  				red: 'hsl(var(--brand-red))',
+  				ink: 'hsl(var(--brand-ink))',
+  				cream: 'hsl(var(--brand-cream))',
+  				yellow: 'hsl(var(--brand-yellow))',
+  				orange: 'hsl(var(--brand-orange))',
+  				blue: 'hsl(var(--brand-blue))',
+  				purple: 'hsl(var(--brand-purple))',
+  				green: 'hsl(var(--brand-green))'
+  			},
   			sidebar: {
   				DEFAULT: 'hsl(var(--sidebar-background))',
   				foreground: 'hsl(var(--sidebar-foreground))',
@@ -75,7 +85,8 @@ export default {
   				accent: 'hsl(var(--sidebar-accent))',
   				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
   				border: 'hsl(var(--sidebar-border))',
-  				ring: 'hsl(var(--sidebar-ring))'
+  				ring: 'hsl(var(--sidebar-ring))',
+  				muted: 'hsl(var(--sidebar-muted))'
   			},
   			// These CSS vars existed in index.css but were never registered as
   			// Tailwind colors, so bg-success/text-warning/etc silently did nothing.
@@ -132,12 +143,13 @@ export default {
   			'fade-up': 'fade-up 0.25s ease-out',
   		},
   		fontFamily: {
-  			sans: ['Geist', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-  			// Display/headline face — used for page titles and the wordmark, echoing
-  			// the brand kit's serif logotype (Roxie Rossa isn't confirmed as a
-  			// licensed web font, so Instrument Serif stands in for it).
-  			serif: ['Instrument Serif', 'ui-serif', 'Georgia', 'serif'],
-  			mono: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
+  			sans: ['Assistant', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+  			// Headline face. Kept under the `serif` key so every existing
+  			// `font-serif` heading picks up PROMUNCH's Archivo Black; `display` is
+  			// the same face for new code.
+  			serif: ['Archivo Black', 'Assistant', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+  			display: ['Archivo Black', 'Assistant', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+  			mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']
   		},
   		boxShadow: {
   			'2xs': 'var(--shadow-2xs)',

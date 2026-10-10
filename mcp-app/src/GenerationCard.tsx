@@ -44,7 +44,7 @@ export function GenerationCard({ g, onChange, onAdd, compact, onPick }: {
   const [zoom, setZoom] = useState(false);
   const done = g.status === 'done' && !!g.output_url;
   const name = titleOf(g);
-  const ref = `“${name}” (Oltaflock generation ${g.id}${g.output_url ? `, ${g.output_url}` : ''})`;
+  const ref = `“${name}” (PROMUNCH Studio generation ${g.id}${g.output_url ? `, ${g.output_url}` : ''})`;
 
   const open = (p: Panel, initial = '') => { setPanel(p); setText(initial); };
   const ask = (message: string) => run('ask', async () => {
@@ -176,7 +176,7 @@ export function GenerationCard({ g, onChange, onAdd, compact, onPick }: {
                   <MenuItem icon={<ImagePlus width={14} height={14} />} onClick={() => { close(); nav.push({ kind: 'composer', prefill: { reference_images: [g.output_url], output: 'video' } }); }}>Use as reference in Studio</MenuItem>
                 )}
                 {g.type === 'image' && <MenuItem icon={<Shapes width={14} height={14} />} onClick={() => { close(); open('element'); }}>Save as element…</MenuItem>}
-                <MenuItem icon={<ExternalLink width={14} height={14} />} onClick={() => { close(); host.openLink(g.studio_url); }}>Open in Oltaflock</MenuItem>
+                <MenuItem icon={<ExternalLink width={14} height={14} />} onClick={() => { close(); host.openLink(g.studio_url); }}>Open in PROMUNCH Studio</MenuItem>
               </>
             )}
           </Menu>

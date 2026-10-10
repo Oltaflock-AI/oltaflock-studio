@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "@catalog": path.resolve(__dirname, "./supabase/functions/_shared/catalog"),
+      "@brand": path.resolve(__dirname, "./supabase/functions/_shared/brand"),
     },
   },
 }));

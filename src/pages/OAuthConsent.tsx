@@ -4,7 +4,7 @@ import { Loader2, ImageIcon, Brain, FolderOpen, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import logoMark from '@/assets/logo-mark.png';
+import { BrandMark } from '@/components/brand/BrandMark';
 
 type Details = {
   authorization_id: string;
@@ -23,7 +23,7 @@ const ACCESS = [
 
 /**
  * Consent screen for Supabase's OAuth 2.1 server: an MCP client (Claude,
- * ChatGPT, …) sends the user here to approve access to Oltaflock Studio.
+ * ChatGPT, …) sends the user here to approve access to PROMUNCH Studio.
  */
 export default function OAuthConsent() {
   const [params] = useSearchParams();
@@ -70,10 +70,7 @@ export default function OAuthConsent() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-16">
-      <div className="mb-10 flex items-center gap-2.5">
-        <img src={logoMark} alt="" className="h-7 w-7 object-contain" />
-        <span className="font-serif text-xl font-medium">Oltaflock</span>
-      </div>
+      <div className="mb-10"><BrandMark /></div>
 
       <div className="flex w-full max-w-[400px] flex-col gap-6">
         {error ? (
@@ -90,7 +87,7 @@ export default function OAuthConsent() {
             <div className="flex flex-col gap-1">
               <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-primary">Connect an app</p>
               <h1 className="font-serif text-2xl font-medium">
-                {clientName} wants to use your Oltaflock Studio
+                {clientName} wants to use your PROMUNCH Studio
               </h1>
               <p className="text-[12.5px] text-muted-foreground">
                 Signed in as {details.user.email || user?.email}

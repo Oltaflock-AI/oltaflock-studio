@@ -32,6 +32,6 @@ export const useAssistantStore = create<AssistantState>()(
       setActiveChatId: (activeChatId) => set(activeChatId ? { activeChatId } : { activeChatId: null, modelId: null }),
       setLearn: (learn) => set({ learn }),
     }),
-    { name: 'oltaflock-assistant' },
+    { name: 'promunch-studio-assistant' },
   ),
 );

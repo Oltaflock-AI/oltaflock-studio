@@ -21,6 +21,8 @@ export interface BrandProduct {
   /** Claims this product may carry. Jobs never invent other numbers. */
   claims: string[];
   sizes?: string[];
+  /** Pack colour, for chips and swatches in the app. */
+  color?: string;
 }
 
 export interface BrandOffer {
@@ -38,6 +40,8 @@ export interface BrandKit {
   audience: string;
   /** Brand colours. Leave empty to let the pack references set the colours. */
   palette: Array<{ name: string; hex: string }>;
+  /** Brand typefaces, as used on the website. */
+  fonts?: { display: string; body: string };
   /** Element holding the logo artwork. */
   logoElement: string;
   taglines: string[];
@@ -140,7 +144,7 @@ export interface BrandJob {
   tagline: string;
   notes: string[];
   icon: 'package' | 'palette' | 'sparkles' | 'gift' | 'store' | 'poster' | 'standee' | 'flyer' | 'strip'
-    | 'post' | 'carousel' | 'story' | 'ads' | 'cart' | 'reel';
+    | 'post' | 'carousel' | 'story' | 'ads' | 'cart' | 'reel' | 'chart';
   /** CSS background for the card. */
   swatch: string;
   ink: 'light' | 'dark';

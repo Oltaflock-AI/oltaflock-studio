@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AlertTriangle, Check, Info, Loader2, Plus, Sparkles } from 'lucide-react';
+import { AlertTriangle, Check, Info, Loader2, PenLine, Plus, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ import { JOB_CATEGORIES, type BrandJob, type BrandKit, type BrandProduct, type B
 import { QUALITY_LABELS, planJob } from '@/brands/compose';
 import { runJob } from '@/brands/runJob';
 import { useBrandAssets } from '@/brands/useBrandAssets';
+import { useBrandCopy } from '@/brands/useBrandCopy';
 import { JobCover } from './JobCover';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +25,8 @@ const RANGE = '__range';
 interface BriefDialogProps {
   brand: BrandKit;
   job: BrandJob | null;
+  /** Prefill, e.g. from the campaign calendar. */
+  preset?: { brief?: Brief; productId?: string } | null;
   onOpenChange: (open: boolean) => void;
   /** Open the pack-shot setup for a product (or the logo when null). */
   onAddPackShot: (product: BrandProduct | null) => void;
@@ -37,22 +41,33 @@ export function BriefDialog(props: BriefDialogProps) {
   );
 }
 
-function initialBrief(job: BrandJob): Brief {
+function initialBrief(job: BrandJob, preset?: Brief): Brief {
   const brief: Brief = {};
   for (const f of job.fields) {
     if (f.type === 'choice') brief[f.key] = f.options[0];
     if (f.type === 'images') brief[f.key] = [];
   }
-  return brief;
+  return { ...brief, ...preset };
 }
 
-function BriefForm({ brand, job, onOpenChange, onAddPackShot, onStarted }: BriefDialogProps & { job: BrandJob }) {
+const productFieldOf = (job: BrandJob) => job.fields.find((f): f is Extract<BriefField, { type: 'product' }> => f.type === 'product');
+
+/** The field headline suggestions fill: the job's main line of text. */
+const HEADLINE_KEYS = ['headline', 'line', 'topic'];
+
+function BriefForm({ brand, job, preset, onOpenChange, onAddPackShot, onStarted }: BriefDialogProps & { job: BrandJob }) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { folders, createFolder } = useFolders();
   const { assetsFor, productElement, logo } = useBrandAssets(brand);
   const productField = job.fields.find((f) => f.type === 'product');
-  const [brief, setBrief] = useState<Brief>(() => initialBrief(job));
-  const [productId, setProductId] = useState<string>(brand.products[0]?.id ?? RANGE);
+  const [brief, setBrief] = useState<Brief>(() => initialBrief(job, preset?.brief));
+  // A calendar idea without a product (e.g. a gift box) starts on the whole range.
+  const [productId, setProductId] = useState<string>(
+    preset?.productId ?? (preset && productFieldOf(job)?.allowRange ? RANGE : brand.products[0]?.id ?? RANGE),
+  );
+  const copy = useBrandCopy();
+  const headlineField = job.fields.find((f) => (f.type === 'text') && HEADLINE_KEYS.includes(f.key));
   const [quality, setQuality] = useState<Quality>(job.qualities[0]);
   const [touched, setTouched] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -93,9 +108,13 @@ function BriefForm({ brand, job, onOpenChange, onAddPackShot, onStarted }: Brief
         brand,
         job,
         planned,
+        brief,
+        productId: product?.id,
         folderId: folder?.id ?? null,
         onShot: (_i, r) => {
-          if (r.id) announce();
+          if (!r.id) return;
+          queryClient.invalidateQueries({ queryKey: ['brand-work', brand.id] });
+          announce();
         },
       }).then(({ ids, errors }) => {
         if (errors.length) toast.error(ids.length ? `${errors.length} of ${planned.length} could not start` : `${job.name} could not start`, { description: errors[0] });
@@ -120,6 +139,44 @@ function BriefForm({ brand, job, onOpenChange, onAddPackShot, onStarted }: Brief
         </div>
 
         <div className="flex flex-col gap-5 px-6 py-5">
+          {headlineField && (
+            <div className="flex flex-col gap-2 rounded-[12px] border border-dashed border-border px-3.5 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[12.5px] text-muted-foreground">Stuck on words? Get ideas for “{headlineField.label}” in the {brand.name} voice.</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={copy.isPending}
+                  onClick={() => copy.mutate(
+                    { kind: 'headlines', jobId: job.id, brief, productId: product?.id },
+                    { onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not write lines') },
+                  )}
+                  className="h-8 shrink-0 gap-1.5 rounded-[9px] text-[12px]"
+                >
+                  {copy.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PenLine className="h-3.5 w-3.5" />}
+                  {copy.data ? 'More ideas' : 'Suggest lines'}
+                </Button>
+              </div>
+              {copy.data && (
+                <div className="flex flex-wrap gap-1.5">
+                  {copy.data.headlines.map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => set(headlineField.key, h)}
+                      aria-pressed={brief[headlineField.key] === h}
+                      className={cn(
+                        'rounded-full px-3 py-1.5 text-left text-[12.5px] transition-colors',
+                        brief[headlineField.key] === h ? 'bg-primary font-medium text-primary-foreground' : 'bg-muted hover:text-foreground',
+                      )}
+                    >
+                      {h}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {job.fields.map((f) => (
             <FieldInput
               key={f.key}

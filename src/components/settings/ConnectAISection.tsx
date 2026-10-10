@@ -19,8 +19,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { SettingsCard } from './SettingsCard';
 
-/** Public address of the Oltaflock Studio MCP server (supabase/functions/mcp). */
-export const MCP_SERVER_URL = 'https://studio.oltaflock.ai/mcp';
+/** Public address of the PROMUNCH Studio MCP server (supabase/functions/mcp, proxied by vercel.json). */
+export const MCP_SERVER_URL = 'https://studio.promunch.in/mcp';
 
 type Step = { text: React.ReactNode; code?: string };
 
@@ -42,9 +42,9 @@ const GUIDES: AppGuide[] = [
     note: 'Works on claude.ai, Claude Desktop and the Claude mobile apps — add it once and it appears everywhere you sign in.',
     steps: [
       { text: <>Open <Em>claude.ai</Em> (or Claude Desktop) and go to <Em>Settings → Connectors</Em>.</> },
-      { text: <>Click <Em>Add custom connector</Em>. Name it <Em>Oltaflock Studio</Em> and paste the server URL:</>, code: MCP_SERVER_URL },
-      { text: <>Click <Em>Add</Em>, then <Em>Connect</Em>. A window opens on Oltaflock — sign in if asked and choose <Em>Allow access</Em>.</> },
-      { text: <>In a new chat, open the <Em>+</Em> menu → <Em>Connectors</Em> and make sure Oltaflock Studio is switched on.</> },
+      { text: <>Click <Em>Add custom connector</Em>. Name it <Em>PROMUNCH Studio</Em> and paste the server URL:</>, code: MCP_SERVER_URL },
+      { text: <>Click <Em>Add</Em>, then <Em>Connect</Em>. A window opens on PROMUNCH Studio — sign in if asked and choose <Em>Allow access</Em>.</> },
+      { text: <>In a new chat, open the <Em>+</Em> menu → <Em>Connectors</Em> and make sure PROMUNCH Studio is switched on.</> },
     ],
   },
   {
@@ -53,19 +53,19 @@ const GUIDES: AppGuide[] = [
     note: 'Custom connectors need a paid ChatGPT plan with Developer mode.',
     steps: [
       { text: <>In ChatGPT open <Em>Settings → Apps & Connectors → Advanced settings</Em> and turn on <Em>Developer mode</Em>.</> },
-      { text: <>Back in <Em>Apps & Connectors</Em>, click <Em>Create</Em>. Name it <Em>Oltaflock Studio</Em> and paste the MCP server URL:</>, code: MCP_SERVER_URL },
+      { text: <>Back in <Em>Apps & Connectors</Em>, click <Em>Create</Em>. Name it <Em>PROMUNCH Studio</Em> and paste the MCP server URL:</>, code: MCP_SERVER_URL },
       { text: <>Set <Em>Authentication</Em> to <Em>OAuth</Em>, tick <Em>I trust this application</Em> and click <Em>Create</Em>.</> },
-      { text: <>Sign in to Oltaflock in the window that opens and choose <Em>Allow access</Em>.</> },
-      { text: <>In a chat, click <Em>+</Em> → <Em>Developer mode</Em> and enable Oltaflock Studio.</> },
+      { text: <>Sign in to PROMUNCH Studio in the window that opens and choose <Em>Allow access</Em>.</> },
+      { text: <>In a chat, click <Em>+</Em> → <Em>Developer mode</Em> and enable PROMUNCH Studio.</> },
     ],
   },
   {
     id: 'claude-code',
     label: 'Claude Code',
     steps: [
-      { text: <>Add the server from your terminal:</>, code: `claude mcp add --transport http oltaflock ${MCP_SERVER_URL}` },
-      { text: <>Start Claude Code, run <Em>/mcp</Em>, pick <Em>oltaflock</Em> and choose <Em>Authenticate</Em>.</> },
-      { text: <>Your browser opens on Oltaflock — choose <Em>Allow access</Em> and return to the terminal.</> },
+      { text: <>Add the server from your terminal:</>, code: `claude mcp add --transport http promunch ${MCP_SERVER_URL}` },
+      { text: <>Start Claude Code, run <Em>/mcp</Em>, pick <Em>promunch</Em> and choose <Em>Authenticate</Em>.</> },
+      { text: <>Your browser opens on PROMUNCH Studio — choose <Em>Allow access</Em> and return to the terminal.</> },
     ],
   },
   {
@@ -73,8 +73,8 @@ const GUIDES: AppGuide[] = [
     label: 'Other apps',
     note: 'Any MCP client that supports remote (Streamable HTTP) servers with OAuth — Cursor, VS Code, Windsurf and others.',
     steps: [
-      { text: <>Add a remote MCP server with this URL. Most apps accept a config like:</>, code: JSON.stringify({ mcpServers: { oltaflock: { url: MCP_SERVER_URL } } }, null, 2) },
-      { text: <>When the app asks you to sign in, approve access on the Oltaflock page that opens.</> },
+      { text: <>Add a remote MCP server with this URL. Most apps accept a config like:</>, code: JSON.stringify({ mcpServers: { promunch: { url: MCP_SERVER_URL } } }, null, 2) },
+      { text: <>When the app asks you to sign in, approve access on the PROMUNCH Studio page that opens.</> },
     ],
   },
 ];
@@ -83,7 +83,7 @@ const EXAMPLES = [
   'Direct a 20-second 9:16 ad for our new cold brew — three shots, same bottle in every shot.',
   'Look at my memory and make four product shots in my usual style.',
   'Turn my last generated image into a slow push-in video with Kling.',
-  'Save "our brand blue is #229DE7 and we never use lens flare" to memory.',
+  'Save "Masala Mania shots always use an orange backdrop" to memory.',
 ];
 
 const ABILITIES = [
@@ -243,7 +243,7 @@ export function ConnectAISection() {
     <SettingsCard
       title="Connect Claude & ChatGPT"
       icon={<Plug className="h-3.5 w-3.5 text-primary" aria-hidden="true" />}
-      description="Use Oltaflock Studio from your AI chat. Ask for images or whole videos in plain words — they're made with your credits, saved to your library, and follow your memory."
+      description="Use PROMUNCH Studio from your AI chat. Ask for images or whole videos in plain words — they're made with your credits, saved to your library, and follow your memory."
     >
       <div className="flex flex-col gap-5">
         {/* Server URL */}
@@ -255,7 +255,7 @@ export function ConnectAISection() {
           </div>
           <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
             <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            No API key needed — you sign in with your Oltaflock account and approve access.
+            No API key needed — you sign in with your PROMUNCH Studio account and approve access.
           </p>
         </div>
 

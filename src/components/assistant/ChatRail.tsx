@@ -158,7 +158,7 @@ export function ChatRail({ className }: { className?: string }) {
   }, [chats, query]);
 
   return (
-    <aside aria-label="Chat history" className={cn('w-[240px] 2xl:w-[268px] shrink-0 flex flex-col border-r border-border bg-sidebar/50', className)}>
+    <aside aria-label="Chat history" className={cn('w-[240px] 2xl:w-[268px] shrink-0 flex flex-col border-r border-border bg-secondary/40', className)}>
       <div className="px-4 pt-5 pb-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-serif text-[24px] leading-none tracking-[-0.01em]">Chats</h2>

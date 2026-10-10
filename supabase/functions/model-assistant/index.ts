@@ -1,5 +1,5 @@
 // supabase/functions/model-assistant/index.ts
-// Oltaflock Creative Studio — Model Assistant
+// PROMUNCH Studio — Model Assistant
 // A short chat advisor that recommends which Studio model + mode fits a
 // user's shot. Accepts POST { messages: [{ role, content }] } and returns
 // { reply }. The final line of a recommending reply is
@@ -55,7 +55,7 @@ const MODEL_CATALOGUE = (Object.keys(MODE_LABELS) as StudioMode[])
 
 const VALID_MODEL_IDS = MODEL_CATALOG.map((m) => m.id);
 
-const SYSTEM_PROMPT = `You are the Model Assistant inside Oltaflock Creative Studio, an AI image and video generation app. You are an expert advisor on the exact models available in this app, and you help users pick the right model and mode for their shot.
+const SYSTEM_PROMPT = `You are the Model Assistant inside PROMUNCH Studio (the PROMUNCH snack brand team's creative studio), an AI image and video generation app. You are an expert advisor on the exact models available in this app, and you help users pick the right model and mode for their shot.
 
 ${MODEL_CATALOGUE}
 

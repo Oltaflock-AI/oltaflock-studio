@@ -1,5 +1,5 @@
 import {
-  Clapperboard, Copy, FileText, Gift, Image as ImageIcon, LayoutGrid, Megaphone, Package, Palette, PanelTop,
+  BarChart3, Clapperboard, Copy, FileText, Gift, Image as ImageIcon, LayoutGrid, Megaphone, Package, Palette, PanelTop,
   RectangleVertical, ShoppingCart, Smartphone, Sparkles, Store, type LucideIcon,
 } from 'lucide-react';
 import type { BrandJob } from '@/brands';
@@ -21,6 +21,7 @@ const ICONS: Record<BrandJob['icon'], LucideIcon> = {
   ads: Megaphone,
   cart: ShoppingCart,
   reel: Clapperboard,
+  chart: BarChart3,
 };
 
 /** A job's swatch with its icon. */
