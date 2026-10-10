@@ -16,6 +16,10 @@ export interface StartGenerationInput {
   extraParams?: Record<string, unknown>;
   /** Live Higgsfield quote, recorded on the row. */
   higgsfieldQuote?: { usd?: number; credits?: number } | null;
+  /** Library folder to file the result in. */
+  folderId?: string | null;
+  /** Name for the row; left empty, the library names it from the prompt. */
+  title?: string;
 }
 
 /**
@@ -43,6 +47,8 @@ export async function startGeneration(input: StartGenerationInput): Promise<stri
       user_prompt: input.prompt,
       status: 'queued',
       user_id: input.userId,
+      ...(input.folderId ? { folder_id: input.folderId } : {}),
+      ...(input.title ? { title: input.title } : {}),
       model_params: {
         ...controls,
         ...input.extraParams,

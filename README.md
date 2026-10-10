@@ -192,6 +192,8 @@ Generation #3: "a bird" → Brain (sees #1, #2 patterns) → adapts to user's
 
 ## UI Features
 
+- **Brand Studio** (`/brand`): a brand team's workspace (PROMUNCH in this edition). Pick a job (post, carousel, ad set, poster, pack redesign, product reel…), fill a short brief, and it generates on-brand work with the real pack shots attached. See [docs/BRAND_STUDIO.md](docs/BRAND_STUDIO.md).
+
 - **Tile-based dashboard** with rounded card layout and gaps between sections
 - **3D interactive effects**: TiltCard (mouse-tracked perspective), MouseParallax (depth layers), GlowOrb (animated gradient background with mouse tracking)
 - **Framer Motion everywhere**: page transitions, stagger animations, crossfade on model switch, icon rotation on theme toggle, AnimatePresence exit animations
@@ -270,6 +272,7 @@ supabase/
 VITE_SUPABASE_PROJECT_ID=<project id>
 VITE_SUPABASE_PUBLISHABLE_KEY=<anon key>
 VITE_SUPABASE_URL=https://<project>.supabase.co
+VITE_BRAND=promunch   # brand workspace at /brand; "none" hides it (see docs/BRAND_STUDIO.md)
 ```
 
 ### Supabase Edge Function Secrets

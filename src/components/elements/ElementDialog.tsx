@@ -25,6 +25,8 @@ interface ElementDialogProps {
   element?: StudioElement | null;
   /** Prefill images, e.g. when creating an element from a generation. */
   initialImages?: string[];
+  /** Prefill the rest of a new element, e.g. a brand product's name and description. */
+  initialValues?: { name?: string; kind?: ElementKind; description?: string };
   onSaved?: (element: { name: string }) => void;
 }
 
@@ -37,11 +39,11 @@ export function ElementDialog(props: ElementDialogProps) {
   );
 }
 
-function ElementForm({ onOpenChange, element, initialImages, onSaved }: ElementDialogProps) {
+function ElementForm({ onOpenChange, element, initialImages, initialValues, onSaved }: ElementDialogProps) {
   const { createElement, updateElement, isSaving } = useElements();
-  const [name, setName] = useState(element?.name ?? '');
-  const [kind, setKind] = useState<ElementKind>(element?.kind ?? 'character');
-  const [description, setDescription] = useState(element?.description ?? '');
+  const [name, setName] = useState(element?.name ?? initialValues?.name ?? '');
+  const [kind, setKind] = useState<ElementKind>(element?.kind ?? initialValues?.kind ?? 'character');
+  const [description, setDescription] = useState(element?.description ?? initialValues?.description ?? '');
   const [images, setImages] = useState<string[]>(element?.image_urls ?? initialImages ?? []);
   const [touched, setTouched] = useState(false);
 

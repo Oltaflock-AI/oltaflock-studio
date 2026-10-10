@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Sparkles, LayoutGrid, Layers, MessageCircle, Settings as SettingsIcon, Coins, LogOut, Boxes } from 'lucide-react';
+import { Sparkles, LayoutGrid, Layers, MessageCircle, Settings as SettingsIcon, Coins, LogOut, Boxes, Store } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ThemeToggle } from '@/components/studio/ThemeToggle';
@@ -13,6 +13,7 @@ import { useGenerationStore } from '@/store/generationStore';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
 import logoMark from '@/assets/logo-mark.png';
+import { ACTIVE_BRAND } from '@/brands';
 
 interface NavItem {
   to: string;
@@ -21,6 +22,8 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  // The brand workspace leads in a brand edition: it's where most of that team's work starts.
+  ...(ACTIVE_BRAND ? [{ to: '/brand', label: ACTIVE_BRAND.name, icon: Store }] : []),
   { to: '/', label: 'Studio', icon: Sparkles },
   { to: '/library', label: 'Library', icon: LayoutGrid },
   { to: '/presets', label: 'Presets', icon: Layers },
