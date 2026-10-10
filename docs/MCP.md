@@ -5,7 +5,7 @@ direct image and video work in chat. Generations use your account and credits,
 land in your library, and share the same creative memory and elements as the
 in-app Assistant.
 
-- **Endpoint:** `https://YOUR-PROMUNCH-PROJECT-REF.supabase.co/functions/v1/mcp`
+- **Endpoint:** `https://zzjrqylecslpuoiysdmx.supabase.co/functions/v1/mcp`
 - **Transport:** Streamable HTTP (stateless, JSON responses)
 - **Auth:** OAuth 2.1 via Supabase Auth's OAuth server (dynamic client registration)
 - **Code:** `supabase/functions/mcp/` (server) · `src/pages/OAuthConsent.tsx` (consent screen) · `src/components/settings/ConnectAISection.tsx` (in-app guide at Settings → Connect Claude & ChatGPT, `/settings#connect-ai`)
@@ -55,14 +55,14 @@ element's images fill the model's image slots and its description is appended.
    function reuses them for uploads and Prompt Brain.
 3. **Deploy the web app** so `/oauth/consent` exists.
 
-Check: `curl -s https://YOUR-PROMUNCH-PROJECT-REF.supabase.co/.well-known/oauth-authorization-server/auth/v1`
+Check: `curl -s https://zzjrqylecslpuoiysdmx.supabase.co/.well-known/oauth-authorization-server/auth/v1`
 should return JSON metadata instead of `OAuth server is disabled`.
 
 ## Connecting
 
 - **claude.ai / Claude Desktop:** Settings → Connectors → Add custom connector → paste the endpoint URL.
 - **ChatGPT:** Settings → Apps & Connectors → Advanced → Developer mode → Create connector → paste the endpoint URL, auth "OAuth".
-- **Claude Code:** `claude mcp add --transport http promunch https://YOUR-PROMUNCH-PROJECT-REF.supabase.co/functions/v1/mcp`, then `/mcp` to sign in.
+- **Claude Code:** `claude mcp add --transport http promunch https://zzjrqylecslpuoiysdmx.supabase.co/functions/v1/mcp`, then `/mcp` to sign in.
 
 ## Limits and notes
 

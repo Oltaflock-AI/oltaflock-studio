@@ -74,7 +74,7 @@ bun run build:mcp-ui   # rebuild the chat panel after changing mcp-app/
 Frontend `.env`:
 
 ```
-VITE_SUPABASE_URL=https://<promunch-project-ref>.supabase.co
+VITE_SUPABASE_URL=https://zzjrqylecslpuoiysdmx.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=<anon key>
 VITE_STORAGE_API_URL=https://studio-storage.promunch.in   # optional, with R2
 ```

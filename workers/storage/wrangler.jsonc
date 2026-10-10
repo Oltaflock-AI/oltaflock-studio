@@ -11,7 +11,7 @@
     { "pattern": "studio-storage.promunch.in", "custom_domain": true }
   ],
   "vars": {
-    "SUPABASE_URL": "https://YOUR-PROMUNCH-PROJECT-REF.supabase.co",
+    "SUPABASE_URL": "https://zzjrqylecslpuoiysdmx.supabase.co",
     "PUBLIC_BASE_URL": "https://studio-cdn.promunch.in",
     "ALLOWED_ORIGINS": "https://studio.promunch.in,http://localhost:8080"
   }

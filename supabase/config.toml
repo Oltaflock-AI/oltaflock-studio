@@ -1,5 +1,5 @@
 # Local id only. Link the hosted PROMUNCH project with:
-#   supabase link --project-ref <promunch-project-ref>
+#   supabase link --project-ref zzjrqylecslpuoiysdmx
 project_id = "promunch-studio"
 
 [auth]

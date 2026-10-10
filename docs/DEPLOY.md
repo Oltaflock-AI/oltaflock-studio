@@ -13,11 +13,11 @@ PROMUNCH Studio runs on its own accounts, separate from Oltaflock Studio: its ow
 
 ## 1. Supabase (database, sign-in, functions)
 
-1. Create a project at supabase.com (region: Mumbai, `ap-south-1`). Note its **project ref** (the `abcd…` in `https://abcd….supabase.co`).
+1. Project: `zzjrqylecslpuoiysdmx` (https://supabase.com/dashboard/project/zzjrqylecslpuoiysdmx), API URL `https://zzjrqylecslpuoiysdmx.supabase.co`.
 2. Link and push the schema from this repo:
    ```bash
    supabase login
-   supabase link --project-ref <project-ref>
+   supabase link --project-ref zzjrqylecslpuoiysdmx
    supabase db push            # runs every migration, including 20261010120000_promunch_team.sql
    ```
 3. **Authentication → Sign In / Providers:**
@@ -60,11 +60,11 @@ Sign-ups are off, so invite the first person from the Supabase dashboard: **Auth
 1. New Vercel project from this repository, **production branch `promunch-studio`**. Framework preset: Vite.
 2. Environment variables:
    ```
-   VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+   VITE_SUPABASE_URL=https://zzjrqylecslpuoiysdmx.supabase.co
    VITE_SUPABASE_PUBLISHABLE_KEY=<anon key from Supabase → Settings → API>
    VITE_STORAGE_API_URL=https://studio-storage.promunch.in   # only with R2 (step 4)
    ```
-3. In `vercel.json`, replace `YOUR-PROMUNCH-PROJECT-REF` with the project ref. These rewrites serve the AI-chat connector at `studio.promunch.in/mcp`.
+3. `vercel.json` already points `/mcp` at this project, which serves the AI-chat connector at `studio.promunch.in/mcp`.
 4. **Domains:** add `studio.promunch.in`. Then in promunch.in's DNS, wherever the domain is managed, add a `CNAME` record named `studio` pointing to `cname.vercel-dns.com`. The Shopify store on promunch.in is not affected.
 
 ## 4. Large-file storage (optional, recommended)
@@ -72,7 +72,7 @@ Sign-ups are off, so invite the first person from the Supabase dashboard: **Auth
 Without this, uploads and results live in Supabase Storage, which is fine to start with. For cheaper storage and fast previews, use Cloudflare R2:
 
 1. Cloudflare: create an R2 bucket `promunch-studio`, and add `promunch.in` (or just the two subdomains) to Cloudflare.
-2. In `workers/storage/wrangler.jsonc`, set `YOUR-PROMUNCH-PROJECT-REF`. Then:
+2. `workers/storage/wrangler.jsonc` already points at this project. Then:
    ```bash
    cd workers/storage && npm install
    npx wrangler secret put SUPABASE_ANON_KEY
