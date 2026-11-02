@@ -20,6 +20,9 @@ async function signInLink(admin: SupabaseClient, email: string): Promise<{ link:
   if (!invite.error && invite.data.properties?.action_link && invite.data.user) {
     return { link: invite.data.properties.action_link, userId: invite.data.user.id, existed: false };
   }
+  if (invite.error && invite.error.code !== 'email_exists' && invite.error.status !== 422) {
+    throw new HttpError(502, invite.error.message);
+  }
   // Already registered (possibly an Oltaflock Studio account in the shared project): sign-in link only.
   const magic = await admin.auth.admin.generateLink({ type: 'magiclink', email, options });
   if (magic.error || !magic.data.properties?.action_link || !magic.data.user) {
@@ -44,13 +47,15 @@ async function sendInvite(to: string, name: string | null, link: string) {
 
 async function getMember(admin: SupabaseClient, userId: unknown): Promise<Member> {
   if (typeof userId !== 'string') throw new HttpError(400, 'user_id is required');
-  const { data } = await admin.from('promunch_members').select('user_id, email, name, role').eq('user_id', userId).maybeSingle();
+  const { data, error } = await admin.from('promunch_members').select('user_id, email, name, role').eq('user_id', userId).maybeSingle();
+  if (error) throw new HttpError(500, error.message);
   if (!data) throw new HttpError(404, 'That person is not on the team');
   return data as Member;
 }
 
 async function adminCount(admin: SupabaseClient): Promise<number> {
-  const { count } = await admin.from('promunch_members').select('user_id', { count: 'exact', head: true }).eq('role', 'admin');
+  const { count, error } = await admin.from('promunch_members').select('user_id', { count: 'exact', head: true }).eq('role', 'admin');
+  if (error) throw new HttpError(500, error.message);
   return count ?? 0;
 }
 
@@ -70,10 +75,12 @@ Deno.serve(async (req) => {
     if (!user) throw new HttpError(401, 'Sign in first');
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-    const { data: me } = await admin.from('promunch_members').select('role').eq('user_id', user.id).maybeSingle();
+    const { data: me, error: meError } = await admin.from('promunch_members').select('role').eq('user_id', user.id).maybeSingle();
+    if (meError) throw new HttpError(500, 'Could not check your access');
     if (me?.role !== 'admin') throw new HttpError(403, 'Only PROMUNCH admins can manage the team');
 
-    const body = await req.json().catch(() => ({}));
+    const raw = await req.json().catch(() => null);
+    const body = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
 
     switch (body.action) {
       case 'invite': {
@@ -82,10 +89,12 @@ Deno.serve(async (req) => {
         if (!isRole(body.role)) throw new HttpError(400, 'Pick a role');
         const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim().slice(0, 80) : null;
         const { link, userId, existed } = await signInLink(admin, email);
+        const { data: existing, error: lookupError } = await admin.from('promunch_members').select('user_id').eq('user_id', userId).maybeSingle();
+        if (lookupError) throw new HttpError(500, lookupError.message);
+        if (existing) throw new HttpError(409, 'Already on the team. Use Resend or change their role.');
         const now = new Date().toISOString();
-        const { error } = await admin.from('promunch_members').upsert(
+        const { error } = await admin.from('promunch_members').insert(
           { user_id: userId, email, name, role: body.role, invited_by: user.id, last_invite_at: now },
-          { onConflict: 'user_id' },
         );
         if (error) throw new HttpError(500, error.message);
         await sendInvite(email, name, link);
@@ -94,7 +103,8 @@ Deno.serve(async (req) => {
       case 'resend': {
         const m = await getMember(admin, body.user_id);
         const { link } = await signInLink(admin, m.email);
-        await admin.from('promunch_members').update({ last_invite_at: new Date().toISOString() }).eq('user_id', m.user_id);
+        const { error: touchError } = await admin.from('promunch_members').update({ last_invite_at: new Date().toISOString() }).eq('user_id', m.user_id);
+        if (touchError) throw new HttpError(500, touchError.message);
         await sendInvite(m.email, m.name, link);
         return json({ status: 'resent' });
       }
