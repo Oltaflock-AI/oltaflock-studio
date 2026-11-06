@@ -50,7 +50,7 @@ function MemoryRow({ memory }: { memory: Memory }) {
             </p>
             <p className="mt-0.5 text-[11.5px] text-muted-foreground">{SOURCE_LABEL[memory.source]}</p>
           </div>
-          <span className="flex shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <span className="flex shrink-0 opacity-0 group-hover:opacity-100 touch:opacity-100 focus-within:opacity-100 transition-opacity">
             <button type="button" title={memory.pinned ? 'Unpin' : 'Pin: always apply, never auto-removed'} onClick={() => updateMemory({ id: memory.id, pinned: !memory.pinned })} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground">
               {memory.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
             </button>

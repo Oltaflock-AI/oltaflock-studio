@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Copy, Download, ImagePlus, ImageUpscale, Maximize2, RotateCcw, Sparkles, Loader2, WandSparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGenerations, type DbGeneration } from '@/hooks/useGenerations';
@@ -8,6 +8,7 @@ import { SensitiveMedia } from '@/components/SensitiveMedia';
 import { StarButton } from '@/components/library/StarButton';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useGenerate } from '@/hooks/useGenerate';
+import { useElementSize } from '@/hooks/useElementSize';
 import { cn } from '@/lib/utils';
 import { animateGeneration, applyPhotoEdit, referenceGeneration, upscaleVideo } from './generationActions';
 import { EDIT_CATEGORIES, PHOTO_EDITS, type PhotoEdit } from '@/config/photoEdits';
@@ -25,40 +26,49 @@ export const STAGE =
 
 const GLASS_BTN =
   'inline-flex h-8 whitespace-nowrap items-center disabled:opacity-50 gap-1.5 rounded-full px-3 text-[12.5px] font-medium text-white/90 hover:bg-white/15 hover:text-white transition-smooth';
+/** Icon-only variant for narrow canvases (tablets): a bigger, square touch target. */
+const GLASS_ICON_BTN = cn(GLASS_BTN, 'h-9 w-9 justify-center px-0');
 
-function ActionBar({ g, onFullscreen }: { g: DbGeneration; onFullscreen: () => void }) {
+/** Canvas width below which the action bar drops its labels so it clears the title and Details. */
+const FULL_ACTIONS_MIN_WIDTH = 1040;
+
+function ActionBar({ g, onFullscreen, compact }: { g: DbGeneration; onFullscreen: () => void; compact: boolean }) {
   const { handleRegenerateFromJob, isSubmitting } = useGenerate();
+  const btn = compact ? GLASS_ICON_BTN : GLASS_BTN;
+  // Compact buttons keep their name for screen readers and as a tooltip.
+  const label = (text: string) => (compact ? <span className="sr-only">{text}</span> : text);
+  const tip = (text: string) => (compact ? { title: text } : {});
   return (
     <div className="flex items-center gap-0.5 rounded-full border border-white/10 bg-black/45 p-1 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.6)] backdrop-blur-md">
-      <button type="button" className={GLASS_BTN} onClick={() => downloadGeneration(g)}><Download className="h-3.5 w-3.5" /> Download</button>
-      <button type="button" className={GLASS_BTN} onClick={() => { navigator.clipboard.writeText(g.output_url ?? '').then(() => toast.success('Link copied')); }}>
-        <Copy className="h-3.5 w-3.5" /> Copy link
+      <button type="button" className={btn} {...tip('Download')} onClick={() => downloadGeneration(g)}><Download className="h-3.5 w-3.5" /> {label('Download')}</button>
+      <button type="button" className={btn} {...tip('Copy link')} onClick={() => { navigator.clipboard.writeText(g.output_url ?? '').then(() => toast.success('Link copied')); }}>
+        <Copy className="h-3.5 w-3.5" /> {label('Copy link')}
       </button>
-      <button type="button" className={GLASS_BTN} onClick={() => referenceGeneration(g)} title="Use as a reference in your next generation"><ImagePlus className="h-3.5 w-3.5" /> Reference</button>
+      <button type="button" className={btn} onClick={() => referenceGeneration(g)} title="Use as a reference in your next generation"><ImagePlus className="h-3.5 w-3.5" /> {label('Reference')}</button>
       {g.type === 'image' && (
-        <button type="button" className={GLASS_BTN} onClick={() => animateGeneration(g)}><Sparkles className="h-3.5 w-3.5" /> Animate</button>
+        <button type="button" className={btn} {...tip('Animate')} onClick={() => animateGeneration(g)}><Sparkles className="h-3.5 w-3.5" /> {label('Animate')}</button>
       )}
-      {g.type === 'image' && g.output_url && <EditMenu url={g.output_url} />}
+      {g.type === 'image' && g.output_url && <EditMenu url={g.output_url} compact={compact} />}
       {g.type === 'video' && g.output_url && (
         <DropdownMenu>
-          <DropdownMenuTrigger className={GLASS_BTN}><ImageUpscale className="h-3.5 w-3.5" /> Upscale <ChevronDown className="h-3 w-3 opacity-70" /></DropdownMenuTrigger>
+          <DropdownMenuTrigger className={btn} {...tip('Upscale')}><ImageUpscale className="h-3.5 w-3.5" /> {label('Upscale')} {!compact && <ChevronDown className="h-3 w-3 opacity-70" />}</DropdownMenuTrigger>
           <DropdownMenuContent align="center" className="min-w-[160px]">
             <DropdownMenuItem onSelect={() => upscaleVideo(g, '2')}>Upscale 2×</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => upscaleVideo(g, '4')}>Upscale 4×</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-      <button type="button" className={GLASS_BTN} onClick={handleRegenerateFromJob} disabled={isSubmitting}>
-        {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />} Run again
+      <button type="button" className={btn} {...tip('Run again')} onClick={handleRegenerateFromJob} disabled={isSubmitting}>
+        {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />} {label('Run again')}
       </button>
-      <StarButton generation={g} size="md" className="h-8 w-8 rounded-full text-white/90 hover:bg-white/15" />
-      <button type="button" className={cn(GLASS_BTN, 'w-8 justify-center px-0')} aria-label="Full screen" onClick={onFullscreen}><Maximize2 className="h-3.5 w-3.5" /></button>
+      <StarButton generation={g} size="md" className={cn('rounded-full text-white/90 hover:bg-white/15', compact ? 'h-9 w-9' : 'h-8 w-8')} />
+      <button type="button" className={compact ? GLASS_ICON_BTN : cn(GLASS_BTN, 'w-8 justify-center px-0')} aria-label="Full screen" onClick={onFullscreen}><Maximize2 className="h-3.5 w-3.5" /></button>
     </div>
   );
 }
 
 /** Photo edits and tools for this image: sets up the composer with it attached. Tools inline, the rest by category. */
-function EditMenu({ url }: { url: string }) {
+function EditMenu({ url, compact }: { url: string; compact: boolean }) {
   const item = (e: PhotoEdit) => {
     const Icon = EDIT_ICONS[e.icon];
     const label = <><Icon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />{e.name}</>;
@@ -82,8 +92,9 @@ function EditMenu({ url }: { url: string }) {
   };
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className={GLASS_BTN} title="Upscale, fix, retouch or transform this image">
-        <WandSparkles className="h-3.5 w-3.5" /> Edit <ChevronDown className="h-3 w-3 opacity-70" />
+      <DropdownMenuTrigger className={compact ? GLASS_ICON_BTN : GLASS_BTN} title="Upscale, fix, retouch or transform this image">
+        <WandSparkles className="h-3.5 w-3.5" />
+        {compact ? <span className="sr-only">Edit</span> : <>Edit <ChevronDown className="h-3 w-3 opacity-70" /></>}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="center" className="w-[230px]">
         <DropdownMenuLabel className="text-[11.5px] font-medium text-muted-foreground">Quick tools</DropdownMenuLabel>
@@ -130,6 +141,9 @@ export function StudioCanvas({ className, bottomInset = 0, topInset = 0, actions
   const index = generations.findIndex((x) => x.id === selectedJobId);
   const g = generations[index];
   const [fullscreen, setFullscreen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { width } = useElementSize(rootRef);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const step = (d: number) => {
     const next = generations[index + d];
     if (next) setSelectedJobId(next.id);
@@ -148,8 +162,21 @@ export function StudioCanvas({ className, bottomInset = 0, topInset = 0, actions
   });
 
   return (
-    <div className={cn(STAGE, 'group relative overflow-hidden', className)}>
-      <div className="absolute inset-0 flex items-center justify-center p-8" style={{ paddingBottom: 32 + bottomInset, paddingTop: 32 + topInset }}>
+    <div ref={rootRef} className={cn(STAGE, 'group relative overflow-hidden', className)}>
+      {/* A horizontal swipe on the stage steps through history, like a photo viewer. */}
+      <div
+        className="absolute inset-0 flex items-center justify-center p-8"
+        style={{ paddingBottom: 32 + bottomInset, paddingTop: 32 + topInset }}
+        onTouchStart={(e) => { const t = e.touches[0]; swipeStart.current = e.touches.length === 1 ? { x: t.clientX, y: t.clientY } : null; }}
+        onTouchEnd={(e) => {
+          const start = swipeStart.current;
+          swipeStart.current = null;
+          if (!start) return;
+          const t = e.changedTouches[0];
+          const dx = t.clientX - start.x, dy = t.clientY - start.y;
+          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+        }}
+      >
         {!g && <p className="font-serif text-[30px] text-stage-muted">Ready to create</p>}
         {g?.status === 'done' && g.output_url && (
           <SensitiveMedia sensitive={g.is_nsfw} size="lg" className="flex h-full w-full items-center justify-center">
@@ -178,17 +205,17 @@ export function StudioCanvas({ className, bottomInset = 0, topInset = 0, actions
 
       {g?.status === 'done' && (
         <div className={cn('absolute left-1/2 z-20 -translate-x-1/2', actions === 'top' ? 'top-4' : 'bottom-4')}>
-          <ActionBar g={g} onFullscreen={() => setFullscreen(true)} />
+          <ActionBar g={g} onFullscreen={() => setFullscreen(true)} compact={width > 0 && width < FULL_ACTIONS_MIN_WIDTH} />
         </div>
       )}
 
       {index > 0 && (
-        <button type="button" onClick={() => step(-1)} aria-label="Newer" className="absolute left-3 top-1/2 z-20 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/35 text-white/80 opacity-0 backdrop-blur transition-opacity hover:text-white group-hover:opacity-100">
+        <button type="button" onClick={() => step(-1)} aria-label="Newer" className="absolute left-3 top-1/2 z-20 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/35 text-white/80 opacity-0 backdrop-blur transition-opacity hover:text-white group-hover:opacity-100 touch:opacity-100">
           <ChevronLeft className="h-4 w-4" />
         </button>
       )}
       {index >= 0 && index < generations.length - 1 && (
-        <button type="button" onClick={() => step(1)} aria-label="Older" className="absolute right-3 top-1/2 z-20 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/35 text-white/80 opacity-0 backdrop-blur transition-opacity hover:text-white group-hover:opacity-100">
+        <button type="button" onClick={() => step(1)} aria-label="Older" className="absolute right-3 top-1/2 z-20 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/35 text-white/80 opacity-0 backdrop-blur transition-opacity hover:text-white group-hover:opacity-100 touch:opacity-100">
           <ChevronRight className="h-4 w-4" />
         </button>
       )}

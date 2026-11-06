@@ -98,7 +98,7 @@ function Tile({ g, selection, starred, compact, onOpen }: { g: DbGeneration; sel
         onClick={(e) => renaming && e.stopPropagation()}
         className={cn(
           'absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-3 pb-2.5 pt-10 transition-all duration-150',
-          renaming ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100',
+          renaming ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 touch:translate-y-0 touch:opacity-100',
         )}
       >
         <span onDoubleClick={(e) => { e.stopPropagation(); setRenaming(true); }} className="min-w-0">
@@ -123,7 +123,7 @@ function Tile({ g, selection, starred, compact, onOpen }: { g: DbGeneration; sel
         className={cn(
           'absolute left-2.5 top-2.5 grid h-6 w-6 place-items-center rounded-full border-2 transition-opacity',
           selected ? 'border-primary bg-primary text-primary-foreground opacity-100' : 'border-white/90 bg-black/25 text-transparent backdrop-blur-sm',
-          !selected && (selecting ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'),
+          !selected && (selecting ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 touch:opacity-100'),
         )}
       >
         <Check className="h-3.5 w-3.5" strokeWidth={3} />
@@ -138,7 +138,7 @@ function Tile({ g, selection, starred, compact, onOpen }: { g: DbGeneration; sel
             onClick={(e) => { e.stopPropagation(); setRenaming(true); }}
             aria-label="Rename"
             title="Rename (F2)"
-            className="grid h-7 w-7 place-items-center rounded-full bg-black/45 text-white/90 opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/65 hover:text-white group-hover:opacity-100"
+            className="grid h-7 w-7 place-items-center rounded-full bg-black/45 text-white/90 opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/65 hover:text-white group-hover:opacity-100 touch:opacity-100"
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
@@ -152,7 +152,7 @@ function Tile({ g, selection, starred, compact, onOpen }: { g: DbGeneration; sel
             title={starred ? 'Unstar' : 'Star'}
             className={cn(
               'grid h-7 w-7 place-items-center rounded-full bg-black/45 backdrop-blur-sm transition-opacity hover:bg-black/65',
-              starred || starring ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+              starred || starring ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 touch:opacity-100',
             )}
           >
             {starring ? <Loader2 className="h-3.5 w-3.5 animate-spin text-white" /> : <Star className={cn('h-3.5 w-3.5', starred ? 'fill-warning text-warning' : 'text-white')} />}

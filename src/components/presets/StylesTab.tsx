@@ -294,7 +294,7 @@ function StarButton({ starred, onStar, name, className }: { starred: boolean; on
       className={cn(
         'z-10 grid h-7 w-7 place-items-center rounded-full bg-black/45 text-white backdrop-blur transition-all hover:bg-black/65',
         'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white',
-        starred ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+        starred ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 touch:opacity-100',
         className,
       )}
     >
@@ -374,7 +374,7 @@ function StyleCard({
             onClick={onUse}
             className={cn(
               'absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11.5px] font-semibold text-black shadow-sm backdrop-blur',
-              'opacity-0 transition-opacity hover:bg-white group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'opacity-0 transition-opacity hover:bg-white group-hover:opacity-100 touch:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             )}
           >
             <Sparkles className="h-3 w-3" /> Use

@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 export default {
   darkMode: ["class"],
@@ -149,6 +150,11 @@ export default {
   		}
   	}
   },
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require("tailwindcss-animate"),
+    // `touch:` styles apply on devices without hover (iPad, phones), where
+    // hover-revealed controls would otherwise be unreachable.
+    plugin(({ addVariant }) => addVariant("touch", "@media (hover: none)")),
+  ],
 } satisfies Config;

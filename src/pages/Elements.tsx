@@ -162,7 +162,7 @@ function ElementCard({ element: e, onUse, onEdit, onDelete }: { element: StudioE
             {rest.length > 3 && <span className="grid h-8 w-8 place-items-center rounded-full border-2 border-card bg-black/60 text-[11px] font-medium text-white">+{rest.length - 3}</span>}
           </div>
         )}
-        <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 touch:opacity-100">
           <button type="button" onClick={onEdit} aria-label={`Edit @${e.name}`} className="grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm hover:bg-black/70"><Pencil className="h-3.5 w-3.5" /></button>
           <button type="button" onClick={onDelete} aria-label={`Delete @${e.name}`} className="grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm hover:bg-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
         </div>

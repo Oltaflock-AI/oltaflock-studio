@@ -70,7 +70,7 @@ export function GenerationTitle({ g, className, inputClassName, editing: control
           type="button"
           onClick={(e) => { e.stopPropagation(); setEditing(true); }}
           aria-label="Rename"
-          className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/title:opacity-100"
+          className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/title:opacity-100 touch:opacity-100"
         >
           <Pencil className="h-3 w-3" />
         </button>

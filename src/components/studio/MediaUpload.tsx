@@ -138,7 +138,7 @@ export function MediaUpload({
                 disabled={isDisabled}
                 className={cn(
                   'absolute -top-1 -right-1 p-1 bg-destructive text-destructive-foreground rounded-full',
-                  'opacity-0 group-hover:opacity-100 transition-opacity',
+                  'opacity-0 group-hover:opacity-100 touch:opacity-100 transition-opacity',
                   isDisabled && 'opacity-50 cursor-not-allowed'
                 )}
               >
