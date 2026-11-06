@@ -5,6 +5,7 @@ import { apiForGeneration } from "../_shared/catalog/index.ts";
 import { API_ENDPOINTS, KIE_BASE, parseHiggsfield, parseTaskStatus } from "../_shared/catalog/adapters.ts";
 import { higgsfieldAuth, higgsfieldStatus } from "../_shared/higgsfield.ts";
 import type { TaskStatus } from "../_shared/catalog/adapters.ts";
+import { settleCredits } from "../_shared/credits.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '*',
@@ -55,7 +56,7 @@ serve(async (req) => {
             output_url: `https://placehold.co/1920x1080/229DE7/ffffff?text=Mock`,
             progress: 100,
           }).eq('id', task.id);
-          await maybeDeductCredits(supabase, task);
+          await settleCredits(supabase, task.id, true);
           completed++;
           continue;
         }
@@ -99,6 +100,7 @@ serve(async (req) => {
             await supabase.from('generations').update({
               status: 'error', error_message: 'Finished without an output URL', progress: 0,
             }).eq('id', task.id);
+            await settleCredits(supabase, task.id, false);
             failed++;
             continue;
           }
@@ -109,7 +111,7 @@ serve(async (req) => {
             progress: 100,
           }).eq('id', task.id);
 
-          await maybeDeductCredits(supabase, task);
+          await settleCredits(supabase, task.id, true);
 
           // Move the output off the provider's temporary URL into R2 (no-op if unconfigured)
           const persisted = await persistOutput(outputUrl, task.user_id, task.id);
@@ -126,6 +128,7 @@ serve(async (req) => {
             error_message: status.error || 'Generation failed',
             progress: 0,
           }).eq('id', task.id);
+          await settleCredits(supabase, task.id, false);
 
           failed++;
           console.log(`[poll] ${task.external_task_id} (${api}) → failed: ${status.error}`);
@@ -157,43 +160,4 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
-}
-
-async function maybeDeductCredits(
-  supabase: ReturnType<typeof createClient>,
-  task: { id: string; user_id: string; model: string; model_params: Record<string, unknown> | null },
-) {
-  const costCredits = (task.model_params as Record<string, unknown>)?.cost_credits as number;
-  if (!costCredits || costCredits <= 0) return;
-
-  try {
-    const { data: current } = await supabase
-      .from('user_credits')
-      .select('balance, total_spent, total_generations')
-      .eq('user_id', task.user_id)
-      .single();
-
-    if (!current) return;
-
-    const newBalance = Math.max(0, Number(current.balance) - costCredits);
-
-    await supabase.from('user_credits').update({
-      balance: newBalance,
-      total_spent: Number(current.total_spent) + costCredits,
-      total_generations: current.total_generations + 1,
-      updated_at: new Date().toISOString(),
-    }).eq('user_id', task.user_id);
-
-    await supabase.from('credit_logs').insert({
-      user_id: task.user_id,
-      balance: String(newBalance),
-      credits_used: costCredits,
-      generation_id: task.id,
-      model: task.model,
-      description: `Generation: ${task.model}`,
-      checked_at: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('[poll] Credit deduction failed:', error);
-  }
 }

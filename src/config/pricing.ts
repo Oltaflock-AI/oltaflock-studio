@@ -4,11 +4,12 @@
 // =============================================================================
 
 import { getSpec } from '@catalog/index.ts';
-import { specCreditRange, specCredits } from '@catalog/pricing.ts';
+import { USD_PER_CREDIT, specCreditRange, specCredits } from '@catalog/pricing.ts';
 
-// Global conversion rate: 1000 credits = $5 USD
+// Global conversion rate: 1000 credits = $5 USD (shared with the edge functions,
+// which compute the charged price server-side from the same catalog).
+export { USD_PER_CREDIT };
 export const CREDITS_PER_DOLLAR = 200;
-export const USD_PER_CREDIT = 0.005;
 
 export function creditsToUsd(credits: number): number {
   return credits * USD_PER_CREDIT;

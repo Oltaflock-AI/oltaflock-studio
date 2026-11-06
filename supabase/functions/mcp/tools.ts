@@ -8,7 +8,7 @@ import { z } from 'npm:zod@3.25.76';
 import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
 import { MODEL_CATALOG, RETIRED_MODELS, activeSpec, specBackend } from '../_shared/catalog/index.ts';
 import { fieldValue, validateSpecInput } from '../_shared/catalog/adapters.ts';
-import { specCredits, specPriceText } from '../_shared/catalog/pricing.ts';
+import { USD_PER_CREDIT, specCredits, specPriceText } from '../_shared/catalog/pricing.ts';
 import { USE_CASES } from '../_shared/catalog/use-cases.ts';
 import type { ModelSpec } from '../_shared/catalog/types.ts';
 import { optimizePrompt } from '../_shared/brain/index.ts';
@@ -31,7 +31,7 @@ export interface Ctx {
   anonKey: string;
 }
 
-export const USD_PER_CREDIT = 0.005;
+export { USD_PER_CREDIT } from '../_shared/catalog/pricing.ts';
 const MAX_WAIT_SECONDS = 50;
 const POLL_MS = 3000;
 export const ELEMENT_KINDS = ['character', 'product', 'logo', 'place', 'style', 'other'] as const;
@@ -412,13 +412,14 @@ export async function startGeneration(ctx: Ctx, args: GenerateArgs): Promise<{ i
       useCase: 'auto',
     }),
   });
-  const body = await res.json().catch(() => ({})) as { error?: string };
+  const body = await res.json().catch(() => ({})) as { error?: string; credits?: number };
   if (!res.ok) {
     const msg = body.error ?? `Generation failed to start (${res.status})`;
     await ctx.supabase.from('generations').update({ status: 'error', error_message: msg }).eq('id', id);
     return { error: msg };
   }
-  return { id, credits, warnings };
+  // generate prices the job server-side (Higgsfield via its live estimate); report that.
+  return { id, credits: typeof body.credits === 'number' ? body.credits : credits, warnings };
 }
 
 // ─── Tools ───────────────────────────────────────────────────────────────────

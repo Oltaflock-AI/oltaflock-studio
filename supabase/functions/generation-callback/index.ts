@@ -3,6 +3,7 @@ import { persistOutput } from '../_shared/persist-output.ts';
 import { apiForGeneration } from '../_shared/catalog/index.ts';
 import { parseCallback, parseHiggsfield } from '../_shared/catalog/adapters.ts';
 import { higgsfieldStatus } from '../_shared/higgsfield.ts';
+import { settleCredits } from '../_shared/credits.ts';
 
 // Kie.ai sends callbacks when tasks complete
 // Format: { taskId, state, resultJson, failMsg, ... }
@@ -133,41 +134,9 @@ async function processCallback(
     console.error('[callback] Update failed:', updateError);
   }
 
-  // Deduct credits on success
-  if (isSuccess && outputUrl) {
-    const costCredits = (generation.model_params as Record<string, unknown>)?.cost_credits as number;
-    if (costCredits && costCredits > 0) {
-      try {
-        const { data: current } = await supabase
-          .from('user_credits')
-          .select('balance, total_spent, total_generations')
-          .eq('user_id', generation.user_id)
-          .single();
-
-        if (current) {
-          const newBalance = Math.max(0, Number(current.balance) - costCredits);
-          await supabase.from('user_credits').update({
-            balance: newBalance,
-            total_spent: Number(current.total_spent) + costCredits,
-            total_generations: current.total_generations + 1,
-            updated_at: new Date().toISOString(),
-          }).eq('user_id', generation.user_id);
-
-          await supabase.from('credit_logs').insert({
-            user_id: generation.user_id,
-            balance: String(newBalance),
-            credits_used: costCredits,
-            generation_id: generation.id,
-            model: generation.model,
-            description: `Generation: ${generation.model}`,
-            checked_at: new Date().toISOString(),
-          });
-        }
-      } catch (creditError) {
-        console.error('[callback] Credit deduction failed:', creditError);
-      }
-    }
-  }
+  // Charge the server-side reservation on success, release it on failure.
+  // The amount comes from generation_charges, never from model_params.
+  await settleCredits(supabase, generation.id, Boolean(isSuccess && outputUrl));
 
   // Move the output off the provider's temporary URL into R2 (no-op if unconfigured)
   if (isSuccess && outputUrl) {

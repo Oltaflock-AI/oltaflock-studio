@@ -5,6 +5,7 @@ import type { ModelSpec } from '../_shared/catalog/types.ts';
 import { optimizePrompt } from '../_shared/brain/index.ts';
 import { fetchKieCredits } from '../_shared/kie-credits.ts';
 import { higgsfieldAuth, submitHiggsfield } from '../_shared/higgsfield.ts';
+import { priceGeneration, reserveCredits, settleCredits } from '../_shared/credits.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -41,6 +42,9 @@ Deno.serve(async (req: Request) => {
     return Response.json({ ok: true }, { headers: corsHeaders });
   }
 
+  // Releases this request's credit reservation if the handler crashes after it.
+  let releaseOnCrash: (() => Promise<unknown>) | null = null;
+
   try {
     // 1. Auth
     const authHeader = req.headers.get('Authorization') || '';
@@ -71,10 +75,29 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error }, { status: 400, headers: corsHeaders });
     }
 
-    const controls = normalizeLegacy(spec, rawControls, imageUrls);
+    // Any cost the caller sends is ignored; the price is computed below.
+    const { cost_credits: clientCost, cost_usd: _clientUsd, hf_credits: _clientHf, ...callerControls } =
+      rawControls as Record<string, unknown>;
+    const controls = normalizeLegacy(spec, callerControls, imageUrls);
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
+    // The generation row must belong to the caller. Without this a caller could
+    // drive (and overwrite) someone else's row.
+    const { data: row } = await adminClient
+      .from('generations')
+      .select('id, user_id, status, model_params')
+      .eq('id', generationId)
+      .maybeSingle();
+    if (!row || row.user_id !== userId) {
+      return Response.json({ error: 'Generation not found' }, { status: 404, headers: corsHeaders });
+    }
+    if (row.status !== 'queued') {
+      return Response.json({ error: `Generation is already ${row.status}` }, { status: 409, headers: corsHeaders });
+    }
+
+    let reserved = false;
     const fail = async (msg: string, status = 400) => {
+      if (reserved) await settleCredits(adminClient, generationId, false);
       await adminClient.from('generations').update({ status: 'error', error_message: msg, progress: 0 }).eq('id', generationId);
       return Response.json({ error: msg }, { status, headers: corsHeaders });
     };
@@ -89,16 +112,45 @@ Deno.serve(async (req: Request) => {
       return await fail('Higgsfield API key is not configured on the server', 503);
     }
 
-    // 3. Credits — checked against the live kie.ai balance that actually pays for the job.
-    // Higgsfield reserves credits itself and rejects the submit if the account is short.
-    const costCredits = Number(controls.cost_credits) || 0;
-    const balance = isHiggsfield ? null : await fetchKieCredits();
-    if (balance !== null && costCredits > 0 && balance < costCredits) {
-      return Response.json(
-        { error: `Insufficient credits. Have ${balance}, need ${costCredits}.` },
-        { status: 402, headers: corsHeaders },
-      );
+    // 3. Credits. The price comes from the server-side catalog (kie.ai) or the
+    // live Higgsfield estimate, never from the request.
+    const priced = await priceGeneration(spec, prompt, controls);
+    if ('error' in priced) return await fail(priced.error, priced.status);
+    const { price } = priced;
+    if (clientCost !== undefined && Number(clientCost) !== price.credits) {
+      console.warn(`[gen] client cost ${String(clientCost)} != server cost ${price.credits} for ${model}; using server cost`);
     }
+
+    // kie.ai models: the shared, prepaid kie.ai balance pays for the job.
+    // Higgsfield bills its own account, which refuses the submit when short.
+    if (!isHiggsfield) {
+      const balance = await fetchKieCredits();
+      if (balance !== null && price.credits > 0 && balance < price.credits) {
+        return await fail(`Insufficient credits. Have ${balance}, need ${price.credits}.`, 402);
+      }
+    }
+
+    // Per-user ledger: atomic daily-cap check + one charge per generation row.
+    const reservation = await reserveCredits(adminClient, {
+      userId, generationId, modelId: spec.id, backend: spec.backend ?? spec.api, credits: price.credits,
+    });
+    if (!reservation.ok) {
+      // 409 means another request already owns this row; leave it alone.
+      if (reservation.status === 409) {
+        return Response.json({ error: reservation.error }, { status: 409, headers: corsHeaders });
+      }
+      return await fail(reservation.error, reservation.status);
+    }
+    reserved = true;
+    releaseOnCrash = () => settleCredits(adminClient, generationId, false);
+
+    // Record the authoritative price on the row (the library and MCP read it).
+    const params = { ...((row.model_params as Record<string, unknown> | null) ?? {}) };
+    params.cost_credits = price.credits;
+    params.cost_usd = price.usd;
+    if (price.hfCredits !== undefined) params.hf_credits = price.hfCredits;
+    else delete params.hf_credits;
+    await adminClient.from('generations').update({ model_params: params }).eq('id', generationId);
 
     // 4. Prompt Brain — optimize for this model + use case if the toggle is ON
     let finalPrompt = prompt;
@@ -130,7 +182,7 @@ Deno.serve(async (req: Request) => {
         status: 'running', external_task_id: res.data.request_id, progress: 25,
       }).eq('id', generationId);
       console.log(`[gen] Higgsfield request: ${res.data.request_id}`);
-      return Response.json({ task_id: res.data.request_id, enhanced_prompt: finalPrompt }, { headers: corsHeaders });
+      return Response.json({ task_id: res.data.request_id, enhanced_prompt: finalPrompt, credits: price.credits }, { headers: corsHeaders });
     }
 
     // 6b. kie.ai: build request
@@ -147,7 +199,7 @@ Deno.serve(async (req: Request) => {
       await adminClient.from('generations').update({
         status: 'running', external_task_id: mockTaskId, progress: 10,
       }).eq('id', generationId);
-      return Response.json({ task_id: mockTaskId, enhanced_prompt: finalPrompt }, { headers: corsHeaders });
+      return Response.json({ task_id: mockTaskId, enhanced_prompt: finalPrompt, credits: price.credits }, { headers: corsHeaders });
     }
 
     // 7. Call kie.ai
@@ -179,11 +231,12 @@ Deno.serve(async (req: Request) => {
       status: 'running', external_task_id: taskId, progress: 25,
     }).eq('id', generationId);
     console.log(`[gen] Task created: ${taskId}`);
-    return Response.json({ task_id: taskId, enhanced_prompt: finalPrompt }, { headers: corsHeaders });
+    return Response.json({ task_id: taskId, enhanced_prompt: finalPrompt, credits: price.credits }, { headers: corsHeaders });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
     console.error('[gen] CRASH:', msg);
+    if (releaseOnCrash) await releaseOnCrash().catch(() => undefined);
     return Response.json({ error: 'Internal error', detail: msg }, { status: 500, headers: corsHeaders });
   }
 });
