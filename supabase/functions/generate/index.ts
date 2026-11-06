@@ -235,8 +235,10 @@ Deno.serve(async (req: Request) => {
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
-    console.error('[gen] CRASH:', msg);
+    const ref = crypto.randomUUID().slice(0, 8);
+    console.error(`[gen] CRASH ref=${ref}:`, msg);  // full detail stays in the function logs only
     if (releaseOnCrash) await releaseOnCrash().catch(() => undefined);
-    return Response.json({ error: 'Internal error', detail: msg }, { status: 500, headers: corsHeaders });
+    return Response.json({ error: `Something went wrong starting this generation (ref ${ref}). Please try again.`, ref },
+      { status: 500, headers: corsHeaders });
   }
 });
