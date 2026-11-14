@@ -38,3 +38,9 @@ verify_jwt = false
 
 [functions.analyze-drawing]
 verify_jwt = false
+
+[functions.neeran-team]
+verify_jwt = false
+
+[functions.neeran-share]
+verify_jwt = false
