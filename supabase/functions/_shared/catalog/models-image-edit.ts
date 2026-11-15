@@ -112,7 +112,7 @@ export const IMAGE_EDIT_SPECS: ModelSpec[] = [
       nbResolution,
       outputFormat(['png', 'jpg'], 'jpg'),
     ],
-    media: [{ key: 'images', api: 'image_input', kind: 'image', label: 'Images to edit', min: 1, max: 14, help: 'Up to 14 (≤30MB each). Refer to them as Image 1, Image 2… in the prompt.' }],
+    media: [{ key: 'images', api: 'image_input', kind: 'image', label: 'Images to edit', min: 1, max: 10, help: 'Up to 10 (≤30MB each). Refer to them as Image 1, Image 2… in the prompt.' }],
     pricing: { by: 'resolution', table: { '1K': 4, '2K': 6, '4K': 9 } },
     featured: true,
     isNew: true,
